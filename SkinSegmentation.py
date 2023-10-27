@@ -1,37 +1,35 @@
 #MSc Thesis Marieke Kopmels
-
 import time
-import os
+from os import listdir
 import numpy as np
+
+import cv2
+
+import torch
+import torch.nn as nn
+from torch import optim
+from torch import flatten
+
 from torch.nn import Module
 from torch.nn import Conv2d
 from torch.nn import Linear
 from torch.nn import MaxPool2d
 from torch.nn import ReLU
 from torch.nn import LogSoftmax
-from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
-import torch.utils.data
-from torchvision import transforms
-from torchvision.models.segmentation import fcn_resnet50, FCN_ResNet50_Weights
-# from PIL import Image
-from torch import optim
-from torch import flatten
-from os import listdir
-import cv2
-import torch.nn as nn
-import torch
-import torch.utils.data
 
-# LET OP: Batch size moet devidable by 60 zijn, anders gaat output = x.reshape(6,2,224,224) niet goed bij de laatste batch.
+from torch.utils.data import DataLoader
+
+# from torchvision.models.segmentation import fcn_resnet50, FCN_ResNet50_Weights
+
+# LET OP: Batch size moet dividable by 60 zijn, anders gaat output = x.reshape(BATCH_SIZE,224,224) niet goed bij de laatste batch.
 BATCH_SIZE = 20
 NUM_EPOCHS = 2
-LR=0.05
+LR=0.01
 MOMENTUM = 0.9
 
 """Returns images in a given directory
         Format of return: list of NumPy arrays.
-        NumPy arrays are of shape (224,224,3) 
+        NumPy arrays are of shape (224,224,3) for images and (224,224) for ground truths 
 """
 def load_images(data, dir_path, gt=False):
     # Load list of files and directories
@@ -66,18 +64,17 @@ def load_data(train, test):
     test_images = load_images(test_images, base_path + "/TestData")
     test_gt = load_images(test_gt, base_path + "/TestGroundTruth", gt=True)
     
+    # test_images = load_images(test_images, base_path + "/MockTrainData")
+    # test_gt = load_images(test_gt, base_path + "/MockTrainGroundTruth")
     # print("TESTING IMAGE LOADING")
     # cv2.namedWindow("imagename")
     # cv2.imshow('imagename',train_images[0])
-    # cv2.waitKey(0)
+    # cv2.waitKey(0) 
     # cv2.namedWindow("imagename")
     # cv2.imshow('imagename',train_gt[0])
     # cv2.waitKey(0)
     # print(f"torch.as_tensor(np.array(train_gt)) = {torch.as_tensor(np.array(train_gt)).shape}")
     
-    # test_images = load_images(test_images, base_path + "/MockTrainData")
-    # test_gt = load_images(test_gt, base_path + "/MockTrainGroundTruth")
-
     # TODO: fix de eerst naar numpy en daarna pas naar tensor (sneller dan vanaf een list direct naar tensor maar nu heel lelijk)
     train = torch.utils.data.TensorDataset(torch.as_tensor(np.array(train_images)).permute(0,3,1,2), torch.as_tensor(np.array(train_gt)).permute(0,1,2))
     test = torch.utils.data.TensorDataset(torch.as_tensor(np.array(test_images)).permute(0,3,1,2), torch.as_tensor(np.array(test_gt)).permute(0,1,2))
@@ -105,7 +102,7 @@ class LeNet(Module):
         
         # initialize our softmax classifier
         #TODO: Wil ik jpeg (dus RBG) voorspellen of skin/non-skin voorspellen en dan JPEG ground truths naar 2D formatten
-        self.fc2 = Linear(in_features=1000, out_features=224*224)
+        self.fc2 = Linear(in_features=1000, out_features=1*224*224)
         self.logSoftmax = LogSoftmax(dim=1)
         
     def forward(self, x):
@@ -148,13 +145,8 @@ if __name__ == '__main__':
     
     # This should allow for it to run on M1 GPU
     # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # device = torch.device("mps")
-    # model.to(device)
-    
-    # Initialize optimizer and learining rate scheduler
-    # params = [p for p in model.parameters() if p.requires_grad]
-    # optimizer = torch.optim.SGD(params, lr=LR, momentum=0.9, weight_decay=0.0005)
-    # lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
+    device = torch.device("mps")
+    model.to(device)
     
     # Define loss function and optimizer
     criterion = nn.CrossEntropyLoss()
@@ -165,7 +157,7 @@ if __name__ == '__main__':
     train_loader = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
     test_loader = DataLoader(test, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
 
-    # i = 0 
+    i = 0 
     
     #Train the model
     for epoch in range(NUM_EPOCHS):
@@ -174,13 +166,44 @@ if __name__ == '__main__':
         epoch_train_loss = 0.0
         epoch_test_loss = 0.0
         for images, targets in train_loader:
-            # list_images = list(image for image in images)
-            # list_targets = list(target for target in targets)
+                
+            images = images.to(device)
+            # images = images.float()
+            targets = targets.to(device)
+            # targets = targets.float()
             
-            # images = images.to(device)
-            images = images.float()
-            # targets = targets.to(device)
-            targets = targets.float()
+            
+            print(f"type(images): {type(images)})")
+            # print("dims(image): ", img.shape)
+            
+            
+            example = images[0].permute(1,2,0)
+            
+                
+            if i == 0:
+                img = example.cpu().numpy()
+                cv2.namedWindow("image1")
+                cv2.imshow('image1',img)
+                cv2.waitKey(0)
+                i += 1
+                
+            # TODO: Geen idee waarom maar het omzetten naar float32 maakt de hele contents anders.
+            # RuntimeError: Input type (unsigned char) and bias type (float) should be the same
+            
+            # images = images.float()
+            # targets = targets.float()
+            example = example.float()
+            
+            # for el in images:
+            #     images[el] = images[el].to(torch.float32)
+            #     targets[el] = targets[el].to(torch.float32)
+             
+            if i == 1:
+                img = example.cpu().numpy()
+                cv2.namedWindow("image2")
+                cv2.imshow('image2',img)
+                cv2.waitKey(0)
+                i += 1
             
             # Train the model
             optimizer.zero_grad()
@@ -192,27 +215,14 @@ if __name__ == '__main__':
             epoch_train_loss += loss.item()
             
         for images, targets in test_loader:
-            # list_images = list(image for image in images)
-            # list_targets = list(target for target in targets)
-            # images = images.to(device)
+            images = images.to(device)
             images = images.float()
-            # targets = targets.to(device)
+            targets = targets.to(device)
             targets = targets.float()
             
             loss = criterion(outputs, targets)
             epoch_test_loss += loss.item()
-            
-            # if i == 0:
-            #     img = images[0]
-            #     # img.cpu()
-            #     img = img.permute(1,2,0).numpy()
-            #     # img.to(device)
-            #     print("dims(image): ", img.shape)
-            #     cv2.namedWindow("imagename")
-            #     cv2.imshow('imagename',img)
-            #     cv2.waitKey(0)
-                
-            # i += 1
+             
         
         
         # Print losses TODO: is the /X factor correct? 
