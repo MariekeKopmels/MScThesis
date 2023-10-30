@@ -4,6 +4,7 @@ from os import listdir
 import numpy as np
 
 import cv2
+import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
@@ -23,7 +24,7 @@ from torch.utils.data import DataLoader
 
 # LET OP: Batch size moet dividable by 60 zijn, anders gaat output = x.reshape(BATCH_SIZE,224,224) niet goed bij de laatste batch.
 BATCH_SIZE = 256
-NUM_EPOCHS = 50
+NUM_EPOCHS = 25
 LR=0.01
 MOMENTUM = 0.9
 
@@ -40,7 +41,9 @@ def load_images(images, gts, image_dir_path, gt_dir_path, test=False):
     dir_list = [file for file in image_list if file in gt_list]
     dir_list = sorted(dir_list, key=str.casefold)
     
-    if not test:
+    if test:
+        dir_list = dir_list[:500]
+    else:
         dir_list = dir_list[:5000]
     
     for file_name in dir_list:
@@ -193,7 +196,7 @@ if __name__ == '__main__':
     
     #Train the model
     for epoch in range(NUM_EPOCHS):
-        print("-------------------------New Epoch-------------------------")
+        print(f"-------------------------Starting Epoch {epoch}/{NUM_EPOCHS} epochs-------------------------")
         model.train()
         epoch_train_loss = 0.0
         epoch_test_loss = 0.0
@@ -227,7 +230,20 @@ if __name__ == '__main__':
         train_losses.append(epoch_train_loss/train_dataset_size)
         test_losses.append(epoch_test_loss/test_dataset_size)
         print(f"[{epoch + 1}] \ntrain loss: {epoch_train_loss/train_dataset_size:.6f} \ntest  loss: {epoch_test_loss/test_dataset_size:.6f} ")
-            
+    
+    
     run_time = time.time() - start_time
     print("Running time: ", round(run_time,3))
+    
+    # Plot losses
+    x = range(1, NUM_EPOCHS + 1)
+    plt.plot(x, train_losses, label='Train Loss', color='blue')
+    plt.plot(x, test_losses, label='Test Loss', color='red')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    # plt.ylim(0, 500)
+    plt.legend()
+    plt.show()
+    
+    
             
