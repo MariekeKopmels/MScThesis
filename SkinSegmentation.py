@@ -22,8 +22,8 @@ from torch.utils.data import DataLoader
 # from torchvision.models.segmentation import fcn_resnet50, FCN_ResNet50_Weights
 
 # LET OP: Batch size moet dividable by 60 zijn, anders gaat output = x.reshape(BATCH_SIZE,224,224) niet goed bij de laatste batch.
-BATCH_SIZE = 20
-NUM_EPOCHS = 2
+BATCH_SIZE = 16
+NUM_EPOCHS = 5
 LR=0.01
 MOMENTUM = 0.9
 
@@ -64,16 +64,7 @@ def load_data(train, test):
     test_images = load_images(test_images, base_path + "/TestData")
     test_gt = load_images(test_gt, base_path + "/TestGroundTruth", gt=True)
     
-    # test_images = load_images(test_images, base_path + "/MockTrainData")
-    # test_gt = load_images(test_gt, base_path + "/MockTrainGroundTruth")
-    # print("TESTING IMAGE LOADING")
-    # cv2.namedWindow("imagename")
-    # cv2.imshow('imagename',train_images[0])
-    # cv2.waitKey(0) 
-    # cv2.namedWindow("imagename")
-    # cv2.imshow('imagename',train_gt[0])
-    # cv2.waitKey(0)
-    # print(f"torch.as_tensor(np.array(train_gt)) = {torch.as_tensor(np.array(train_gt)).shape}")
+    
     
     # TODO: fix de eerst naar numpy en daarna pas naar tensor (sneller dan vanaf een list direct naar tensor maar nu heel lelijk)
     train = torch.utils.data.TensorDataset(torch.as_tensor(np.array(train_images)).permute(0,3,1,2), torch.as_tensor(np.array(train_gt)).permute(0,1,2))
@@ -87,12 +78,12 @@ class LeNet(Module):
         super(LeNet, self).__init__()
 
         # initialize first set of CONV => RELU => POOL layers
-        self.conv1 = Conv2d(in_channels=numChannels, out_channels=10,kernel_size=(3, 3))
+        self.conv1 = Conv2d(in_channels=numChannels, out_channels=10, kernel_size=(3, 3))
         self.relu1 = ReLU()
         self.maxpool1 = MaxPool2d(kernel_size=(2, 2), stride=(2, 2))
 
         # initialize second set of CONV => RELU => POOL layers
-        self.conv2 = Conv2d(in_channels=10, out_channels=20,kernel_size=(3, 3))
+        self.conv2 = Conv2d(in_channels=10, out_channels=20, kernel_size=(3, 3))
         self.relu2 = ReLU()
         self.maxpool2 = MaxPool2d(kernel_size=(2, 2), stride=(2, 2))
         
@@ -108,6 +99,22 @@ class LeNet(Module):
     def forward(self, x):
         # pass the input through our first set of CONV => RELU =>
         # POOL layers
+        # print("Performing forward pass")
+        # print(f"Input type: {type(x)}")
+        # print(f"Input shape: {x.shape}")
+        # print(f"Input[0][0][0][0] type: {type(x[0][0][0][0])}")
+        # print(f"Input[0] dtype: {x.dtype}")
+        
+        # x = x.float()
+        
+        # print(f"Input type: {type(x)}")
+        # print(f"Input shape: {x.shape}")
+        # print(f"Input[0][0][0][0] type: {type(x[0][0][0][0])}")
+        # print(f"Input[0] dtype: {x.dtype}")
+        
+        # For the last few items, the batch size may be smaller than BATCH_SIZE
+        batch_size = len(x)
+        
         x = self.conv1(x)
         x = self.relu1(x)
         x = self.maxpool1(x)
@@ -129,8 +136,8 @@ class LeNet(Module):
         x = self.fc2(x)
         x = self.logSoftmax(x)
         
-        # TODO: Fixen dat dit niet hardcoded is
-        output = x.reshape(BATCH_SIZE,224,224)
+        # TODO: Checken of deze manier van batch_size werkt ipv hardcoded
+        output = x.reshape(batch_size,224,224)
         
         # return the output predictions
         return output
@@ -154,10 +161,10 @@ if __name__ == '__main__':
 
     # Load data, both input images and ground truths. Put them into a DataLoader
     train, test = load_data([], [])
+    train_dataset_size = len(train)
+    test_dataset_size = len(test)
     train_loader = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
     test_loader = DataLoader(test, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
-
-    i = 0 
     
     #Train the model
     for epoch in range(NUM_EPOCHS):
@@ -166,44 +173,12 @@ if __name__ == '__main__':
         epoch_train_loss = 0.0
         epoch_test_loss = 0.0
         for images, targets in train_loader:
-                
+            print("-------------------------New Batch-------------------------")
+            
             images = images.to(device)
-            # images = images.float()
+            images = images.float()
             targets = targets.to(device)
-            # targets = targets.float()
-            
-            
-            print(f"type(images): {type(images)})")
-            # print("dims(image): ", img.shape)
-            
-            
-            example = images[0].permute(1,2,0)
-            
-                
-            if i == 0:
-                img = example.cpu().numpy()
-                cv2.namedWindow("image1")
-                cv2.imshow('image1',img)
-                cv2.waitKey(0)
-                i += 1
-                
-            # TODO: Geen idee waarom maar het omzetten naar float32 maakt de hele contents anders.
-            # RuntimeError: Input type (unsigned char) and bias type (float) should be the same
-            
-            # images = images.float()
-            # targets = targets.float()
-            example = example.float()
-            
-            # for el in images:
-            #     images[el] = images[el].to(torch.float32)
-            #     targets[el] = targets[el].to(torch.float32)
-             
-            if i == 1:
-                img = example.cpu().numpy()
-                cv2.namedWindow("image2")
-                cv2.imshow('image2',img)
-                cv2.waitKey(0)
-                i += 1
+            targets = targets.float()
             
             # Train the model
             optimizer.zero_grad()
@@ -215,18 +190,18 @@ if __name__ == '__main__':
             epoch_train_loss += loss.item()
             
         for images, targets in test_loader:
+            
             images = images.to(device)
             images = images.float()
             targets = targets.to(device)
             targets = targets.float()
             
+            outputs = model(images)
             loss = criterion(outputs, targets)
             epoch_test_loss += loss.item()
-             
-        
         
         # Print losses TODO: is the /X factor correct? 
-        print(f"[{epoch + 1}] \ntrain loss: {epoch_train_loss:.6f} \ntest  loss: {epoch_test_loss:.6f} ")
+        print(f"[{epoch + 1}] \ntrain loss: {epoch_train_loss/train_dataset_size:.6f} \ntest  loss: {epoch_test_loss/test_dataset_size:.6f} ")
     
     # test_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Pratheepan_Dataset/MockTrainData/Image1.jpeg"
     # img = cv2.imread(test_path)
@@ -238,7 +213,6 @@ if __name__ == '__main__':
     # data.append(img)
     # data = torch.as_tensor(np.array(data)).permute(0,3,1,2)
     # model(img)
-        
             
     run_time = time.time() - start_time
     print("Running time: ", round(run_time,3))
