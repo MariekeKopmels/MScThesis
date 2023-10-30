@@ -1,4 +1,5 @@
 #MSc Thesis Marieke Kopmels
+import random
 import time
 from os import listdir
 import numpy as np
@@ -21,12 +22,12 @@ from torch.nn import LogSoftmax
 from torch.utils.data import DataLoader
 
 # from torchvision.models.segmentation import fcn_resnet50, FCN_ResNet50_Weights
-
-# LET OP: Batch size moet dividable by 60 zijn, anders gaat output = x.reshape(BATCH_SIZE,224,224) niet goed bij de laatste batch.
-BATCH_SIZE = 256
-NUM_EPOCHS = 25
-LR=0.01
-MOMENTUM = 0.9
+BATCH_SIZE      = 256
+NUM_EPOCHS      = 5
+LR              = 0.01
+MOMENTUM        = 0.9
+TRAIN_SIZE      = 5000
+TEST_SIZE       = 500
 
 """Returns images in a given directory
         Format of return: list of NumPy arrays.
@@ -42,9 +43,9 @@ def load_images(images, gts, image_dir_path, gt_dir_path, test=False):
     dir_list = sorted(dir_list, key=str.casefold)
     
     if test:
-        dir_list = dir_list[:500]
+        dir_list = dir_list[:TEST_SIZE]
     else:
-        dir_list = dir_list[:5000]
+        dir_list = dir_list[:TRAIN_SIZE]
     
     for file_name in dir_list:
         # Hidden files, irrelevant for this usecase
@@ -95,6 +96,60 @@ def load_data(train, test):
     test = torch.utils.data.TensorDataset(torch.as_tensor(np.array(test_images)).permute(0,3,1,2), torch.as_tensor(np.array(test_gts)).permute(0,1,2))
 
     return train, test
+
+class UNet(nn.Module):
+    def __init__(self, n_class):
+        super().__init__()
+        
+        # Encoder
+        # In the encoder, convolutional layers with the Conv2d function are used to extract features from the input image. 
+        # Each block in the encoder consists of two convolutional layers followed by a max-pooling layer, with the exception of the last block which does not include a max-pooling layer.
+        # -------
+        # input: 572x572x3
+        self.e11 = nn.Conv2d(3, 64, kernel_size=3, padding=1) # output: 570x570x64
+        self.e12 = nn.Conv2d(64, 64, kernel_size=3, padding=1) # output: 568x568x64
+        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2) # output: 284x284x64
+
+        # input: 284x284x64
+        self.e21 = nn.Conv2d(64, 128, kernel_size=3, padding=1) # output: 282x282x128
+        self.e22 = nn.Conv2d(128, 128, kernel_size=3, padding=1) # output: 280x280x128
+        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2) # output: 140x140x128
+
+        # input: 140x140x128
+        self.e31 = nn.Conv2d(128, 256, kernel_size=3, padding=1) # output: 138x138x256
+        self.e32 = nn.Conv2d(256, 256, kernel_size=3, padding=1) # output: 136x136x256
+        self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2) # output: 68x68x256
+
+        # input: 68x68x256
+        self.e41 = nn.Conv2d(256, 512, kernel_size=3, padding=1) # output: 66x66x512
+        self.e42 = nn.Conv2d(512, 512, kernel_size=3, padding=1) # output: 64x64x512
+        self.pool4 = nn.MaxPool2d(kernel_size=2, stride=2) # output: 32x32x512
+
+        # input: 32x32x512
+        self.e51 = nn.Conv2d(512, 1024, kernel_size=3, padding=1) # output: 30x30x1024
+        self.e52 = nn.Conv2d(1024, 1024, kernel_size=3, padding=1) # output: 28x28x1024
+
+
+        # Decoder
+        self.upconv1 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
+        self.d11 = nn.Conv2d(1024, 512, kernel_size=3, padding=1)
+        self.d12 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
+
+        self.upconv2 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
+        self.d21 = nn.Conv2d(512, 256, kernel_size=3, padding=1)
+        self.d22 = nn.Conv2d(256, 256, kernel_size=3, padding=1)
+
+        self.upconv3 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
+        self.d31 = nn.Conv2d(256, 128, kernel_size=3, padding=1)
+        self.d32 = nn.Conv2d(128, 128, kernel_size=3, padding=1)
+
+        self.upconv4 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
+        self.d41 = nn.Conv2d(128, 64, kernel_size=3, padding=1)
+        self.d42 = nn.Conv2d(64, 64, kernel_size=3, padding=1)
+
+        # Output layer
+        self.outconv = nn.Conv2d(64, n_class, kernel_size=1)
+        
 
 class LeNet(Module):
     def __init__(self, numChannels, classes):
@@ -189,14 +244,14 @@ if __name__ == '__main__':
 
     # Load data, both input images and ground truths. Put them into a DataLoader
     train, test = load_data([], [])
-    train_dataset_size = len(train)
-    test_dataset_size = len(test)
-    train_loader = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
-    test_loader = DataLoader(test, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
+    train_loader = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True)
+    test_loader = DataLoader(test, batch_size=BATCH_SIZE, shuffle=False)
     
+    demo_check = False
+        
     #Train the model
     for epoch in range(NUM_EPOCHS):
-        print(f"-------------------------Starting Epoch {epoch}/{NUM_EPOCHS} epochs-------------------------")
+        print(f"-------------------------Starting Epoch {epoch+1}/{NUM_EPOCHS} epochs-------------------------")
         model.train()
         epoch_train_loss = 0.0
         epoch_test_loss = 0.0
@@ -213,6 +268,12 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
             
+            if epoch == NUM_EPOCHS-1 and demo_check == False:
+                demo_image = images[0].permute(1,2,0)
+                demo_gt = targets[0]
+                demo_output = model(images[0:5])
+                demo_check = True
+            
             epoch_train_loss += loss.item()
             
         for images, targets in test_loader:
@@ -227,13 +288,37 @@ if __name__ == '__main__':
             epoch_test_loss += loss.item()
         
         # Print losses TODO: is the /X factor correct? 
-        train_losses.append(epoch_train_loss/train_dataset_size)
-        test_losses.append(epoch_test_loss/test_dataset_size)
-        print(f"[{epoch + 1}] \ntrain loss: {epoch_train_loss/train_dataset_size:.6f} \ntest  loss: {epoch_test_loss/test_dataset_size:.6f} ")
+        train_losses.append(epoch_train_loss/TRAIN_SIZE)
+        test_losses.append(epoch_test_loss/TEST_SIZE)
+        print(f"[{epoch + 1}] \ntrain loss: {epoch_train_loss/TRAIN_SIZE:.6f} \ntest  loss: {epoch_test_loss/TEST_SIZE:.6f} ")
     
     
     run_time = time.time() - start_time
     print("Running time: ", round(run_time,3))
+    
+    # Print demo. Image, model output and ground truth.
+    img =  demo_image.cpu().numpy().astype(np.uint8)
+    out = demo_output[0].cpu().detach().numpy()
+    gt = demo_gt.cpu().numpy()
+    
+    # print(f"out.shape: {np.shape(out)}")
+    rgb_out = cv2.cvtColor(out, cv2.COLOR_GRAY2RGB)
+    # print(f"rgb_out.shape: {np.shape(rgb_out)}")
+    
+    # print("Model output")
+    # print(out)
+    # print("Ground truth")
+    # print(gt)
+    
+    cv2.namedWindow("demo_image")
+    cv2.imshow('demo_image', img)
+    cv2.waitKey(0)
+    cv2.namedWindow("demo_output")
+    cv2.imshow('demo_output',rgb_out)
+    cv2.waitKey(0)
+    cv2.namedWindow("demo_gt")
+    cv2.imshow('demo_gt',gt)
+    cv2.waitKey(0)
     
     # Plot losses
     x = range(1, NUM_EPOCHS + 1)
@@ -241,7 +326,7 @@ if __name__ == '__main__':
     plt.plot(x, test_losses, label='Test Loss', color='red')
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
-    # plt.ylim(0, 500)
+    plt.ylim(50, 65)
     plt.legend()
     plt.show()
     
