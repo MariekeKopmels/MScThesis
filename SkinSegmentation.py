@@ -1,4 +1,5 @@
 #MSc Thesis Marieke Kopmels
+import os
 import random
 import time
 from os import listdir
@@ -21,14 +22,23 @@ from torch.nn import LogSoftmax
 
 from torch.utils.data import DataLoader
 
-# from torchvision.models.segmentation import fcn_resnet50, FCN_ResNet50_Weights
-BATCH_SIZE      = 256
-NUM_EPOCHS      = 5
-LR              = 0.01
-MOMENTUM        = 0.9
-TRAIN_SIZE      = 5000
-TEST_SIZE       = 500
+# Test
+BATCH_SIZE      = 32
+NUM_EPOCHS      = 25
+LR              = 0.001
+MOMENTUM        = 0.8
+TRAIN_SIZE      = 128
+TEST_SIZE       = 16
 NO_PIXELS       = 224
+
+# Real
+# BATCH_SIZE      = 256
+# NUM_EPOCHS      = 5
+# LR              = 0.001
+# MOMENTUM        = 0.99
+# TRAIN_SIZE      = 500
+# TEST_SIZE       = 50
+# NO_PIXELS       = 224
 
 """Returns images in a given directory
         Format of return: list of NumPy arrays.
@@ -59,7 +69,7 @@ def load_images(images, gts, image_dir_path, gt_dir_path, test=False):
         img = cv2.imread(img_path)
         gt = cv2.imread(gt_path)
         
-        # Convert Ground Truth from RGB to Black or White
+        # Convert Ground Truth from RGB to 1 channel (Black or White)
         gt = cv2.cvtColor(gt, cv2.COLOR_BGR2GRAY)
         ret,gt = cv2.threshold(gt,70,255,0)
         
@@ -79,7 +89,6 @@ def load_images(images, gts, image_dir_path, gt_dir_path, test=False):
 """
 def load_data(train, test):
     base_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/visuAAL"
-    device = torch.device("mps")
 
     train_images, train_gts, test_images, test_gts = [], [], [], []
     print("Loading training data...")
@@ -98,83 +107,97 @@ def load_data(train, test):
 
     return train, test
 
-class LeNet(Module):
-    def __init__(self, numChannels, num_pixels):
-		# call the parent constructor
-        super(LeNet, self).__init__()
-
-        # initialize first set of CONV => RELU => POOL layers
-        self.conv1 = Conv2d(in_channels=numChannels, out_channels=10, kernel_size=(3, 3))
-        self.relu1 = ReLU()
-        self.maxpool1 = MaxPool2d(kernel_size=(2, 2), stride=(2, 2))
-
-        # initialize second set of CONV => RELU => POOL layers
-        self.conv2 = Conv2d(in_channels=10, out_channels=20, kernel_size=(3, 3))
-        self.relu2 = ReLU()
-        self.maxpool2 = MaxPool2d(kernel_size=(2, 2), stride=(2, 2))
+class conv_block(nn.Module):
+    def __init__(self, in_c, out_c):
+        super().__init__()
+        self.conv1 = nn.Conv2d(in_c, out_c, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(out_c)
+        self.conv2 = nn.Conv2d(out_c, out_c, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(out_c)
+        self.relu = nn.ReLU()
         
-        # initialize first (and only) set of FC => RELU layers
-        self.fc1 = Linear(in_features=20*54*54, out_features=1000)
-        self.relu3 = ReLU()
-        
-        # initialize our softmax classifier
-        #TODO: Wil ik jpeg (dus RBG) voorspellen of skin/non-skin voorspellen en dan JPEG ground truths naar 2D formatten
-        self.fc2 = Linear(in_features=1000, out_features=NO_PIXELS*NO_PIXELS)
-        self.logSoftmax = LogSoftmax(dim=1)
-        
-    def forward(self, x):
-        # pass the input through our first set of CONV => RELU =>
-        # POOL layers
-        # print("Performing forward pass")
-        # print(f"Input type: {type(x)}")
-        # print(f"Input shape: {x.shape}")
-        # print(f"Input[0][0][0][0] type: {type(x[0][0][0][0])}")
-        # print(f"Input[0] dtype: {x.dtype}")
-        
-        # x = x.float()
-        
-        # print(f"Input type: {type(x)}")
-        # print(f"Input shape: {x.shape}")
-        # print(f"Input[0][0][0][0] type: {type(x[0][0][0][0])}")
-        # print(f"Input[0] dtype: {x.dtype}")
-        
-        # For the last few items, the batch size may be smaller than BATCH_SIZE
-        batch_size = len(x)
-        
-        x = self.conv1(x)
-        x = self.relu1(x)
-        x = self.maxpool1(x)
-        
-        # pass the output from the previous layer through the second
-        # set of CONV => RELU => POOL layers
+    def forward(self, inputs):
+        x = self.conv1(inputs)
+        x = self.bn1(x)
+        x = self.relu(x)
         x = self.conv2(x)
-        x = self.relu2(x)
-        x = self.maxpool2(x)
+        x = self.bn2(x)
+        x = self.relu(x)
         
-        # flatten the output from the previous layer and pass it
-        # through our only set of FC => RELU layers
-        x = flatten(x, 1)
-        x = self.fc1(x)
-        x = self.relu3(x)
+        return x
+     
+class encoder_block(nn.Module):
+    def __init__(self, in_c, out_c):
+        super().__init__()
+        self.conv = conv_block(in_c, out_c)
+        self.pool = nn.MaxPool2d((2, 2))
+    
+    def forward(self, inputs):
+        x = self.conv(inputs)
+        p = self.pool(x)
         
-        # pass the output to our softmax classifier to get our output
-        # predictions
-        x = self.fc2(x)
-        x = self.logSoftmax(x)
+        return x, p
+
+class decoder_block(nn.Module):
+    def __init__(self, in_c, out_c):
+        super().__init__()
+        self.up = nn.ConvTranspose2d(in_c, out_c, kernel_size=2, stride=2, padding=0)
+        self.conv = conv_block(out_c+out_c, out_c)
+    
+    def forward(self, inputs, skip):
+        x = self.up(inputs)
+        x = torch.cat([x, skip], axis=1)
+        x = self.conv(x)
         
-        # TODO: Checken of deze manier van batch_size werkt ipv hardcoded
-        output = x.reshape(batch_size,NO_PIXELS,NO_PIXELS)
+        return x
+
+class UNET(nn.Module):
+    def __init__(self):
+        super().__init__()
+        """ Encoder """
+        self.e1 = encoder_block(3, 64)
+        self.e2 = encoder_block(64, 128)
+        self.e3 = encoder_block(128, 256)
+        self.e4 = encoder_block(256, 512)
+        """ Bottleneck """
+        self.b = conv_block(512, 1024)
+        """ Decoder """
+        self.d1 = decoder_block(1024, 512)
+        self.d2 = decoder_block(512, 256)
+        self.d3 = decoder_block(256, 128)
+        self.d4 = decoder_block(128, 64)
+        """ Classifier """
+        self.outputs = nn.Conv2d(64, 1, kernel_size=1, padding=0)
+    
+    def forward(self, inputs):
+        # For the last few items, the batch size may be smaller than BATCH_SIZE
+        batch_size = len(inputs)
         
-        # return the output predictions
-        return output
+        """ Encoder """
+        s1, p1 = self.e1(inputs)
+        s2, p2 = self.e2(p1)
+        s3, p3 = self.e3(p2)
+        s4, p4 = self.e4(p3)
+        """ Bottleneck """
+        b = self.b(p4)
+        """ Decoder """
+        d1 = self.d1(b, s4)
+        d2 = self.d2(d1, s3)
+        d3 = self.d3(d2, s2)
+        d4 = self.d4(d3, s1)
+        """ Classifier """
+        x = self.outputs(d4)
+        """ Reformatting"""
+        outputs = x.reshape(batch_size ,NO_PIXELS,NO_PIXELS)
+        return outputs
 
 """Goal is to create a model, load traning and test data and evaltually train and evaluate the model.
 """
 if __name__ == '__main__':
     start_time = time.time()
     # Create model
-    # model = fcn_resnet50(weights=FCN_ResNet50_Weights.DEFAULT, num_channels=2)
-    model = LeNet(numChannels=3)
+    # Source of unet code: https://medium.com/analytics-vidhya/unet-implementation-in-pytorch-idiot-developer-da40d955f201
+    model = UNET()
     
     # This should allow for it to run on M1 GPU
     # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -193,16 +216,24 @@ if __name__ == '__main__':
     train, test = load_data([], [])
     train_loader = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True)
     test_loader = DataLoader(test, batch_size=BATCH_SIZE, shuffle=False)
+            
+    # demo_image = []
+    # demo_output = []
+    # demo_gt = []
+    directory = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Output"
+    os.chdir(directory) 
     
-    demo_check = False
-        
     #Train the model
     for epoch in range(NUM_EPOCHS):
+        demo_check = False
         print(f"-------------------------Starting Epoch {epoch+1}/{NUM_EPOCHS} epochs-------------------------")
         model.train()
         epoch_train_loss = 0.0
         epoch_test_loss = 0.0
-        for images, targets in train_loader:            
+        batch = 0
+        for images, targets in train_loader:  
+            batch += 1
+            # print(f"-------------------------Starting Train Batch {batch}/{int(TRAIN_SIZE//BATCH_SIZE+1)} batches-------------------------")          
             images = images.to(device)
             images = images.float()
             targets = targets.to(device)
@@ -211,20 +242,57 @@ if __name__ == '__main__':
             # Train the model
             optimizer.zero_grad()
             outputs = model(images)
+            
+            # print(f"outputs.shape: {outputs.shape}")
+            
+            # if epoch == NUM_EPOCHS-1 and 
+            if demo_check == False:
+                demo_image = images[0].permute(1,2,0)
+                demo_gt = targets[0]
+                demo_output = model(images[0:3])
+                demo_check = True
+                
+                img =  demo_image.cpu().numpy().astype(np.uint8)
+                out = demo_output[0].cpu().detach().numpy()
+                gt = demo_gt.cpu().numpy()
+                rgb_out = cv2.cvtColor(out, cv2.COLOR_GRAY2RGB)
+                
+                filename = "Image_epoch_" + str(epoch) + ".jpg"
+                cv2.imwrite(filename, img)
+                filename = "Output_epoch_" + str(epoch) + ".jpg"
+                cv2.imwrite(filename, out)
+                filename = "GT_epoch_" + str(epoch) + ".jpg"
+                cv2.imwrite(filename, gt)
+                
+            
+            # img =  demo_image.cpu().numpy().astype(np.uint8)
+            # out = demo_output[0].cpu().detach().numpy()
+            # print(f"out shape: {np.shape(out[0])}")
+            # rgb_out = cv2.cvtColor(out[0], cv2.COLOR_GRAY2RGB)
+            
+            # cv2.namedWindow("demo_image")
+            # cv2.imshow('demo_image', img)
+            # cv2.waitKey(0)
+    
+            # cv2.namedWindow("demo_output")
+            # cv2.imshow('demo_output',rgb_out)
+            # cv2.waitKey(0)
+            
+            # print(f"outputs.dtype: {outputs.dtype}, targets.dtype: {targets.dtype}")
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
             
-            if epoch == NUM_EPOCHS-1 and demo_check == False:
-                demo_image = images[0].permute(1,2,0)
-                demo_gt = targets[0]
-                demo_output = model(images[0:5])
-                demo_check = True
-            
             epoch_train_loss += loss.item()
+            # print(f"Size of this batch: {len(images)}")
+            # print(f"batch train loss: {loss.item()/len(images):.6f}")
+
             
+        batch = 0
         for images, targets in test_loader:
-            
+            batch += 1
+            # print(f"-------------------------Starting Test Batch {batch}/{int(TEST_SIZE//BATCH_SIZE+1)} batches-------------------------")          
+
             images = images.to(device)
             images = images.float()
             targets = targets.to(device)
@@ -233,6 +301,7 @@ if __name__ == '__main__':
             outputs = model(images)
             loss = criterion(outputs, targets)
             epoch_test_loss += loss.item()
+            # print(f"batch test loss: {loss.item()/len(images):.6f}")
         
         # Print losses TODO: is the /X factor correct? 
         train_losses.append(epoch_train_loss/TRAIN_SIZE)
@@ -243,13 +312,24 @@ if __name__ == '__main__':
     run_time = time.time() - start_time
     print("Running time: ", round(run_time,3))
     
-    # Print demo. Image, model output and ground truth.
-    img =  demo_image.cpu().numpy().astype(np.uint8)
-    out = demo_output[0].cpu().detach().numpy()
-    gt = demo_gt.cpu().numpy()
+    # Store demo. Image, model output and ground truth.
+    # directory = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Output"
+    # os.chdir(directory) 
+    # for example in range(len(demo_image)):
+    #     img =  demo_image[example].cpu().numpy().astype(np.uint8)
+    #     out = demo_output[example][0].cpu().detach().numpy()
+    #     gt = demo_gt[example].cpu().numpy()
+    #     rgb_out = cv2.cvtColor(out, cv2.COLOR_GRAY2RGB)
+    #     filename = "Image_epoch_" + str(example) + ".jpg"
+    #     cv2.imwrite(filename, img)
+    #     filename = "Output_epoch_" + str(example) + ".jpg"
+    #     cv2.imwrite(filename, out)
+    #     filename = "GT_epoch_" + str(example) + ".jpg"
+    #     cv2.imwrite(filename, gt)
+        
     
     # print(f"out.shape: {np.shape(out)}")
-    rgb_out = cv2.cvtColor(out, cv2.COLOR_GRAY2RGB)
+    
     # print(f"rgb_out.shape: {np.shape(rgb_out)}")
     
     # print("Model output")
@@ -273,9 +353,7 @@ if __name__ == '__main__':
     plt.plot(x, test_losses, label='Test Loss', color='red')
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
-    plt.ylim(50, 65)
+    # plt.ylim(50, 65)
     plt.legend()
+    plt.savefig("Loss_plot.jpg")
     plt.show()
-    
-    
-            
