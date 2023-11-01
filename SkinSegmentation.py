@@ -7,26 +7,17 @@ import numpy as np
 
 import cv2
 import matplotlib.pyplot as plt
-
 import torch
 import torch.nn as nn
 from torch import optim
-from torch import flatten
-
-from torch.nn import Module
-from torch.nn import Conv2d
-from torch.nn import Linear
-from torch.nn import MaxPool2d
-from torch.nn import ReLU
-from torch.nn import LogSoftmax
-
+from torchmetrics.classification import Dice
 from torch.utils.data import DataLoader
 
 # Test
 BATCH_SIZE      = 32
 NUM_EPOCHS      = 25
 LR              = 0.001
-MOMENTUM        = 0.8
+MOMENTUM        = 0.9
 TRAIN_SIZE      = 128
 TEST_SIZE       = 16
 NO_PIXELS       = 224
@@ -71,7 +62,7 @@ def load_images(images, gts, image_dir_path, gt_dir_path, test=False):
         
         # Convert Ground Truth from RGB to 1 channel (Black or White)
         gt = cv2.cvtColor(gt, cv2.COLOR_BGR2GRAY)
-        ret,gt = cv2.threshold(gt,70,255,0)
+        ret,gt = cv2.threshold(gt,127,255,0)
         
         # Resize images and ground truths to size 224*224
         img = cv2.resize(img, (NO_PIXELS,NO_PIXELS), interpolation=cv2.INTER_CUBIC)
@@ -93,13 +84,8 @@ def load_data(train, test):
     train_images, train_gts, test_images, test_gts = [], [], [], []
     print("Loading training data...")
     train_images, train_gts = load_images(train_images, train_gts, base_path + "/TrainImages", base_path + "/TrainGroundTruth")
-    # train_gt = load_images(train_gt, base_path + "/TrainGroundTruth", gt=True)
     print("Loading testing data...")
     test_images, test_gts = load_images(test_images, test_gts, base_path + "/TestImages", base_path + "/TestGroundTruth", test = True)
-    # test_gt = load_images(test_gt, base_path + "/TestGroundTruth", gt=True)
-    
-    # print(f"train_images.shape: {len(train_images)}, train_gts.shape: {len(train_gts)}")
-    # print(f"train_images.shape: {len(test_images)}, train_gts.shape: {len(test_gts)}")
     
     # TODO: fix de eerst naar numpy en daarna pas naar tensor (sneller dan vanaf een list direct naar tensor maar nu heel lelijk)
     train = torch.utils.data.TensorDataset(torch.as_tensor(np.array(train_images)).permute(0,3,1,2), torch.as_tensor(np.array(train_gts)).permute(0,1,2))
@@ -187,8 +173,9 @@ class UNET(nn.Module):
         d4 = self.d4(d3, s1)
         """ Classifier """
         x = self.outputs(d4)
+        # x = self.softmax(x)
         """ Reformatting"""
-        outputs = x.reshape(batch_size ,NO_PIXELS,NO_PIXELS)
+        outputs = x.reshape(batch_size, NO_PIXELS, NO_PIXELS)
         return outputs
 
 """Goal is to create a model, load traning and test data and evaltually train and evaluate the model.
@@ -205,7 +192,8 @@ if __name__ == '__main__':
     model.to(device)
     
     # Define loss function and optimizer
-    criterion = nn.CrossEntropyLoss()
+    # loss_function = nn.CrossEntropyLoss()
+    loss_function = nn.BCELoss()
     optimizer = optim.SGD(model.parameters(), lr=LR, momentum=MOMENTUM)
     
     # Store the losses
@@ -217,9 +205,6 @@ if __name__ == '__main__':
     train_loader = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True)
     test_loader = DataLoader(test, batch_size=BATCH_SIZE, shuffle=False)
             
-    # demo_image = []
-    # demo_output = []
-    # demo_gt = []
     directory = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Output"
     os.chdir(directory) 
     
@@ -243,19 +228,16 @@ if __name__ == '__main__':
             optimizer.zero_grad()
             outputs = model(images)
             
-            # print(f"outputs.shape: {outputs.shape}")
-            
-            # if epoch == NUM_EPOCHS-1 and 
+            # Store one demo per epoch. Image, model output and ground truth.
             if demo_check == False:
                 demo_image = images[0].permute(1,2,0)
                 demo_gt = targets[0]
-                demo_output = model(images[0:3])
+                demo_output = model(images[0:2])
                 demo_check = True
                 
                 img =  demo_image.cpu().numpy().astype(np.uint8)
                 out = demo_output[0].cpu().detach().numpy()
                 gt = demo_gt.cpu().numpy()
-                rgb_out = cv2.cvtColor(out, cv2.COLOR_GRAY2RGB)
                 
                 filename = "Image_epoch_" + str(epoch) + ".jpg"
                 cv2.imwrite(filename, img)
@@ -263,30 +245,11 @@ if __name__ == '__main__':
                 cv2.imwrite(filename, out)
                 filename = "GT_epoch_" + str(epoch) + ".jpg"
                 cv2.imwrite(filename, gt)
-                
-            
-            # img =  demo_image.cpu().numpy().astype(np.uint8)
-            # out = demo_output[0].cpu().detach().numpy()
-            # print(f"out shape: {np.shape(out[0])}")
-            # rgb_out = cv2.cvtColor(out[0], cv2.COLOR_GRAY2RGB)
-            
-            # cv2.namedWindow("demo_image")
-            # cv2.imshow('demo_image', img)
-            # cv2.waitKey(0)
-    
-            # cv2.namedWindow("demo_output")
-            # cv2.imshow('demo_output',rgb_out)
-            # cv2.waitKey(0)
-            
-            # print(f"outputs.dtype: {outputs.dtype}, targets.dtype: {targets.dtype}")
-            loss = criterion(outputs, targets)
+        
+            loss = loss_function(outputs, targets)
             loss.backward()
             optimizer.step()
-            
             epoch_train_loss += loss.item()
-            # print(f"Size of this batch: {len(images)}")
-            # print(f"batch train loss: {loss.item()/len(images):.6f}")
-
             
         batch = 0
         for images, targets in test_loader:
@@ -299,53 +262,17 @@ if __name__ == '__main__':
             targets = targets.float()
             
             outputs = model(images)
-            loss = criterion(outputs, targets)
+            loss = loss_function(outputs, targets)
             epoch_test_loss += loss.item()
-            # print(f"batch test loss: {loss.item()/len(images):.6f}")
         
         # Print losses TODO: is the /X factor correct? 
         train_losses.append(epoch_train_loss/TRAIN_SIZE)
         test_losses.append(epoch_test_loss/TEST_SIZE)
-        print(f"[{epoch + 1}] \ntrain loss: {epoch_train_loss/TRAIN_SIZE:.6f} \ntest  loss: {epoch_test_loss/TEST_SIZE:.6f} ")
+        print(f"train loss: {epoch_train_loss/TRAIN_SIZE:.6f} \ntest  loss: {epoch_test_loss/TEST_SIZE:.6f} ")
     
     
     run_time = time.time() - start_time
     print("Running time: ", round(run_time,3))
-    
-    # Store demo. Image, model output and ground truth.
-    # directory = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Output"
-    # os.chdir(directory) 
-    # for example in range(len(demo_image)):
-    #     img =  demo_image[example].cpu().numpy().astype(np.uint8)
-    #     out = demo_output[example][0].cpu().detach().numpy()
-    #     gt = demo_gt[example].cpu().numpy()
-    #     rgb_out = cv2.cvtColor(out, cv2.COLOR_GRAY2RGB)
-    #     filename = "Image_epoch_" + str(example) + ".jpg"
-    #     cv2.imwrite(filename, img)
-    #     filename = "Output_epoch_" + str(example) + ".jpg"
-    #     cv2.imwrite(filename, out)
-    #     filename = "GT_epoch_" + str(example) + ".jpg"
-    #     cv2.imwrite(filename, gt)
-        
-    
-    # print(f"out.shape: {np.shape(out)}")
-    
-    # print(f"rgb_out.shape: {np.shape(rgb_out)}")
-    
-    # print("Model output")
-    # print(out)
-    # print("Ground truth")
-    # print(gt)
-    
-    # cv2.namedWindow("demo_image")
-    # cv2.imshow('demo_image', img)
-    # cv2.waitKey(0)
-    # cv2.namedWindow("demo_output")
-    # cv2.imshow('demo_output',rgb_out)
-    # cv2.waitKey(0)
-    # cv2.namedWindow("demo_gt")
-    # cv2.imshow('demo_gt',gt)
-    # cv2.waitKey(0)
     
     # Plot losses
     x = range(1, NUM_EPOCHS + 1)
@@ -353,7 +280,6 @@ if __name__ == '__main__':
     plt.plot(x, test_losses, label='Test Loss', color='red')
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
-    # plt.ylim(50, 65)
+    plt.ylim(0, 2000)
     plt.legend()
     plt.savefig("Loss_plot.jpg")
-    plt.show()
