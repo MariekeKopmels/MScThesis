@@ -14,6 +14,7 @@ import torch.nn.functional as F
 from torch import optim
 from torchmetrics.classification import Dice
 from torch.utils.data import DataLoader
+from sklearn import metrics
 
 import wandb
 
@@ -28,12 +29,12 @@ loss_dictionary = {
 }
 
 config = dict(
-    BATCH_SIZE=32,
-    NUM_EPOCHS=5,
+    BATCH_SIZE=64,
+    NUM_EPOCHS=10,
     LR=0.01,
     MOMENTUM=0.99,
-    TRAIN_SIZE=128,
-    TEST_SIZE=32,
+    TRAIN_SIZE=256,
+    TEST_SIZE=64,
     loss_function = "IoU",
     dataset="VisuAAL",
     architecture="UNet", 
@@ -131,9 +132,9 @@ def train(config, model, train_loader, loss_function, optimizer):
         # epoch_test_loss = 0.0
         # batch = 0
         for images, targets in train_loader:  
-            loss = train_batch(config, images, targets, model, optimizer, loss_function)
+            loss, accuracy, fn_rate, fp_rate, sensitivity = train_batch(config, images, targets, model, optimizer, loss_function)
             epoch_train_loss += loss.item()
-        train_log(config, epoch_train_loss, epoch)
+        train_log(config, epoch_train_loss, accuracy, fn_rate, fp_rate, sensitivity, epoch)
             
     train_losses.append(epoch_train_loss/config.TRAIN_SIZE)
     print(f"mean train loss: {epoch_train_loss/config.TRAIN_SIZE:.6f}")         
@@ -142,19 +143,28 @@ def train_batch(config, images, targets, model, optimizer, loss_function):
     images, targets = images.to(config.device), targets.to(config.device)
     images = images.float()
     targets = targets.float()
-    
     outputs = model(images, NO_PIXELS)
+    
+    # print(f"example output: {outputs[0].flatten()}")
+    # print(f"example target: {targets[0].flatten()}")
     
     loss = loss_function(outputs, targets)
     loss.backward()
     optimizer.step()
     
-    return loss
+    # accuracy, fn = calculate_metrics(outputs, targets)
+    tn, fn, fp, tp = confusion_matrix(outputs, targets)
+    accuracy = (tp+tn)/(tn+fn+fp+tp)
+    fn_rate = fn/(fn+tp)
+    fp_rate = fp/(tn+fp)
+    sensitivity = tp/(tp+fn)
+    return loss, accuracy, fn_rate, fp_rate, sensitivity
 
-def train_log(config, epoch_train_loss, epoch):
+def train_log(config, epoch_train_loss, accuracy, fn_rate, fp_rate, sensitivity, epoch):
     # Where the magic happens
-    wandb.log({"epoch": epoch, "mean_loss": epoch_train_loss})
-    print(f"mean train loss: {epoch_train_loss/config.TRAIN_SIZE:.6f}") 
+    wandb.log({"epoch": epoch, "mean_loss": epoch_train_loss, "accuracy": accuracy, 
+               "fn_rate": fn_rate, "fp_rate": fp_rate, "sensitivity": sensitivity})
+    print(f"mean train loss: {epoch_train_loss/config.TRAIN_SIZE:.6f}, accuracy: {accuracy:.3f}, fn: {fn_rate:.3f}, fp:: {fp_rate:.3f}, sensitivity: {sensitivity:.3f}") 
     # print(f"Loss after {str(example_ct).zfill(5)} examples: {loss:.3f}")
     
 def test(config, model, test_loader, loss_function):
@@ -163,12 +173,12 @@ def test(config, model, test_loader, loss_function):
     
     # Run the model on some test examples
     with torch.no_grad():
+        test_loss = 0.0
         for images, targets in test_loader:
-            
             images, targets = images.to(config.device), targets.to(config.device)
             images = images.float()
             targets = targets.float()
-            outputs = model(images)
+            outputs = model(images, NO_PIXELS)
             
             loss = loss_function(outputs, targets)
             test_loss += loss.item()
@@ -179,22 +189,53 @@ def test(config, model, test_loader, loss_function):
     # Save the model in the exchangeable ONNX format
     torch.onnx.export(model, images, "model.onnx")
     wandb.save("model.onnx")
+    
+
+def confusion_matrix(outputs, targets):
+    batch_size = outputs.shape[0]
+    
+    outputs = outputs.to("cpu")
+    outputs = outputs.detach().numpy()
+    targets = targets.to("cpu")
+    targets = targets.detach().numpy()
+    
+    matrix = [[0.0, 0.0],[0.0, 0.0]]
+    
+    for i in range(batch_size):
+        output = outputs[i].flatten()
+        output = [1.0 if x > 0.5 else 0.0 for x in output]
+        target = targets[i].flatten()
+        # print(f"Example output len: {len(output)}")
+        # print(f"Example target len: {len(target)}")
+        i_matrix = metrics.confusion_matrix(output, target)
+        matrix += i_matrix
+        # print("Confusion matrix:\n", matrix)
+    
+    print("Confusion matrix:\n", matrix)
+    
+    tn = matrix[0][0]
+    fn = matrix[1][0]
+    tp = matrix[1][1]
+    fp = matrix[0][1]
+    
+    return tn, fn, fp, tp
+
 
 def model_pipeline(hyperparameters):
     # tell wandb to get started
-    with wandb.init(project="skin_segmentation", config=hyperparameters):
+    with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
       # access all HPs through wandb.config, so logging matches execution!
       config = wandb.config
 
       # make the model, data, and optimization problem
       model, train_loader, test_loader, loss_function, optimizer = make(config)
-      print(f"Model: {model}")
+    #   print(f"Model: {model}")
 
       # and use them to train the model
       train(config, model, train_loader, loss_function, optimizer)
 
       # and test its final performance
-    test(config, model, test_loader, loss_function)
+    # test(config, model, test_loader, loss_function)
 
     return model
 
