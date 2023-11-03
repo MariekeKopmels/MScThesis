@@ -29,7 +29,7 @@ loss_dictionary = {
 
 config = dict(
     BATCH_SIZE=32,
-    NUM_EPOCHS=25,
+    NUM_EPOCHS=5,
     LR=0.01,
     MOMENTUM=0.99,
     TRAIN_SIZE=128,
