@@ -1,5 +1,4 @@
 #MSc Thesis Marieke Kopmels
-#TEST
 import os
 import random
 import time
