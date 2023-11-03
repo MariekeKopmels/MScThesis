@@ -1,0 +1,180 @@
+2023-11-03 08:09:30,110 INFO    StreamThr :44821 [internal.py:wandb_internal():86] W&B internal server running at pid: 44821, started at: 2023-11-03 08:09:30.109569
+2023-11-03 08:09:30,112 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: status
+2023-11-03 08:09:30,115 INFO    WriterThread:44821 [datastore.py:open_for_write():85] open: /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/run-ry85jhtc.wandb
+2023-11-03 08:09:30,116 DEBUG   SenderThread:44821 [sender.py:send():380] send: header
+2023-11-03 08:09:30,133 DEBUG   SenderThread:44821 [sender.py:send():380] send: run
+2023-11-03 08:09:30,575 INFO    SenderThread:44821 [dir_watcher.py:__init__():211] watching files in: /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files
+2023-11-03 08:09:30,575 INFO    SenderThread:44821 [sender.py:_start_run_threads():1122] run started: ry85jhtc with start time 1698995370.109801
+2023-11-03 08:09:30,587 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: check_version
+2023-11-03 08:09:30,587 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: check_version
+2023-11-03 08:09:30,677 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: run_start
+2023-11-03 08:09:30,688 DEBUG   HandlerThread:44821 [system_info.py:__init__():32] System info init
+2023-11-03 08:09:30,688 DEBUG   HandlerThread:44821 [system_info.py:__init__():47] System info init done
+2023-11-03 08:09:30,688 INFO    HandlerThread:44821 [system_monitor.py:start():194] Starting system monitor
+2023-11-03 08:09:30,688 INFO    SystemMonitor:44821 [system_monitor.py:_start():158] Starting system asset monitoring threads
+2023-11-03 08:09:30,688 INFO    HandlerThread:44821 [system_monitor.py:probe():214] Collecting system info
+2023-11-03 08:09:30,689 INFO    SystemMonitor:44821 [interfaces.py:start():190] Started cpu monitoring
+2023-11-03 08:09:30,689 DEBUG   HandlerThread:44821 [system_info.py:probe():196] Probing system
+2023-11-03 08:09:30,690 INFO    SystemMonitor:44821 [interfaces.py:start():190] Started disk monitoring
+2023-11-03 08:09:30,693 INFO    SystemMonitor:44821 [interfaces.py:start():190] Started gpuapple monitoring
+2023-11-03 08:09:30,696 INFO    SystemMonitor:44821 [interfaces.py:start():190] Started memory monitoring
+2023-11-03 08:09:30,697 INFO    SystemMonitor:44821 [interfaces.py:start():190] Started network monitoring
+2023-11-03 08:09:30,700 DEBUG   HandlerThread:44821 [system_info.py:_probe_git():181] Probing git
+2023-11-03 08:09:30,712 DEBUG   HandlerThread:44821 [system_info.py:_probe_git():189] Probing git done
+2023-11-03 08:09:30,712 DEBUG   HandlerThread:44821 [system_info.py:probe():244] Probing system done
+2023-11-03 08:09:30,712 DEBUG   HandlerThread:44821 [system_monitor.py:probe():223] {'os': 'macOS-13.5-arm64-arm-64bit', 'python': '3.10.9', 'heartbeatAt': '2023-11-03T07:09:30.690188', 'startedAt': '2023-11-03T07:09:30.100874', 'docker': None, 'cuda': None, 'args': (), 'state': 'running', 'program': '/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/WandBSkinSegmentation.py', 'codePathLocal': 'WandBSkinSegmentation.py', 'codePath': 'WandBSkinSegmentation.py', 'git': {'remote': 'https://github.com/MariekeKopmels/Thesis.git', 'commit': 'a6b5d3e92d79d5263b8125c79c38777abfb3b204'}, 'email': 'marieke@kopmels.com', 'root': '/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis', 'host': 'Mariekes-MacBook-Pro.local', 'username': 'mariekekopmels', 'executable': '/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/SkinVenv/bin/python', 'cpu_count': 10, 'cpu_count_logical': 10, 'disk': {'/': {'total': 926.3517189025879, 'used': 8.544288635253906}}, 'gpuapple': {'type': 'arm', 'vendor': 'Apple'}, 'memory': {'total': 64.0}}
+2023-11-03 08:09:30,712 INFO    HandlerThread:44821 [system_monitor.py:probe():224] Finished collecting system info
+2023-11-03 08:09:30,712 INFO    HandlerThread:44821 [system_monitor.py:probe():227] Publishing system info
+2023-11-03 08:09:30,712 DEBUG   HandlerThread:44821 [system_info.py:_save_pip():52] Saving list of pip packages installed into the current environment
+2023-11-03 08:09:30,713 DEBUG   HandlerThread:44821 [system_info.py:_save_pip():68] Saving pip packages done
+2023-11-03 08:09:30,713 INFO    HandlerThread:44821 [system_monitor.py:probe():229] Finished publishing system info
+2023-11-03 08:09:30,714 DEBUG   SenderThread:44821 [sender.py:send():380] send: files
+2023-11-03 08:09:30,714 INFO    SenderThread:44821 [sender.py:_save_file():1378] saving file wandb-metadata.json with policy now
+2023-11-03 08:09:30,717 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: stop_status
+2023-11-03 08:09:30,718 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: stop_status
+2023-11-03 08:09:30,718 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: internal_messages
+2023-11-03 08:09:30,979 DEBUG   SenderThread:44821 [sender.py:send():380] send: telemetry
+2023-11-03 08:09:31,403 INFO    wandb-upload_0:44821 [upload_job.py:push():131] Uploaded file /var/folders/cc/bkzl4l8x2nlgq55lhgd7sn940000gn/T/tmppx1vrs_rwandb/erc7qn9x-wandb-metadata.json
+2023-11-03 08:09:31,581 INFO    Thread-12 :44821 [dir_watcher.py:_on_file_created():271] file/dir created: /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files/output.log
+2023-11-03 08:09:31,581 INFO    Thread-12 :44821 [dir_watcher.py:_on_file_created():271] file/dir created: /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files/wandb-metadata.json
+2023-11-03 08:09:31,581 INFO    Thread-12 :44821 [dir_watcher.py:_on_file_created():271] file/dir created: /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files/requirements.txt
+2023-11-03 08:09:33,591 INFO    Thread-12 :44821 [dir_watcher.py:_on_file_modified():288] file/dir modified: /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files/output.log
+2023-11-03 08:09:36,001 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: status_report
+2023-11-03 08:09:40,255 DEBUG   SenderThread:44821 [sender.py:send():380] send: telemetry
+2023-11-03 08:09:40,325 DEBUG   SenderThread:44821 [sender.py:send():380] send: telemetry
+2023-11-03 08:09:40,325 DEBUG   SenderThread:44821 [sender.py:send():380] send: exit
+2023-11-03 08:09:40,325 INFO    SenderThread:44821 [sender.py:send_exit():585] handling exit code: 1
+2023-11-03 08:09:40,326 INFO    SenderThread:44821 [sender.py:send_exit():587] handling runtime: 9
+2023-11-03 08:09:40,326 INFO    SenderThread:44821 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-11-03 08:09:40,326 INFO    SenderThread:44821 [sender.py:send_exit():593] send defer
+2023-11-03 08:09:40,327 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: defer
+2023-11-03 08:09:40,327 INFO    HandlerThread:44821 [handler.py:handle_request_defer():172] handle defer: 0
+2023-11-03 08:09:40,327 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: defer
+2023-11-03 08:09:40,327 INFO    SenderThread:44821 [sender.py:send_request_defer():609] handle sender defer: 0
+2023-11-03 08:09:40,327 INFO    SenderThread:44821 [sender.py:transition_state():613] send defer: 1
+2023-11-03 08:09:40,327 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: defer
+2023-11-03 08:09:40,327 INFO    HandlerThread:44821 [handler.py:handle_request_defer():172] handle defer: 1
+2023-11-03 08:09:40,327 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: defer
+2023-11-03 08:09:40,327 INFO    SenderThread:44821 [sender.py:send_request_defer():609] handle sender defer: 1
+2023-11-03 08:09:40,327 INFO    SenderThread:44821 [sender.py:transition_state():613] send defer: 2
+2023-11-03 08:09:40,328 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: defer
+2023-11-03 08:09:40,328 INFO    HandlerThread:44821 [handler.py:handle_request_defer():172] handle defer: 2
+2023-11-03 08:09:40,328 INFO    HandlerThread:44821 [system_monitor.py:finish():203] Stopping system monitor
+2023-11-03 08:09:40,328 DEBUG   SystemMonitor:44821 [system_monitor.py:_start():172] Starting system metrics aggregation loop
+2023-11-03 08:09:40,328 INFO    HandlerThread:44821 [interfaces.py:finish():202] Joined cpu monitor
+2023-11-03 08:09:40,328 DEBUG   SystemMonitor:44821 [system_monitor.py:_start():179] Finished system metrics aggregation loop
+2023-11-03 08:09:40,328 INFO    HandlerThread:44821 [interfaces.py:finish():202] Joined disk monitor
+2023-11-03 08:09:40,328 DEBUG   SystemMonitor:44821 [system_monitor.py:_start():183] Publishing last batch of metrics
+2023-11-03 08:09:40,328 INFO    HandlerThread:44821 [interfaces.py:finish():202] Joined gpuapple monitor
+2023-11-03 08:09:40,329 INFO    HandlerThread:44821 [interfaces.py:finish():202] Joined memory monitor
+2023-11-03 08:09:40,329 INFO    HandlerThread:44821 [interfaces.py:finish():202] Joined network monitor
+2023-11-03 08:09:40,329 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: defer
+2023-11-03 08:09:40,329 INFO    SenderThread:44821 [sender.py:send_request_defer():609] handle sender defer: 2
+2023-11-03 08:09:40,329 INFO    SenderThread:44821 [sender.py:transition_state():613] send defer: 3
+2023-11-03 08:09:40,329 DEBUG   SenderThread:44821 [sender.py:send():380] send: telemetry
+2023-11-03 08:09:40,329 DEBUG   SenderThread:44821 [sender.py:send():380] send: stats
+2023-11-03 08:09:40,329 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: defer
+2023-11-03 08:09:40,329 INFO    HandlerThread:44821 [handler.py:handle_request_defer():172] handle defer: 3
+2023-11-03 08:09:40,329 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: defer
+2023-11-03 08:09:40,329 INFO    SenderThread:44821 [sender.py:send_request_defer():609] handle sender defer: 3
+2023-11-03 08:09:40,329 INFO    SenderThread:44821 [sender.py:transition_state():613] send defer: 4
+2023-11-03 08:09:40,329 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: defer
+2023-11-03 08:09:40,329 INFO    HandlerThread:44821 [handler.py:handle_request_defer():172] handle defer: 4
+2023-11-03 08:09:40,329 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: defer
+2023-11-03 08:09:40,329 INFO    SenderThread:44821 [sender.py:send_request_defer():609] handle sender defer: 4
+2023-11-03 08:09:40,329 INFO    SenderThread:44821 [sender.py:transition_state():613] send defer: 5
+2023-11-03 08:09:40,330 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: defer
+2023-11-03 08:09:40,330 INFO    HandlerThread:44821 [handler.py:handle_request_defer():172] handle defer: 5
+2023-11-03 08:09:40,330 DEBUG   SenderThread:44821 [sender.py:send():380] send: summary
+2023-11-03 08:09:40,330 INFO    SenderThread:44821 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-11-03 08:09:40,330 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: defer
+2023-11-03 08:09:40,330 INFO    SenderThread:44821 [sender.py:send_request_defer():609] handle sender defer: 5
+2023-11-03 08:09:40,330 INFO    SenderThread:44821 [sender.py:transition_state():613] send defer: 6
+2023-11-03 08:09:40,330 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: defer
+2023-11-03 08:09:40,330 INFO    HandlerThread:44821 [handler.py:handle_request_defer():172] handle defer: 6
+2023-11-03 08:09:40,331 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: defer
+2023-11-03 08:09:40,331 INFO    SenderThread:44821 [sender.py:send_request_defer():609] handle sender defer: 6
+2023-11-03 08:09:40,332 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: status_report
+2023-11-03 08:09:40,503 INFO    SenderThread:44821 [sender.py:transition_state():613] send defer: 7
+2023-11-03 08:09:40,503 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: defer
+2023-11-03 08:09:40,503 INFO    HandlerThread:44821 [handler.py:handle_request_defer():172] handle defer: 7
+2023-11-03 08:09:40,503 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: defer
+2023-11-03 08:09:40,503 INFO    SenderThread:44821 [sender.py:send_request_defer():609] handle sender defer: 7
+2023-11-03 08:09:40,623 INFO    Thread-12 :44821 [dir_watcher.py:_on_file_modified():288] file/dir modified: /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files/config.yaml
+2023-11-03 08:09:40,623 INFO    Thread-12 :44821 [dir_watcher.py:_on_file_created():271] file/dir created: /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files/wandb-summary.json
+2023-11-03 08:09:41,328 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: poll_exit
+2023-11-03 08:09:41,628 INFO    Thread-12 :44821 [dir_watcher.py:_on_file_modified():288] file/dir modified: /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files/output.log
+2023-11-03 08:09:42,334 INFO    SenderThread:44821 [sender.py:transition_state():613] send defer: 8
+2023-11-03 08:09:42,334 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: poll_exit
+2023-11-03 08:09:42,334 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: defer
+2023-11-03 08:09:42,334 INFO    HandlerThread:44821 [handler.py:handle_request_defer():172] handle defer: 8
+2023-11-03 08:09:42,334 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: defer
+2023-11-03 08:09:42,334 INFO    SenderThread:44821 [sender.py:send_request_defer():609] handle sender defer: 8
+2023-11-03 08:09:42,334 INFO    SenderThread:44821 [job_builder.py:build():281] Attempting to build job artifact
+2023-11-03 08:09:42,334 INFO    SenderThread:44821 [job_builder.py:_get_source_type():393] is repo sourced job
+2023-11-03 08:09:42,336 INFO    SenderThread:44821 [job_builder.py:build():369] adding wandb-job metadata file
+2023-11-03 08:09:42,337 INFO    SenderThread:44821 [sender.py:transition_state():613] send defer: 9
+2023-11-03 08:09:42,337 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: defer
+2023-11-03 08:09:42,337 INFO    HandlerThread:44821 [handler.py:handle_request_defer():172] handle defer: 9
+2023-11-03 08:09:42,337 DEBUG   SenderThread:44821 [sender.py:send():380] send: artifact
+2023-11-03 08:09:42,632 INFO    Thread-12 :44821 [dir_watcher.py:_on_file_modified():288] file/dir modified: /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files/output.log
+2023-11-03 08:09:43,094 INFO    SenderThread:44821 [sender.py:send_artifact():1456] sent artifact job-https___github.com_MariekeKopmels_Thesis.git_WandBSkinSegmentation.py - {'id': 'QXJ0aWZhY3Q6NjI2NzIxMjg4', 'state': 'COMMITTED', 'artifactSequence': {'id': 'QXJ0aWZhY3RDb2xsZWN0aW9uOjExMjMzODU2MQ==', 'latestArtifact': {'id': 'QXJ0aWZhY3Q6NjI2NzIxMjg4', 'versionIndex': 0}}}
+2023-11-03 08:09:43,095 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: defer
+2023-11-03 08:09:43,095 INFO    SenderThread:44821 [sender.py:send_request_defer():609] handle sender defer: 9
+2023-11-03 08:09:43,095 INFO    SenderThread:44821 [dir_watcher.py:finish():358] shutting down directory watcher
+2023-11-03 08:09:43,638 INFO    SenderThread:44821 [dir_watcher.py:finish():388] scan: /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files
+2023-11-03 08:09:43,638 INFO    SenderThread:44821 [dir_watcher.py:finish():402] scan save: /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files/requirements.txt requirements.txt
+2023-11-03 08:09:43,638 INFO    SenderThread:44821 [dir_watcher.py:finish():402] scan save: /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files/output.log output.log
+2023-11-03 08:09:43,638 INFO    SenderThread:44821 [dir_watcher.py:finish():402] scan save: /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files/config.yaml config.yaml
+2023-11-03 08:09:43,640 INFO    SenderThread:44821 [dir_watcher.py:finish():402] scan save: /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files/wandb-summary.json wandb-summary.json
+2023-11-03 08:09:43,641 INFO    SenderThread:44821 [dir_watcher.py:finish():402] scan save: /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files/wandb-metadata.json wandb-metadata.json
+2023-11-03 08:09:43,643 INFO    SenderThread:44821 [sender.py:transition_state():613] send defer: 10
+2023-11-03 08:09:43,643 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: defer
+2023-11-03 08:09:43,643 INFO    HandlerThread:44821 [handler.py:handle_request_defer():172] handle defer: 10
+2023-11-03 08:09:43,644 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: defer
+2023-11-03 08:09:43,644 INFO    SenderThread:44821 [sender.py:send_request_defer():609] handle sender defer: 10
+2023-11-03 08:09:43,644 INFO    SenderThread:44821 [file_pusher.py:finish():175] shutting down file pusher
+2023-11-03 08:09:44,015 INFO    wandb-upload_0:44821 [upload_job.py:push():131] Uploaded file /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files/requirements.txt
+2023-11-03 08:09:44,061 INFO    wandb-upload_1:44821 [upload_job.py:push():131] Uploaded file /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files/output.log
+2023-11-03 08:09:44,096 INFO    wandb-upload_3:44821 [upload_job.py:push():131] Uploaded file /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files/wandb-summary.json
+2023-11-03 08:09:44,104 INFO    wandb-upload_2:44821 [upload_job.py:push():131] Uploaded file /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/files/config.yaml
+2023-11-03 08:09:44,309 INFO    Thread-11 (_thread_body):44821 [sender.py:transition_state():613] send defer: 11
+2023-11-03 08:09:44,309 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: defer
+2023-11-03 08:09:44,309 INFO    HandlerThread:44821 [handler.py:handle_request_defer():172] handle defer: 11
+2023-11-03 08:09:44,309 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: defer
+2023-11-03 08:09:44,309 INFO    SenderThread:44821 [sender.py:send_request_defer():609] handle sender defer: 11
+2023-11-03 08:09:44,309 INFO    SenderThread:44821 [file_pusher.py:join():181] waiting for file pusher
+2023-11-03 08:09:44,309 INFO    SenderThread:44821 [sender.py:transition_state():613] send defer: 12
+2023-11-03 08:09:44,309 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: defer
+2023-11-03 08:09:44,309 INFO    HandlerThread:44821 [handler.py:handle_request_defer():172] handle defer: 12
+2023-11-03 08:09:44,309 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: defer
+2023-11-03 08:09:44,309 INFO    SenderThread:44821 [sender.py:send_request_defer():609] handle sender defer: 12
+2023-11-03 08:09:44,309 INFO    SenderThread:44821 [file_stream.py:finish():595] file stream finish called
+2023-11-03 08:09:44,470 INFO    SenderThread:44821 [file_stream.py:finish():599] file stream finish is done
+2023-11-03 08:09:44,470 INFO    SenderThread:44821 [sender.py:transition_state():613] send defer: 13
+2023-11-03 08:09:44,470 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: defer
+2023-11-03 08:09:44,470 INFO    HandlerThread:44821 [handler.py:handle_request_defer():172] handle defer: 13
+2023-11-03 08:09:44,470 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: defer
+2023-11-03 08:09:44,470 INFO    SenderThread:44821 [sender.py:send_request_defer():609] handle sender defer: 13
+2023-11-03 08:09:44,470 INFO    SenderThread:44821 [sender.py:transition_state():613] send defer: 14
+2023-11-03 08:09:44,470 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: defer
+2023-11-03 08:09:44,470 INFO    HandlerThread:44821 [handler.py:handle_request_defer():172] handle defer: 14
+2023-11-03 08:09:44,470 DEBUG   SenderThread:44821 [sender.py:send():380] send: final
+2023-11-03 08:09:44,470 DEBUG   SenderThread:44821 [sender.py:send():380] send: footer
+2023-11-03 08:09:44,470 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: defer
+2023-11-03 08:09:44,470 INFO    SenderThread:44821 [sender.py:send_request_defer():609] handle sender defer: 14
+2023-11-03 08:09:44,471 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: internal_messages
+2023-11-03 08:09:44,471 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: poll_exit
+2023-11-03 08:09:44,471 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: server_info
+2023-11-03 08:09:44,471 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: poll_exit
+2023-11-03 08:09:44,472 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: server_info
+2023-11-03 08:09:44,472 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: get_summary
+2023-11-03 08:09:44,472 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: sampled_history
+2023-11-03 08:09:44,473 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: job_info
+2023-11-03 08:09:44,610 DEBUG   SenderThread:44821 [sender.py:send_request():407] send_request: job_info
+2023-11-03 08:09:44,610 DEBUG   HandlerThread:44821 [handler.py:handle_request():146] handle_request: shutdown
+2023-11-03 08:09:44,610 INFO    HandlerThread:44821 [handler.py:finish():866] shutting down handler
+2023-11-03 08:09:45,475 INFO    WriterThread:44821 [datastore.py:close():294] close: /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/wandb/run-20231103_080930-ry85jhtc/run-ry85jhtc.wandb
+2023-11-03 08:09:45,611 INFO    SenderThread:44821 [sender.py:finish():1534] shutting down sender
+2023-11-03 08:09:45,611 INFO    SenderThread:44821 [file_pusher.py:finish():175] shutting down file pusher
+2023-11-03 08:09:45,612 INFO    SenderThread:44821 [file_pusher.py:join():181] waiting for file pusher

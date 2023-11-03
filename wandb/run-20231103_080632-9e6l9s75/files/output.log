@@ -1,0 +1,12 @@
+
+Loading training data...
+Traceback (most recent call last):
+  File "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/WandBSkinSegmentation.py", line 326, in model_pipeline
+    model, train_loader, test_loader, loss_function, optimizer = make(config)
+  File "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/WandBSkinSegmentation.py", line 234, in make
+    train, test = load_data(config, [], [])
+  File "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/WandBSkinSegmentation.py", line 84, in load_data
+    train_images, train_gts = load_images(config, train_images, train_gts, base_path + "/TrainImages", base_path + "/TrainGroundTruth")
+  File "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/WandBSkinSegmentation.py", line 38, in load_images
+    image_list = listdir(image_dir_path)
+TypeError: listdir: path should be string, bytes, os.PathLike, integer or None, not list

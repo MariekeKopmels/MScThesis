@@ -1,0 +1,37 @@
+{
+    "os": "macOS-13.5-arm64-arm-64bit",
+    "python": "3.10.9",
+    "heartbeatAt": "2023-11-03T07:20:16.052521",
+    "startedAt": "2023-11-03T07:20:15.517227",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/WandBSkinSegmentation.py",
+    "codePathLocal": "WandBSkinSegmentation.py",
+    "codePath": "WandBSkinSegmentation.py",
+    "git": {
+        "remote": "https://github.com/MariekeKopmels/Thesis.git",
+        "commit": "a6b5d3e92d79d5263b8125c79c38777abfb3b204"
+    },
+    "email": "marieke@kopmels.com",
+    "root": "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis",
+    "host": "Mariekes-MacBook-Pro.local",
+    "username": "mariekekopmels",
+    "executable": "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/SkinVenv/bin/python",
+    "cpu_count": 10,
+    "cpu_count_logical": 10,
+    "disk": {
+        "/": {
+            "total": 926.3517189025879,
+            "used": 8.544288635253906
+        }
+    },
+    "gpuapple": {
+        "type": "arm",
+        "vendor": "Apple"
+    },
+    "memory": {
+        "total": 64.0
+    }
+}

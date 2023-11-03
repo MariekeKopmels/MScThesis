@@ -14,11 +14,12 @@ from torch import optim
 from torchmetrics.classification import Dice
 from torch.utils.data import DataLoader
 
+import wandb
 
 # # Test
 BATCH_SIZE      = 32
 NUM_EPOCHS      = 25
-LR              = 0.01
+LR              = 0.001
 MOMENTUM        = 0.99
 TRAIN_SIZE      = 128
 TEST_SIZE       = 32
@@ -361,9 +362,6 @@ if __name__ == '__main__':
         print(f"mean train loss: {epoch_train_loss/TRAIN_SIZE:.6f} \nmean test  loss: {epoch_test_loss/TEST_SIZE:.6f} ")
     
     
-    run_time = time.time() - start_time
-    print("Running time: ", round(run_time,3))
-    
     # Plot losses
     x = range(1, NUM_EPOCHS + 1)
     plt.plot(x, train_losses, label='Train Loss', color='blue')
@@ -373,3 +371,6 @@ if __name__ == '__main__':
     # plt.ylim(0, 2000)
     plt.legend()
     plt.savefig("Loss_plot.jpg")
+    
+    run_time = time.time() - start_time
+    print("Running time: ", round(run_time,3))
