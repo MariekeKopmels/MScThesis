@@ -4,7 +4,8 @@ import random
 import time
 from os import listdir
 import numpy as np
-
+import LossFunctions
+import UNet
 import cv2
 import matplotlib.pyplot as plt
 import torch
@@ -18,6 +19,14 @@ import wandb
 
 NO_PIXELS = 224 
 
+loss_dictionary = {
+    "IoU": LossFunctions.IoULoss(),
+    "Focal": LossFunctions.FocalLoss(),
+    "CE": nn.CrossEntropyLoss(),
+    "BCE": nn.BCELoss(),
+    "L1": nn.L1Loss(),
+}
+
 config = dict(
     BATCH_SIZE=32,
     NUM_EPOCHS=25,
@@ -25,6 +34,7 @@ config = dict(
     MOMENTUM=0.99,
     TRAIN_SIZE=128,
     TEST_SIZE=32,
+    loss_function = "IoU",
     dataset="VisuAAL",
     architecture="UNet", 
     device=torch.device("mps"))
@@ -91,144 +101,6 @@ def load_data(config, train, test):
 
     return train, test
 
-class IoULoss(nn.Module):
-    def __init__(self, smooth=1.0):
-        super(IoULoss, self).__init__()
-        self.smooth = smooth
-
-    def forward(self, prediction, target):
-        # Flatten the inputs to 2D tensors (batch_size * height * width, channels)
-        prediction = prediction.view(-1, prediction.size(1))
-        target = target.view(-1, target.size(1))
-
-        # Calculate intersection and union
-        intersection = torch.sum(prediction * target, dim=0)
-        union = torch.sum(prediction + target, dim=0) - intersection
-
-        # Calculate IoU for each channel
-        iou = (intersection + self.smooth) / (union + self.smooth)
-
-        # Average IoU across all channels
-        mean_iou = torch.mean(iou)
-
-        # Return 1 - mean IoU as the loss (to be minimized)
-        loss = 1 - mean_iou
-
-        return loss
-
-class FocalLoss(nn.Module):
-    def __init__(self, alpha=0.25, gamma=2.0, reduction='mean'):
-        super(FocalLoss, self).__init__()
-        self.alpha = alpha
-        self.gamma = gamma
-        self.reduction = reduction
-
-    def forward(self, prediction, target):
-        # Calculate binary cross-entropy loss
-        bce_loss = F.binary_cross_entropy_with_logits(prediction, target, reduction='none')
-
-        # Calculate the modulating factor (alpha * target + (1 - alpha) * (1 - target))^gamma
-        modulating_factor = (self.alpha * target + (1 - self.alpha) * (1 - target)).pow(self.gamma)
-
-        # Calculate the focal loss
-        focal_loss = bce_loss * modulating_factor
-
-        if self.reduction == 'mean':
-            return focal_loss.mean()
-        elif self.reduction == 'sum':
-            return focal_loss.sum()
-        else:
-            return focal_loss
-        
-
-class conv_block(nn.Module):
-    def __init__(self, in_c, out_c):
-        super().__init__()
-        self.conv1 = nn.Conv2d(in_c, out_c, kernel_size=3, padding=1)
-        self.bn1 = nn.BatchNorm2d(out_c)
-        self.conv2 = nn.Conv2d(out_c, out_c, kernel_size=3, padding=1)
-        self.bn2 = nn.BatchNorm2d(out_c)
-        self.relu = nn.ReLU()
-        
-    def forward(self, inputs):
-        x = self.conv1(inputs)
-        x = self.bn1(x)
-        x = self.relu(x)
-        x = self.conv2(x)
-        x = self.bn2(x)
-        x = self.relu(x)
-        
-        return x
-     
-class encoder_block(nn.Module):
-    def __init__(self, in_c, out_c):
-        super().__init__()
-        self.conv = conv_block(in_c, out_c)
-        self.pool = nn.MaxPool2d((2, 2))
-    
-    def forward(self, inputs):
-        x = self.conv(inputs)
-        p = self.pool(x)
-        
-        return x, p
-
-class decoder_block(nn.Module):
-    def __init__(self, in_c, out_c):
-        super().__init__()
-        self.up = nn.ConvTranspose2d(in_c, out_c, kernel_size=2, stride=2, padding=0)
-        self.conv = conv_block(out_c+out_c, out_c)
-    
-    def forward(self, inputs, skip):
-        x = self.up(inputs)
-        x = torch.cat([x, skip], axis=1)
-        x = self.conv(x)
-        
-        return x
-
-class UNET(nn.Module):
-    def __init__(self):
-        super().__init__()
-        """ Encoder """
-        self.e1 = encoder_block(3, 64)
-        self.e2 = encoder_block(64, 128)
-        self.e3 = encoder_block(128, 256)
-        self.e4 = encoder_block(256, 512)
-        """ Bottleneck """
-        self.b = conv_block(512, 1024)
-        """ Decoder """
-        self.d1 = decoder_block(1024, 512)
-        self.d2 = decoder_block(512, 256)
-        self.d3 = decoder_block(256, 128)
-        self.d4 = decoder_block(128, 64)
-        """ Classifier """
-        self.outputs = nn.Conv2d(64, 1, kernel_size=1, padding=0)
-        self.sigmoid = nn.Sigmoid()
-    
-    def forward(self, inputs):
-        # For the last few items, the batch size may be smaller than BATCH_SIZE
-        batch_size = len(inputs)
-        
-        """ Encoder """
-        s1, p1 = self.e1(inputs)
-        s2, p2 = self.e2(p1)
-        s3, p3 = self.e3(p2)
-        s4, p4 = self.e4(p3)
-        """ Bottleneck """
-        b = self.b(p4)
-        """ Decoder """
-        d1 = self.d1(b, s4)
-        d2 = self.d2(d1, s3)
-        d3 = self.d3(d2, s2)
-        d4 = self.d4(d3, s1)
-        """ Classifier """
-        x = self.outputs(d4)
-        x = self.sigmoid(x)
-        
-        """ Reformatting"""
-        outputs = x.clone().reshape(batch_size, NO_PIXELS, NO_PIXELS)
-        
-        return outputs
-
 def make(config):
     # Make the data
     train, test = load_data(config, [], [])
@@ -236,18 +108,10 @@ def make(config):
     test_loader = DataLoader(test, batch_size=config.BATCH_SIZE, shuffle=False)
 
     # Make the model
-    model = UNET().to(config.device)
+    model = UNet.UNET().to(config.device)
 
-    # Make the loss and optimizer 
-    # TODO: Dit ook in de config fixen?
     # Define loss function and optimizer
-    # loss_function = nn.CrossEntropyLoss()
-    # loss_function = nn.BCEWithLogitsLoss()
-    # loss_function = nn.L1Loss()
-    # loss_function = nn.BCELoss()
-    loss_function = IoULoss()
-    # loss_function = FocalLoss()
-    
+    loss_function = loss_dictionary[config.loss_function]
     optimizer = optim.SGD(model.parameters(), lr=config.LR, momentum=config.MOMENTUM)
     # optimizer = optim.Adam(model.parameters(), lr=config.LR)
     
@@ -279,7 +143,7 @@ def train_batch(config, images, targets, model, optimizer, loss_function):
     images = images.float()
     targets = targets.float()
     
-    outputs = model(images)
+    outputs = model(images, NO_PIXELS)
     
     loss = loss_function(outputs, targets)
     loss.backward()
