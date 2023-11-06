@@ -1,0 +1,31 @@
+program: WandBSkinSegmentation.py
+
+method: random
+
+project: "skin_segmentation"
+
+metric:
+  name: fn_rate
+  goal: minimize
+
+parameters:
+  batch_size: 
+    value: 32
+  train_size: 
+    value: 128
+  test_size:
+    value: 32
+  lr:
+    values: [0.01, 0.001, 0.0001]
+    # distribution: uniform
+    # min: 0.0001
+    # max: 0.01
+  momentum:
+    values: [0.9, 0.99, 0.999]
+    # distribution: uniform
+    # min: 0.9
+    # max: 0.999
+  loss_function: 
+    values: 
+      - "IoU"
+      - "Focal"

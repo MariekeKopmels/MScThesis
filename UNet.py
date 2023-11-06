@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+NO_PIXELS = 224
+
 class conv_block(nn.Module):
     def __init__(self, in_c, out_c):
         super().__init__()
@@ -64,7 +66,7 @@ class UNET(nn.Module):
         self.outputs = nn.Conv2d(64, 1, kernel_size=1, padding=0)
         self.sigmoid = nn.Sigmoid()
     
-    def forward(self, inputs, NO_PIXELS):
+    def forward(self, inputs):
         # For the last few items, the batch size may be smaller than BATCH_SIZE
         batch_size = len(inputs)
         

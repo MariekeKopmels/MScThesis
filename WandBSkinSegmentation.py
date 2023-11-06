@@ -1,22 +1,14 @@
 #MSc Thesis Marieke Kopmels
-import os
-import random
-import time
-from os import listdir
-import numpy as np
+import argparse
+from types import SimpleNamespace
 import LossFunctions
+import DataFunctions
 import UNet
-import cv2
-import matplotlib.pyplot as plt
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch import optim
-from torchmetrics.classification import Dice
-from torch.utils.data import DataLoader
-from sklearn import metrics
-
 import wandb
+import torch.nn as nn
+from torch import optim
+
 
 NO_PIXELS = 224 
 
@@ -26,95 +18,48 @@ loss_dictionary = {
     "CE": nn.CrossEntropyLoss(),
     "BCE": nn.BCELoss(),
     "L1": nn.L1Loss(),
-}
+} 
 
-config = dict(
-    BATCH_SIZE=64,
-    NUM_EPOCHS=10,
-    LR=0.01,
-    MOMENTUM=0.99,
-    TRAIN_SIZE=256,
-    TEST_SIZE=64,
-    loss_function = "IoU",
-    dataset="VisuAAL",
-    architecture="UNet", 
-    device=torch.device("mps"))
+default_config = SimpleNamespace(
+    num_epochs = 1,
+    batch_size = 32, 
+    train_size = 128, 
+    test_size = 32,
+    lr = 0.001, 
+    momentum = 0.99, 
+    loss_function = "IoU", 
+    dataset = "VisuAAL", 
+    architecture = "UNet", 
+    device = torch.device("mps")
+)
 
-"""Returns images in a given directory
-        Format of return: list of NumPy arrays.
-        NumPy arrays are of shape (224,224,3) for images and (224,224) for ground truths 
-"""
-def load_images(config, images, gts, image_dir_path, gt_dir_path, test=False):
-    # Load list of files and directories
-    image_list = listdir(image_dir_path)
-    gt_list = listdir(gt_dir_path)
-    
-    # Not all images have a ground truth, select those that do
-    dir_list = [file for file in image_list if file in gt_list]
-    dir_list = sorted(dir_list, key=str.casefold)
-    
-    if test:
-        dir_list = dir_list[:config.TEST_SIZE]
-    else:
-        dir_list = dir_list[:config.TRAIN_SIZE]
-    
-    for file_name in dir_list:
-        # Hidden files, irrelevant for this usecase
-        if file_name.startswith('.'):
-            continue
-        # Read the images
-        img_path = image_dir_path + "/" + file_name
-        gt_path = gt_dir_path + "/" + file_name
-        
-        img = cv2.imread(img_path)
-        gt = cv2.imread(gt_path)
-        
-        # Convert Ground Truth from RGB to 1 channel (Black or White)
-        gt = cv2.cvtColor(gt, cv2.COLOR_BGR2GRAY)
-        _,gt = cv2.threshold(gt,127,1,0)
-        
-        # Resize images and ground truths to size 224*224
-        img = cv2.resize(img, (NO_PIXELS,NO_PIXELS), interpolation=cv2.INTER_CUBIC)
-        gt = cv2.resize(gt, (NO_PIXELS,NO_PIXELS), interpolation=cv2.INTER_CUBIC)
-        
-        #Store in list
-        images.append(img)
-        gts.append(gt)
-        
-    return images, gts
-
-"""Returns train and test, both being tensors with tuples of input images and corresponding ground truths.
-        Format of return: Tensor of tuples containging an input tensor and a ground truth tensor
-        Image tensors are of shape (batch_size, channels, height, width)
-"""
-def load_data(config, train, test):
-    base_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/visuAAL"
-
-    train_images, train_gts, test_images, test_gts = [], [], [], []
-    print("Loading training data...")
-    train_images, train_gts = load_images(config, train_images, train_gts, base_path + "/TrainImages", base_path + "/TrainGroundTruth")
-    print("Loading testing data...")
-    test_images, test_gts = load_images(config, test_images, test_gts, base_path + "/TestImages", base_path + "/TestGroundTruth", test = True)
-    
-    # TODO: fix de eerst naar numpy en daarna pas naar tensor (sneller dan vanaf een list direct naar tensor maar nu heel lelijk)
-    train = torch.utils.data.TensorDataset(torch.as_tensor(np.array(train_images)).permute(0,3,1,2), torch.as_tensor(np.array(train_gts)).permute(0,1,2))
-    test = torch.utils.data.TensorDataset(torch.as_tensor(np.array(test_images)).permute(0,3,1,2), torch.as_tensor(np.array(test_gts)).permute(0,1,2))
-
-    return train, test
+def parse_args():
+    "Overriding default arguments"
+    argparser = argparse.ArgumentParser(description='Process hyper-parameters')
+    argparser.add_argument('--batch_size', type=int, default=default_config.batch_size, help='batch size')
+    argparser.add_argument('--num_epochs', type=int, default=default_config.num_epochs, help='number of epochs')
+    argparser.add_argument('--lr', type=float, default=default_config.lr, help='learning rate')
+    argparser.add_argument('--momentum', type=float, default=default_config.momentum, help='momentum')
+    argparser.add_argument('--train_size', type=int, default=default_config.train_size, help='trains size')
+    argparser.add_argument('--test_size', type=int, default=default_config.test_size, help='test size')
+    argparser.add_argument('--loss_function', type=str, default=default_config.loss_function, help='loss function')
+    argparser.add_argument('--dataset', type=str, default=default_config.dataset, help='dataset')
+    argparser.add_argument('--architecture', type=str, default=default_config.architecture, help='architecture')
+    argparser.add_argument('--device', type=torch.device, default=default_config.device, help='device')
+    args = argparser.parse_args()
+    vars(default_config).update(vars(args))
+    return
 
 def make(config):
-    # Make the data
-    train, test = load_data(config, [], [])
-    train_loader = DataLoader(train, batch_size=config.BATCH_SIZE, shuffle=True)
-    test_loader = DataLoader(test, batch_size=config.BATCH_SIZE, shuffle=False)
-
+    # Fetch data
+    train_loader, test_loader = DataFunctions.load_data(config, [], [])
+    
     # Make the model
     model = UNet.UNET().to(config.device)
 
     # Define loss function and optimizer
     loss_function = loss_dictionary[config.loss_function]
-    optimizer = optim.SGD(model.parameters(), lr=config.LR, momentum=config.MOMENTUM)
-    # optimizer = optim.Adam(model.parameters(), lr=config.LR)
+    optimizer = optim.SGD(model.parameters(), lr=config.lr, momentum=config.momentum)
     
     return model, train_loader, test_loader, loss_function, optimizer
 
@@ -125,8 +70,8 @@ def train(config, model, train_loader, loss_function, optimizer):
     # Store the losses
     train_losses = []
     
-    for epoch in range(config.NUM_EPOCHS):
-        print(f"-------------------------Starting Epoch {epoch+1}/{config.NUM_EPOCHS} epochs-------------------------")
+    for epoch in range(config.num_epochs):
+        print(f"-------------------------Starting Epoch {epoch+1}/{config.num_epochs} epochs-------------------------")
         model.train()
         epoch_train_loss = 0.0
         # epoch_test_loss = 0.0
@@ -134,16 +79,16 @@ def train(config, model, train_loader, loss_function, optimizer):
         for images, targets in train_loader:  
             loss, accuracy, fn_rate, fp_rate, sensitivity = train_batch(config, images, targets, model, optimizer, loss_function)
             epoch_train_loss += loss.item()
-        train_log(config, epoch_train_loss, accuracy, fn_rate, fp_rate, sensitivity, epoch)
+        train_epoch_log(config, epoch_train_loss, accuracy, fn_rate, fp_rate, sensitivity, epoch)
             
-    train_losses.append(epoch_train_loss/config.TRAIN_SIZE)
-    print(f"mean train loss: {epoch_train_loss/config.TRAIN_SIZE:.6f}")         
+    train_losses.append(epoch_train_loss/config.train_size)
+    print(f"mean train loss: {epoch_train_loss/config.train_size:.6f}")         
     
 def train_batch(config, images, targets, model, optimizer, loss_function):
     images, targets = images.to(config.device), targets.to(config.device)
     images = images.float()
     targets = targets.float()
-    outputs = model(images, NO_PIXELS)
+    outputs = model(images)
     
     # print(f"example output: {outputs[0].flatten()}")
     # print(f"example target: {targets[0].flatten()}")
@@ -152,19 +97,14 @@ def train_batch(config, images, targets, model, optimizer, loss_function):
     loss.backward()
     optimizer.step()
     
-    # accuracy, fn = calculate_metrics(outputs, targets)
-    tn, fn, fp, tp = confusion_matrix(outputs, targets)
-    accuracy = (tp+tn)/(tn+fn+fp+tp)
-    fn_rate = fn/(fn+tp)
-    fp_rate = fp/(tn+fp)
-    sensitivity = tp/(tp+fn)
+    tn, fn, fp, tp = DataFunctions.confusion_matrix(outputs, targets)
+    accuracy, fn_rate, fp_rate, sensitivity = DataFunctions.metrics(tn, fn, fp, tp)
     return loss, accuracy, fn_rate, fp_rate, sensitivity
 
-def train_log(config, epoch_train_loss, accuracy, fn_rate, fp_rate, sensitivity, epoch):
-    # Where the magic happens
+def train_epoch_log(config, epoch_train_loss, accuracy, fn_rate, fp_rate, sensitivity, epoch):
     wandb.log({"epoch": epoch, "mean_loss": epoch_train_loss, "accuracy": accuracy, 
                "fn_rate": fn_rate, "fp_rate": fp_rate, "sensitivity": sensitivity})
-    print(f"mean train loss: {epoch_train_loss/config.TRAIN_SIZE:.6f}, accuracy: {accuracy:.3f}, fn: {fn_rate:.3f}, fp:: {fp_rate:.3f}, sensitivity: {sensitivity:.3f}") 
+    print(f"mean train loss: {epoch_train_loss/config.train_size:.6f}, accuracy: {accuracy:.3f}, fn: {fn_rate:.3f}, fp:: {fp_rate:.3f}, sensitivity: {sensitivity:.3f}") 
     # print(f"Loss after {str(example_ct).zfill(5)} examples: {loss:.3f}")
     
 def test(config, model, test_loader, loss_function):
@@ -178,69 +118,43 @@ def test(config, model, test_loader, loss_function):
             images, targets = images.to(config.device), targets.to(config.device)
             images = images.float()
             targets = targets.float()
-            outputs = model(images, NO_PIXELS)
+            outputs = model(images)
             
             loss = loss_function(outputs, targets)
+            print(f"Loss: {loss}")
+            print(f"Loss.item(): {loss.item()}")
+            print(f"Test_loss: {test_loss}")
+            print(f"Test_losses: {test_losses}")
             test_loss += loss.item()
-
-        test_losses.append(test_loss/config.TEST_SIZE)
-        wandb.log({"mean test loss": test_losses/config.TEST_SIZE})
+            
+        # TODO: Currently test_losses is ignored
+        test_losses.append(test_loss/config.test_size)
+        wandb.log({"mean test loss": test_loss/config.test_size})
 
     # Save the model in the exchangeable ONNX format
-    torch.onnx.export(model, images, "model.onnx")
-    wandb.save("model.onnx")
-    
-
-def confusion_matrix(outputs, targets):
-    batch_size = outputs.shape[0]
-    
-    outputs = outputs.to("cpu")
-    outputs = outputs.detach().numpy()
-    targets = targets.to("cpu")
-    targets = targets.detach().numpy()
-    
-    matrix = [[0.0, 0.0],[0.0, 0.0]]
-    
-    for i in range(batch_size):
-        output = outputs[i].flatten()
-        output = [1.0 if x > 0.5 else 0.0 for x in output]
-        target = targets[i].flatten()
-        # print(f"Example output len: {len(output)}")
-        # print(f"Example target len: {len(target)}")
-        i_matrix = metrics.confusion_matrix(output, target)
-        matrix += i_matrix
-        # print("Confusion matrix:\n", matrix)
-    
-    print("Confusion matrix:\n", matrix)
-    
-    tn = matrix[0][0]
-    fn = matrix[1][0]
-    tp = matrix[1][1]
-    fp = matrix[0][1]
-    
-    return tn, fn, fp, tp
-
+    # TODO: resolve error that rises here
+    # torch.onnx.export(model, images, "model.onnx")
+    # wandb.save("model.onnx")
 
 def model_pipeline(hyperparameters):
     # tell wandb to get started
-    with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
-      # access all HPs through wandb.config, so logging matches execution!
-      config = wandb.config
+    with wandb.init(mode="disabled", project="skin_segmentation", config=hyperparameters): #mode="disabled", 
+        # access all HPs through wandb.config, so logging matches execution!
+        config = wandb.config
 
-      # make the model, data, and optimization problem
-      model, train_loader, test_loader, loss_function, optimizer = make(config)
-    #   print(f"Model: {model}")
+        # make the model, data, and optimization problem
+        model, train_loader, test_loader, loss_function, optimizer = make(config)
+        # print(f"Model: {model}")
 
-      # and use them to train the model
-      train(config, model, train_loader, loss_function, optimizer)
+        # and use them to train the model
+        train(config, model, train_loader, loss_function, optimizer)
 
-      # and test its final performance
-    # test(config, model, test_loader, loss_function)
+    # and test its final performance
+    # TODO: test function afmaken
+    test(config, model, test_loader, loss_function)
 
     return model
 
 if __name__ == '__main__':
-    start_time = time.time()
-    model = model_pipeline(config)
-    run_time = time.time() - start_time
-    print("Running time: ", round(run_time,3))
+    parse_args()
+    model = model_pipeline(default_config)
