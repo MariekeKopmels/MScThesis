@@ -8,7 +8,7 @@ import torch
 import wandb
 import torch.nn as nn
 from torch import optim
-
+from statistics import mean
 
 NO_PIXELS = 224 
 
@@ -65,75 +65,89 @@ def make(config):
 
 def train(config, model, train_loader, loss_function, optimizer):
     # Tell wandb to watch what the model gets up to: gradients, weights, and more!
-    wandb.watch(model, loss_function, log="all", log_freq=1)
+    wandb.watch(model, log="all", log_freq=1)
     
-    # Store the losses
-    train_losses = []
+    # Store the losses of epochs
+    mean_train_losses = []
+    model.train()
     
     for epoch in range(config.num_epochs):
         print(f"-------------------------Starting Epoch {epoch+1}/{config.num_epochs} epochs-------------------------")
-        model.train()
-        epoch_train_loss = 0.0
-        # epoch_test_loss = 0.0
-        # batch = 0
+        epoch_loss = 0.0
+        epoch_tn, epoch_fn, epoch_fp, epoch_tp = 0, 0, 0, 0
         for images, targets in train_loader:  
-            loss, accuracy, fn_rate, fp_rate, sensitivity = train_batch(config, images, targets, model, optimizer, loss_function)
-            epoch_train_loss += loss.item()
-        train_epoch_log(config, epoch_train_loss, accuracy, fn_rate, fp_rate, sensitivity, epoch)
-            
-    train_losses.append(epoch_train_loss/config.train_size)
-    print(f"mean train loss: {epoch_train_loss/config.train_size:.6f}")         
+            batch_loss, batch_tn, batch_fn, batch_fp, batch_tp = train_batch(config, images, targets, model, optimizer, loss_function)
+            epoch_loss += batch_loss.item()
+            epoch_tn += batch_tn
+            epoch_fn += batch_fn
+            epoch_fp += batch_fp
+            epoch_tp += batch_tp
+        mean_epoch_loss = epoch_loss/config.train_size
+        accuracy, fn_rate, fp_rate, sensitivity = DataFunctions.metrics(epoch_tn, epoch_fn, epoch_fp, epoch_tp)
+        train_epoch_log(config, mean_epoch_loss, accuracy, fn_rate, fp_rate, sensitivity, epoch)
+        #TODO: Add validation per training epoch
+
+    # epoch_train_loss is the total loss in an epoch, the mean train loss of one epoch is stored in train_losses
+    # mean_train_losses.append(mean_epoch_train_loss)
+    # The mean train loss is the mean of all epoch mean train losses
+    # Eruit gehaald, want waarom zou je dit willen weten? 
+    # print(f"mean train loss: {mean(train_losses):.6f}")
     
 def train_batch(config, images, targets, model, optimizer, loss_function):
+    
     images, targets = images.to(config.device), targets.to(config.device)
     images = images.float()
     targets = targets.float()
     outputs = model(images)
-    
-    # print(f"example output: {outputs[0].flatten()}")
-    # print(f"example target: {targets[0].flatten()}")
     
     loss = loss_function(outputs, targets)
     loss.backward()
     optimizer.step()
     
     tn, fn, fp, tp = DataFunctions.confusion_matrix(outputs, targets)
-    accuracy, fn_rate, fp_rate, sensitivity = DataFunctions.metrics(tn, fn, fp, tp)
-    return loss, accuracy, fn_rate, fp_rate, sensitivity
+    return loss, tn, fn, fp, tp
 
-def train_epoch_log(config, epoch_train_loss, accuracy, fn_rate, fp_rate, sensitivity, epoch):
-    wandb.log({"epoch": epoch, "mean_loss": epoch_train_loss, "accuracy": accuracy, 
-               "fn_rate": fn_rate, "fp_rate": fp_rate, "sensitivity": sensitivity})
-    print(f"mean train loss: {epoch_train_loss/config.train_size:.6f}, accuracy: {accuracy:.3f}, fn: {fn_rate:.3f}, fp:: {fp_rate:.3f}, sensitivity: {sensitivity:.3f}") 
-    # print(f"Loss after {str(example_ct).zfill(5)} examples: {loss:.3f}")
+def train_epoch_log(config, mean_epoch_loss, accuracy, fn_rate, fp_rate, sensitivity, epoch):
+    wandb.log({"epoch": epoch, "mean_epoch_loss": mean_epoch_loss, "accuracy": accuracy, "fn_rate": fn_rate, "fp_rate": fp_rate, "sensitivity": sensitivity})
+    print(f"Mean loss: {mean_epoch_loss:.6f}, accuracy: {accuracy:.3f}, fn_rate: {fn_rate:.3f}, fp_rate:: {fp_rate:.3f}, sensitivity: {sensitivity:.3f}") 
     
 def test(config, model, test_loader, loss_function):
-    model.eval()
-    test_losses = []
+    print(f"-------------------------Start testing-------------------------")
     
-    # Run the model on some test examples
+    model.eval()
+    
+    # Run the model on test examples
     with torch.no_grad():
-        test_loss = 0.0
+        total_loss = 0.0
+        total_tn, total_fn, total_fp, total_tp = 0, 0, 0, 0
+        
         for images, targets in test_loader:
             images, targets = images.to(config.device), targets.to(config.device)
             images = images.float()
             targets = targets.float()
             outputs = model(images)
             
-            loss = loss_function(outputs, targets)
-            print(f"Loss: {loss}")
-            print(f"Loss.item(): {loss.item()}")
-            print(f"Test_loss: {test_loss}")
-            print(f"Test_losses: {test_losses}")
-            test_loss += loss.item()
+            batch_loss = loss_function(outputs, targets)
+            batch_tn, batch_fn, batch_fp, batch_tp = DataFunctions.confusion_matrix(outputs, targets)
             
-        # TODO: Currently test_losses is ignored
-        test_losses.append(test_loss/config.test_size)
-        wandb.log({"mean test loss": test_loss/config.test_size})
+            total_loss += batch_loss.item()
+            total_tn += batch_tn
+            total_fn += batch_fn
+            total_fp += batch_fp
+            total_tp += batch_tp
 
+        mean_test_loss = total_loss/config.test_size
+        tn, fn, fp, tp = DataFunctions.confusion_matrix(outputs, targets)
+        accuracy, fn_rate, fp_rate, sensitivity = DataFunctions.metrics(tn, fn, fp, tp)
+        test_log(config, mean_test_loss, accuracy, fn_rate, fp_rate, sensitivity)
+
+def test_log(config, mean_test_loss, test_accuracy, test_fn_rate, test_fp_rate, test_sensitivity):
+    wandb.log({"mean_test_loss": mean_test_loss, "test_accuracy": test_accuracy, "test_fn_rate": test_fn_rate, "test_fp_rate": test_fp_rate, "test_sensitivity": test_sensitivity})
+    print(f"Mean loss: {mean_test_loss:.6f}, accuracy: {test_accuracy:.3f}, fn_rate: {test_fn_rate:.3f}, fp_rate:: {test_fp_rate:.3f}, sensitivity: {test_sensitivity:.3f}") 
+    
     # Save the model in the exchangeable ONNX format
-    # TODO: resolve error that rises here
-    # torch.onnx.export(model, images, "model.onnx")
+    # TODO: Save the model
+    # torch.onnx.export(model, "model.onnx")
     # wandb.save("model.onnx")
 
 def model_pipeline(hyperparameters):
@@ -150,7 +164,6 @@ def model_pipeline(hyperparameters):
         train(config, model, train_loader, loss_function, optimizer)
 
     # and test its final performance
-    # TODO: test function afmaken
     test(config, model, test_loader, loss_function)
 
     return model
