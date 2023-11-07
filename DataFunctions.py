@@ -1,4 +1,4 @@
-from os import listdir
+import os
 import cv2
 import sklearn.metrics
 import torch 
@@ -13,8 +13,8 @@ NO_PIXELS = 224
 """
 def load_images(config, images, gts, image_dir_path, gt_dir_path, test=False):
     # Load list of files and directories
-    image_list = listdir(image_dir_path)
-    gt_list = listdir(gt_dir_path)
+    image_list = os.listdir(image_dir_path)
+    gt_list = os.listdir(gt_dir_path)
     
     # Not all images have a ground truth, select those that do
     dir_list = [file for file in image_list if file in gt_list]
@@ -90,7 +90,7 @@ def confusion_matrix(outputs, targets):
         i_matrix = sklearn.metrics.confusion_matrix(output, target)
         matrix += i_matrix
     
-    # print("Confusion matrix:\n", matrix)
+    print("Confusion matrix:\n", matrix)
     
     tn = matrix[0][0]
     fn = matrix[1][0]
@@ -109,3 +109,16 @@ def metrics(tn, fn, fp, tp):
     sensitivity = tp/(fn+tp) if fn+tp!= 0 else 1
     
     return accuracy, fn_rate, fp_rate, sensitivity
+
+def save_image(filename, image, bw=False):
+    directory = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Output/WandB/"
+    os.chdir(directory)
+    image = image.permute(1,2,0)
+    image = image.to("cpu")
+    # print("Dims recieved for printing image: ", image.shape)
+    if bw:
+        image = image*225
+    if type(image) != np.ndarray:
+        cv2.imwrite(filename, image.numpy())
+    else:
+        cv2.imwrite(filename, image)

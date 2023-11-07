@@ -9,6 +9,8 @@ metric:
   goal: minimize
 
 parameters:
+  num_epochs:
+    value: 10
   batch_size: 
     value: 32
   train_size: 
@@ -28,4 +30,4 @@ parameters:
   loss_function: 
     values: 
       - "IoU"
-      - "Focal"
+      # - "Focal"

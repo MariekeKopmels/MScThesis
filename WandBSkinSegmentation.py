@@ -9,6 +9,8 @@ import wandb
 import torch.nn as nn
 from torch import optim
 from statistics import mean
+from torchvision.transforms import ToPILImage
+
 
 NO_PIXELS = 224 
 
@@ -21,7 +23,7 @@ loss_dictionary = {
 } 
 
 default_config = SimpleNamespace(
-    num_epochs = 1,
+    num_epochs = 10,
     batch_size = 32, 
     train_size = 128, 
     test_size = 32,
@@ -50,6 +52,7 @@ def parse_args():
     vars(default_config).update(vars(args))
     return
 
+
 def make(config):
     # Fetch data
     train_loader, test_loader = DataFunctions.load_data(config, [], [])
@@ -68,7 +71,6 @@ def train(config, model, train_loader, loss_function, optimizer):
     wandb.watch(model, log="all", log_freq=1)
     
     # Store the losses of epochs
-    mean_train_losses = []
     model.train()
     
     for epoch in range(config.num_epochs):
@@ -82,16 +84,11 @@ def train(config, model, train_loader, loss_function, optimizer):
             epoch_fn += batch_fn
             epoch_fp += batch_fp
             epoch_tp += batch_tp
-        mean_epoch_loss = epoch_loss/config.train_size
+        mean_loss = epoch_loss/config.train_size
         accuracy, fn_rate, fp_rate, sensitivity = DataFunctions.metrics(epoch_tn, epoch_fn, epoch_fp, epoch_tp)
-        train_epoch_log(config, mean_epoch_loss, accuracy, fn_rate, fp_rate, sensitivity, epoch)
+        train_epoch_log(config, mean_loss, accuracy, fn_rate, fp_rate, sensitivity, epoch)
         #TODO: Add validation per training epoch
 
-    # epoch_train_loss is the total loss in an epoch, the mean train loss of one epoch is stored in train_losses
-    # mean_train_losses.append(mean_epoch_train_loss)
-    # The mean train loss is the mean of all epoch mean train losses
-    # Eruit gehaald, want waarom zou je dit willen weten? 
-    # print(f"mean train loss: {mean(train_losses):.6f}")
     
 def train_batch(config, images, targets, model, optimizer, loss_function):
     
@@ -107,9 +104,9 @@ def train_batch(config, images, targets, model, optimizer, loss_function):
     tn, fn, fp, tp = DataFunctions.confusion_matrix(outputs, targets)
     return loss, tn, fn, fp, tp
 
-def train_epoch_log(config, mean_epoch_loss, accuracy, fn_rate, fp_rate, sensitivity, epoch):
-    wandb.log({"epoch": epoch, "mean_epoch_loss": mean_epoch_loss, "accuracy": accuracy, "fn_rate": fn_rate, "fp_rate": fp_rate, "sensitivity": sensitivity})
-    print(f"Mean loss: {mean_epoch_loss:.6f}, accuracy: {accuracy:.3f}, fn_rate: {fn_rate:.3f}, fp_rate:: {fp_rate:.3f}, sensitivity: {sensitivity:.3f}") 
+def train_epoch_log(config, mean_loss, accuracy, fn_rate, fp_rate, sensitivity, epoch):
+    wandb.log({"epoch": epoch, "mean_loss": mean_loss, "accuracy": accuracy, "fn_rate": fn_rate, "fp_rate": fp_rate, "sensitivity": sensitivity})
+    print(f"Mean loss: {mean_loss:.6f}, accuracy: {accuracy:.3f}, fn_rate: {fn_rate:.3f}, fp_rate:: {fp_rate:.3f}, sensitivity: {sensitivity:.3f}") 
     
 def test(config, model, test_loader, loss_function):
     print(f"-------------------------Start testing-------------------------")
@@ -126,6 +123,18 @@ def test(config, model, test_loader, loss_function):
             images = images.float()
             targets = targets.float()
             outputs = model(images)
+            
+            DataFunctions.save_image("TestImage.jpg", images[0])
+            # image = images[0].to("cpu")
+            # print("Dims recieved for printing image: ", image.shape)
+            # image = image.permute(1,2,0)
+            # print("Dims recieved for printing image: ", image.shape)
+            # image = image.numpy()
+            # pil_image = ToPILImage()(image)
+            wandb.log({"Input image": [wandb.Image("TestImage.jpg")]})
+            # wandb.log({"Input image": [wandb.Image(pil_image)]})
+            wandb.log({"Target output": [wandb.Image(targets[0])]})
+            wandb.log({"Model output": [wandb.Image(outputs[0])]})
             
             batch_loss = loss_function(outputs, targets)
             batch_tn, batch_fn, batch_fp, batch_tp = DataFunctions.confusion_matrix(outputs, targets)
@@ -152,7 +161,7 @@ def test_log(config, mean_test_loss, test_accuracy, test_fn_rate, test_fp_rate, 
 
 def model_pipeline(hyperparameters):
     # tell wandb to get started
-    with wandb.init(mode="disabled", project="skin_segmentation", config=hyperparameters): #mode="disabled", 
+    with wandb.init(mode="run", project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # access all HPs through wandb.config, so logging matches execution!
         config = wandb.config
 
@@ -163,8 +172,8 @@ def model_pipeline(hyperparameters):
         # and use them to train the model
         train(config, model, train_loader, loss_function, optimizer)
 
-    # and test its final performance
-    test(config, model, test_loader, loss_function)
+        # and test its final performance
+        test(config, model, test_loader, loss_function)
 
     return model
 
