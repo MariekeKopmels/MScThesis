@@ -77,7 +77,7 @@ def load_data(config, train, test):
 
 """Returns the values of the confusion matrix of true negative, false negative, true positive and false positive values
 """
-def confusion_matrix(outputs, targets):
+def confusion_matrix(outputs, targets, test=False):
     batch_size = outputs.shape[0]
     
     outputs = outputs.to("cpu")
@@ -92,10 +92,18 @@ def confusion_matrix(outputs, targets):
         output = outputs[i].flatten()
         output = [1.0 if x > 0.5 else 0.0 for x in output]
         target = targets[i].flatten()
-        i_matrix = sklearn.metrics.confusion_matrix(output, target)
+        
+        # if test: 
+        #     print(f"Number of 0's in output: {np.sum(output == 0)}")
+        #     print(f"Number of 0's in target: {np.sum(target == 0)}")
+        #     print(f"Number of 1's in output: {np.sum(output == 1)}")
+        #     print(f"Number of 1's in target: {np.sum(target == 1)}")
+        
+        i_matrix = sklearn.metrics.confusion_matrix(target, output)
         matrix += i_matrix
     
-    print("Confusion matrix:\n", matrix)
+    if test:
+        print("Confusion matrix test:\n", matrix)
     
     tn = matrix[0][0]
     fn = matrix[1][0]
@@ -116,7 +124,10 @@ def metrics(tn, fn, fp, tp):
     # If there are no pixels that should be marked as skin, the sensitivity should be 1
     sensitivity = tp/(fn+tp) if fn+tp!= 0 else 1
     
-    return accuracy, fn_rate, fp_rate, sensitivity
+    f1_score = tp/(tp+((fp+fn)*0.5))
+    IoU = tp/(tp+fp+fn)
+        
+    return accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU
 
 """ Stores an image to the disk.
 """

@@ -68,7 +68,8 @@ class UNET(nn.Module):
         """ Classifier """
         self.outputs = nn.Conv2d(64, 1, kernel_size=1, padding=0)
         self.sigmoid = nn.Sigmoid()
-    
+        # TODO: checken of sigmoid idd de way to go is 
+        
     def forward(self, inputs):
         # For the last few items, the batch size may be smaller than BATCH_SIZE
         batch_size = len(inputs)

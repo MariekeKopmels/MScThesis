@@ -11,7 +11,6 @@ from torch import optim
 from statistics import mean
 from torchvision.transforms import ToPILImage
 
-
 NO_PIXELS = 224 
 
 # Options for loss function
@@ -25,7 +24,7 @@ loss_dictionary = {
 
 # Default parameters
 default_config = SimpleNamespace(
-    num_epochs = 10,
+    num_epochs = 1,
     batch_size = 32, 
     train_size = 128, 
     test_size = 32,
@@ -90,8 +89,8 @@ def train(config, model, train_loader, loss_function, optimizer):
             epoch_fp += batch_fp
             epoch_tp += batch_tp
         mean_loss = epoch_loss/config.train_size
-        accuracy, fn_rate, fp_rate, sensitivity = DataFunctions.metrics(epoch_tn, epoch_fn, epoch_fp, epoch_tp)
-        train_epoch_log(config, mean_loss, accuracy, fn_rate, fp_rate, sensitivity, epoch)
+        accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU = DataFunctions.metrics(epoch_tn, epoch_fn, epoch_fp, epoch_tp)
+        train_epoch_log(config, mean_loss, accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU, epoch)
         #TODO: Add validation per training epoch
 
 """ Performs training for one batch of datapoints. Returns the true/false positive/negative metrics. 
@@ -112,9 +111,9 @@ def train_batch(config, images, targets, model, optimizer, loss_function):
 
 """ Prints and logs the intermediate training results to WandB.
 """
-def train_epoch_log(config, mean_loss, accuracy, fn_rate, fp_rate, sensitivity, epoch):
-    wandb.log({"epoch": epoch, "mean_loss": mean_loss, "accuracy": accuracy, "fn_rate": fn_rate, "fp_rate": fp_rate, "sensitivity": sensitivity})
-    print(f"Mean loss: {mean_loss:.6f}, accuracy: {accuracy:.3f}, fn_rate: {fn_rate:.3f}, fp_rate:: {fp_rate:.3f}, sensitivity: {sensitivity:.3f}") 
+def train_epoch_log(config, mean_loss, accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU, epoch):
+    wandb.log({"epoch": epoch, "mean_loss": mean_loss, "accuracy": accuracy, "fn_rate": fn_rate, "fp_rate": fp_rate, "sensitivity": sensitivity, "f1_score": f1_score, "IoU": IoU})
+    print(f"Mean loss: {mean_loss:.6f}, accuracy: {accuracy:.3f}, fn_rate: {fn_rate:.3f}, fp_rate:: {fp_rate:.3f}, sensitivity: {sensitivity:.3f}, f1-score: {f1_score:.3f}, IoU: {IoU:.3f}") 
     
 """ Tests the performance of a model on the test set. Prints and logs the results to WandB.
 """
@@ -134,23 +133,17 @@ def test(config, model, test_loader, loss_function):
             outputs = model(images)
             
             # TODO: Logging of input image is a hassle, needs fixing
+            # Probably GRB ipv RGB 
             DataFunctions.save_image("TestImage.jpg", images[0])
-            # image = images[0].to("cpu")
-            # print("Dims recieved for printing image: ", image.shape)
-            # image = image.permute(1,2,0)
-            # print("Dims recieved for printing image: ", image.shape)
-            # image = image.numpy()
-            # pil_image = ToPILImage()(image)
             wandb.log({"Input image": [wandb.Image("TestImage.jpg")]})
-            # wandb.log({"Input image": [wandb.Image(pil_image)]})
+            # wandb.log({"Direct input image":[wandb.Image(images[0], mode="RGB")]})
             wandb.log({"Target output": [wandb.Image(targets[0])]})
             wandb.log({"Model greyscale output": [wandb.Image(outputs[0])]})
-            print("Dims recieved: ", outputs[0].shape)
             bw_image = (outputs[0] >= 0.5).float()
             wandb.log({"Model bw output": [wandb.Image(bw_image)]})
             
             batch_loss = loss_function(outputs, targets)
-            batch_tn, batch_fn, batch_fp, batch_tp = DataFunctions.confusion_matrix(outputs, targets)
+            batch_tn, batch_fn, batch_fp, batch_tp = DataFunctions.confusion_matrix(outputs, targets, test=True)
             
             total_loss += batch_loss.item()
             total_tn += batch_tn
@@ -160,14 +153,14 @@ def test(config, model, test_loader, loss_function):
 
         mean_test_loss = total_loss/config.test_size
         tn, fn, fp, tp = DataFunctions.confusion_matrix(outputs, targets)
-        accuracy, fn_rate, fp_rate, sensitivity = DataFunctions.metrics(tn, fn, fp, tp)
-        test_log(config, mean_test_loss, accuracy, fn_rate, fp_rate, sensitivity)
+        accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU = DataFunctions.metrics(tn, fn, fp, tp)
+        test_log(config, mean_test_loss, accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU)
 
 """ Prints and logs the test results to WandB.
 """
-def test_log(config, mean_test_loss, test_accuracy, test_fn_rate, test_fp_rate, test_sensitivity):
-    wandb.log({"mean_test_loss": mean_test_loss, "test_accuracy": test_accuracy, "test_fn_rate": test_fn_rate, "test_fp_rate": test_fp_rate, "test_sensitivity": test_sensitivity})
-    print(f"Mean loss: {mean_test_loss:.6f}, accuracy: {test_accuracy:.3f}, fn_rate: {test_fn_rate:.3f}, fp_rate:: {test_fp_rate:.3f}, sensitivity: {test_sensitivity:.3f}") 
+def test_log(config, mean_test_loss, test_accuracy, test_fn_rate, test_fp_rate, test_sensitivity, test_f1_score, test_IoU):
+    wandb.log({"mean_test_loss": mean_test_loss, "test_accuracy": test_accuracy, "test_fn_rate": test_fn_rate, "test_fp_rate": test_fp_rate, "test_sensitivity": test_sensitivity, "test_f1_score": test_f1_score, "test_IoU": test_IoU})
+    print(f"Mean loss: {mean_test_loss:.6f}, accuracy: {test_accuracy:.3f}, fn_rate: {test_fn_rate:.3f}, fp_rate:: {test_fp_rate:.3f}, sensitivity: {test_sensitivity:.3f}, f1-score: {test_f1_score:.3f}, IoU: {test_IoU:.3f}") 
     
     # Save the model
     # TODO: Save the model, fix: raises errors

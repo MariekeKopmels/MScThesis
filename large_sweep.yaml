@@ -10,13 +10,13 @@ metric:
 
 parameters:
   num_epochs:
-    value: 10
+    value: 25
   batch_size: 
-    value: 32
+    value: 64
   train_size: 
-    value: 128
+    value: 1024
   test_size:
-    value: 32
+    value: 128
   lr:
     distribution: uniform
     min: 0.0001
