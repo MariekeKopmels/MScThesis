@@ -14,6 +14,7 @@ from torchvision.transforms import ToPILImage
 
 NO_PIXELS = 224 
 
+# Options for loss function
 loss_dictionary = {
     "IoU": LossFunctions.IoULoss(),
     "Focal": LossFunctions.FocalLoss(),
@@ -22,6 +23,7 @@ loss_dictionary = {
     "L1": nn.L1Loss(),
 } 
 
+# Default parameters
 default_config = SimpleNamespace(
     num_epochs = 10,
     batch_size = 32, 
@@ -30,9 +32,9 @@ default_config = SimpleNamespace(
     lr = 0.001, 
     momentum = 0.99, 
     loss_function = "IoU", 
+    device = torch.device("mps"),
     dataset = "VisuAAL", 
-    architecture = "UNet", 
-    device = torch.device("mps")
+    architecture = "UNet"
 )
 
 def parse_args():
@@ -52,7 +54,8 @@ def parse_args():
     vars(default_config).update(vars(args))
     return
 
-
+""" Returns dataloaders, model, loss function and optimizer.
+"""
 def make(config):
     # Fetch data
     train_loader, test_loader = DataFunctions.load_data(config, [], [])
@@ -66,8 +69,10 @@ def make(config):
     
     return model, train_loader, test_loader, loss_function, optimizer
 
+""" Trains the passed model. 
+"""
 def train(config, model, train_loader, loss_function, optimizer):
-    # Tell wandb to watch what the model gets up to: gradients, weights, and more!
+    # Tell WandB to watch what the model gets up to: gradients, weights, and more!
     wandb.watch(model, log="all", log_freq=1)
     
     # Store the losses of epochs
@@ -89,7 +94,8 @@ def train(config, model, train_loader, loss_function, optimizer):
         train_epoch_log(config, mean_loss, accuracy, fn_rate, fp_rate, sensitivity, epoch)
         #TODO: Add validation per training epoch
 
-    
+""" Performs training for one batch of datapoints. Returns the true/false positive/negative metrics. 
+"""
 def train_batch(config, images, targets, model, optimizer, loss_function):
     
     images, targets = images.to(config.device), targets.to(config.device)
@@ -104,10 +110,14 @@ def train_batch(config, images, targets, model, optimizer, loss_function):
     tn, fn, fp, tp = DataFunctions.confusion_matrix(outputs, targets)
     return loss, tn, fn, fp, tp
 
+""" Prints and logs the intermediate training results to WandB.
+"""
 def train_epoch_log(config, mean_loss, accuracy, fn_rate, fp_rate, sensitivity, epoch):
     wandb.log({"epoch": epoch, "mean_loss": mean_loss, "accuracy": accuracy, "fn_rate": fn_rate, "fp_rate": fp_rate, "sensitivity": sensitivity})
     print(f"Mean loss: {mean_loss:.6f}, accuracy: {accuracy:.3f}, fn_rate: {fn_rate:.3f}, fp_rate:: {fp_rate:.3f}, sensitivity: {sensitivity:.3f}") 
     
+""" Tests the performance of a model on the test set. Prints and logs the results to WandB.
+"""
 def test(config, model, test_loader, loss_function):
     print(f"-------------------------Start testing-------------------------")
     
@@ -117,13 +127,13 @@ def test(config, model, test_loader, loss_function):
     with torch.no_grad():
         total_loss = 0.0
         total_tn, total_fn, total_fp, total_tp = 0, 0, 0, 0
-        
         for images, targets in test_loader:
             images, targets = images.to(config.device), targets.to(config.device)
             images = images.float()
             targets = targets.float()
             outputs = model(images)
             
+            # TODO: Logging of input image is a hassle, needs fixing
             DataFunctions.save_image("TestImage.jpg", images[0])
             # image = images[0].to("cpu")
             # print("Dims recieved for printing image: ", image.shape)
@@ -134,7 +144,10 @@ def test(config, model, test_loader, loss_function):
             wandb.log({"Input image": [wandb.Image("TestImage.jpg")]})
             # wandb.log({"Input image": [wandb.Image(pil_image)]})
             wandb.log({"Target output": [wandb.Image(targets[0])]})
-            wandb.log({"Model output": [wandb.Image(outputs[0])]})
+            wandb.log({"Model greyscale output": [wandb.Image(outputs[0])]})
+            print("Dims recieved: ", outputs[0].shape)
+            bw_image = (outputs[0] >= 0.5).float()
+            wandb.log({"Model bw output": [wandb.Image(bw_image)]})
             
             batch_loss = loss_function(outputs, targets)
             batch_tn, batch_fn, batch_fp, batch_tp = DataFunctions.confusion_matrix(outputs, targets)
@@ -150,29 +163,33 @@ def test(config, model, test_loader, loss_function):
         accuracy, fn_rate, fp_rate, sensitivity = DataFunctions.metrics(tn, fn, fp, tp)
         test_log(config, mean_test_loss, accuracy, fn_rate, fp_rate, sensitivity)
 
+""" Prints and logs the test results to WandB.
+"""
 def test_log(config, mean_test_loss, test_accuracy, test_fn_rate, test_fp_rate, test_sensitivity):
     wandb.log({"mean_test_loss": mean_test_loss, "test_accuracy": test_accuracy, "test_fn_rate": test_fn_rate, "test_fp_rate": test_fp_rate, "test_sensitivity": test_sensitivity})
     print(f"Mean loss: {mean_test_loss:.6f}, accuracy: {test_accuracy:.3f}, fn_rate: {test_fn_rate:.3f}, fp_rate:: {test_fp_rate:.3f}, sensitivity: {test_sensitivity:.3f}") 
     
-    # Save the model in the exchangeable ONNX format
-    # TODO: Save the model
+    # Save the model
+    # TODO: Save the model, fix: raises errors
     # torch.onnx.export(model, "model.onnx")
     # wandb.save("model.onnx")
 
+""" Runs the whole pipeline of creating, training and testing a model
+"""
 def model_pipeline(hyperparameters):
-    # tell wandb to get started
+    # start wandb
     with wandb.init(mode="run", project="skin_segmentation", config=hyperparameters): #mode="disabled", 
-        # access all HPs through wandb.config, so logging matches execution!
+        # set hyperparameters
         config = wandb.config
 
-        # make the model, data, and optimization problem
+        # create model, data loaders, loss function and optimizer
         model, train_loader, test_loader, loss_function, optimizer = make(config)
         # print(f"Model: {model}")
 
-        # and use them to train the model
+        # train the model
         train(config, model, train_loader, loss_function, optimizer)
 
-        # and test its final performance
+        # test the models performance
         test(config, model, test_loader, loss_function)
 
     return model

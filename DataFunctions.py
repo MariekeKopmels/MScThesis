@@ -20,11 +20,13 @@ def load_images(config, images, gts, image_dir_path, gt_dir_path, test=False):
     dir_list = [file for file in image_list if file in gt_list]
     dir_list = sorted(dir_list, key=str.casefold)
     
+    # Include as many items as requested
     if test:
         dir_list = dir_list[:config.test_size]
     else:
         dir_list = dir_list[:config.train_size]
     
+    # Store images
     for file_name in dir_list:
         # Hidden files, irrelevant for this usecase
         if file_name.startswith('.'):
@@ -67,12 +69,14 @@ def load_data(config, train, test):
     train = torch.utils.data.TensorDataset(torch.as_tensor(np.array(train_images)).permute(0,3,1,2), torch.as_tensor(np.array(train_gts)).permute(0,1,2))
     test = torch.utils.data.TensorDataset(torch.as_tensor(np.array(test_images)).permute(0,3,1,2), torch.as_tensor(np.array(test_gts)).permute(0,1,2))
 
+    # Put data into dataloader
     train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True)
     test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False)
     
     return train_loader, test_loader
 
-"""Returns the values of the confusion matrix of tn, fn, tp, fp values"""
+"""Returns the values of the confusion matrix of true negative, false negative, true positive and false positive values
+"""
 def confusion_matrix(outputs, targets):
     batch_size = outputs.shape[0]
     
@@ -83,6 +87,7 @@ def confusion_matrix(outputs, targets):
     
     matrix = [[0.0, 0.0],[0.0, 0.0]]
     
+    #Compute the confusion matrix
     for i in range(batch_size):
         output = outputs[i].flatten()
         output = [1.0 if x > 0.5 else 0.0 for x in output]
@@ -99,23 +104,29 @@ def confusion_matrix(outputs, targets):
     
     return tn, fn, fp, tp
 
+""" Computes metrics based on true/false positive/negative values.
+        Returns accuracy, fn_rate, fp_rate and sensitivity.
+"""
 def metrics(tn, fn, fp, tp):
     accuracy = (tp+tn)/(tn+fn+fp+tp)
     # If there are no pixels that should be marked as skin, the fn_rate should be 0
     fn_rate = fn/(fn+tp) if fn+tp != 0 else 0
-    # None of the images are all skin
-    fp_rate = fp/(tn+fp) 
+    # None of the images are all skin, but added a safety measure
+    fp_rate = fp/(tn+fp) if tn+fp != 0 else 0
     # If there are no pixels that should be marked as skin, the sensitivity should be 1
     sensitivity = tp/(fn+tp) if fn+tp!= 0 else 1
     
     return accuracy, fn_rate, fp_rate, sensitivity
 
+""" Stores an image to the disk.
+"""
 def save_image(filename, image, bw=False):
     directory = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Output/WandB/"
     os.chdir(directory)
+    
+    # cv2.imwrite takes input in form height, width, channels
     image = image.permute(1,2,0)
     image = image.to("cpu")
-    # print("Dims recieved for printing image: ", image.shape)
     if bw:
         image = image*225
     if type(image) != np.ndarray:

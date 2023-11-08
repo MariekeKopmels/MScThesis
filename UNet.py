@@ -47,6 +47,9 @@ class decoder_block(nn.Module):
         
         return x
 
+""" Definition of a UNet model, with 4 encoder and decoder blocks. 
+        Output contains 1 channel with values between 0 (background) and 1 (skin).
+"""
 class UNET(nn.Module):
     def __init__(self):
         super().__init__()
