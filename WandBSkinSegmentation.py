@@ -10,6 +10,7 @@ import torch.nn as nn
 from torch import optim
 from statistics import mean
 from torchvision.transforms import ToPILImage
+import numpy as np
 
 NO_PIXELS = 224 
 
@@ -23,13 +24,14 @@ loss_dictionary = {
 } 
 
 # Default parameters
+# Size of dataset: Train=44783 , Test=1157
 default_config = SimpleNamespace(
-    num_epochs = 1,
-    batch_size = 32, 
-    train_size = 128, 
-    test_size = 32,
-    lr = 0.001, 
-    momentum = 0.99, 
+    num_epochs = 20,
+    batch_size = 256, 
+    train_size = 8192, 
+    test_size = 512,
+    lr = 0.009, 
+    momentum = 0.943, 
     loss_function = "IoU", 
     device = torch.device("mps"),
     dataset = "VisuAAL", 
@@ -127,16 +129,17 @@ def test(config, model, test_loader, loss_function):
         total_loss = 0.0
         total_tn, total_fn, total_fp, total_tp = 0, 0, 0, 0
         for images, targets in test_loader:
+            # Store example for printing while on CPU
+            example = np.array(images[0].permute(1,2,0))
+            example = example[:, :, ::-1]
+            
             images, targets = images.to(config.device), targets.to(config.device)
             images = images.float()
             targets = targets.float()
             outputs = model(images)
             
-            # TODO: Logging of input image is a hassle, needs fixing
-            # Probably GRB ipv RGB 
-            DataFunctions.save_image("TestImage.jpg", images[0])
-            wandb.log({"Input image": [wandb.Image("TestImage.jpg")]})
-            # wandb.log({"Direct input image":[wandb.Image(images[0], mode="RGB")]})
+            # Log example to WandB
+            wandb.log({"Input image":[wandb.Image(example)]})
             wandb.log({"Target output": [wandb.Image(targets[0])]})
             wandb.log({"Model greyscale output": [wandb.Image(outputs[0])]})
             bw_image = (outputs[0] >= 0.5).float()

@@ -5,12 +5,12 @@ method: random
 project: "skin_segmentation"
 
 metric:
-  name: fn_rate
-  goal: minimize
+  name: f1_score
+  goal: maximize
 
 parameters:
   num_epochs:
-    value: 25
+    value: 10
   batch_size: 
     value: 64
   train_size: 
