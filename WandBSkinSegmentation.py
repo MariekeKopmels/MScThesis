@@ -1,18 +1,16 @@
 #MSc Thesis Marieke Kopmels
 import argparse
 from types import SimpleNamespace
+
+import cv2
+import MyModels
 import LossFunctions
 import DataFunctions
-import UNet
 import torch
 import wandb
 import torch.nn as nn
 from torch import optim
-from statistics import mean
-from torchvision.transforms import ToPILImage
 import numpy as np
-
-NO_PIXELS = 224 
 
 # Options for loss function
 loss_dictionary = {
@@ -21,17 +19,18 @@ loss_dictionary = {
     "CE": nn.CrossEntropyLoss(),
     "BCE": nn.BCELoss(),
     "L1": nn.L1Loss(),
-} 
+}
 
 # Default parameters
 # Size of dataset: Train=44783 , Test=1157
 default_config = SimpleNamespace(
-    num_epochs = 20,
-    batch_size = 256, 
-    train_size = 8192, 
-    test_size = 512,
+    num_epochs = 1,
+    batch_size = 32, 
+    train_size = 32, 
+    test_size = 32,
     lr = 0.009, 
     momentum = 0.943, 
+    colour_space = "YCrCb",
     loss_function = "IoU", 
     device = torch.device("mps"),
     dataset = "VisuAAL", 
@@ -45,6 +44,7 @@ def parse_args():
     argparser.add_argument('--num_epochs', type=int, default=default_config.num_epochs, help='number of epochs')
     argparser.add_argument('--lr', type=float, default=default_config.lr, help='learning rate')
     argparser.add_argument('--momentum', type=float, default=default_config.momentum, help='momentum')
+    argparser.add_argument('--colour_space', type=str, default=default_config.colour_space, help='colour space')
     argparser.add_argument('--train_size', type=int, default=default_config.train_size, help='trains size')
     argparser.add_argument('--test_size', type=int, default=default_config.test_size, help='test size')
     argparser.add_argument('--loss_function', type=str, default=default_config.loss_function, help='loss function')
@@ -62,7 +62,8 @@ def make(config):
     train_loader, test_loader = DataFunctions.load_data(config, [], [])
     
     # Make the model
-    model = UNet.UNET().to(config.device)
+    # TODO: pass config to remove hardcoded NO_PIXELS = 224
+    model = MyModels.UNET().to(config.device)
 
     # Define loss function and optimizer
     loss_function = loss_dictionary[config.loss_function]
@@ -82,8 +83,11 @@ def train(config, model, train_loader, loss_function, optimizer):
     for epoch in range(config.num_epochs):
         print(f"-------------------------Starting Epoch {epoch+1}/{config.num_epochs} epochs-------------------------")
         epoch_loss = 0.0
+        batch = 0
         epoch_tn, epoch_fn, epoch_fp, epoch_tp = 0, 0, 0, 0
         for images, targets in train_loader:  
+            batch += 1
+            print(f"-------------------------Starting Batch {batch}/{config.train_size/config.batch_size} batches-------------------------")
             batch_loss, batch_tn, batch_fn, batch_fp, batch_tp = train_batch(config, images, targets, model, optimizer, loss_function)
             epoch_loss += batch_loss.item()
             epoch_tn += batch_tn
@@ -103,6 +107,8 @@ def train_batch(config, images, targets, model, optimizer, loss_function):
     images = images.float()
     targets = targets.float()
     outputs = model(images)
+    
+    print(f"types: {type(outputs)} and {type(targets)}.") 
     
     loss = loss_function(outputs, targets)
     loss.backward()
@@ -130,8 +136,7 @@ def test(config, model, test_loader, loss_function):
         total_tn, total_fn, total_fp, total_tp = 0, 0, 0, 0
         for images, targets in test_loader:
             # Store example for printing while on CPU
-            example = np.array(images[0].permute(1,2,0))
-            example = example[:, :, ::-1]
+            example_image = np.array(images[0].permute(1,2,0))
             
             images, targets = images.to(config.device), targets.to(config.device)
             images = images.float()
@@ -139,11 +144,7 @@ def test(config, model, test_loader, loss_function):
             outputs = model(images)
             
             # Log example to WandB
-            wandb.log({"Input image":[wandb.Image(example)]})
-            wandb.log({"Target output": [wandb.Image(targets[0])]})
-            wandb.log({"Model greyscale output": [wandb.Image(outputs[0])]})
-            bw_image = (outputs[0] >= 0.5).float()
-            wandb.log({"Model bw output": [wandb.Image(bw_image)]})
+            log_test_example(config, example_image, targets[0], outputs[0])
             
             batch_loss = loss_function(outputs, targets)
             batch_tn, batch_fn, batch_fp, batch_tp = DataFunctions.confusion_matrix(outputs, targets, test=True)
@@ -155,8 +156,14 @@ def test(config, model, test_loader, loss_function):
             total_tp += batch_tp
 
         mean_test_loss = total_loss/config.test_size
-        tn, fn, fp, tp = DataFunctions.confusion_matrix(outputs, targets)
-        accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU = DataFunctions.metrics(tn, fn, fp, tp)
+        
+        # TODO: Aangepast, dubbel checken of dit nu wel correct is
+        # OUD:
+        # tn, fn, fp, tp = DataFunctions.confusion_matrix(outputs, targets)
+        # accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU = DataFunctions.metrics(tn, fn, fp, tp)
+        # NIEUW:
+        accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU = DataFunctions.metrics(total_tn, total_fn, total_fp, total_tp)
+
         test_log(config, mean_test_loss, accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU)
 
 """ Prints and logs the test results to WandB.
@@ -169,12 +176,26 @@ def test_log(config, mean_test_loss, test_accuracy, test_fn_rate, test_fp_rate, 
     # TODO: Save the model, fix: raises errors
     # torch.onnx.export(model, "model.onnx")
     # wandb.save("model.onnx")
+    
+""" Logs test examples of input image, ground truth and model output.
+"""
+def log_test_example(config, example, target, output):
+    # Change cannels from YCrCb or BGR to RGB
+    if config.colour_space == "YCrCb": 
+        example = cv2.cvtColor(example, cv2.COLOR_YCR_CB2RGB)
+    elif config.colour_space == "RBG":
+        example = cv2.cvtColor(example, cv2.COLOR_BGR2RGB)
+    wandb.log({"Input image":[wandb.Image(example)]})
+    wandb.log({"Target output": [wandb.Image(target)]})
+    wandb.log({"Model greyscale output": [wandb.Image(output)]})
+    bw_image = (output >= 0.5).float()
+    wandb.log({"Model bw output": [wandb.Image(bw_image)]})
 
 """ Runs the whole pipeline of creating, training and testing a model
 """
 def model_pipeline(hyperparameters):
     # start wandb
-    with wandb.init(mode="run", project="skin_segmentation", config=hyperparameters): #mode="disabled", 
+    with wandb.init(mode="disabled", project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # set hyperparameters
         config = wandb.config
 

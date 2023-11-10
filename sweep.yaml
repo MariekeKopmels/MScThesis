@@ -5,25 +5,30 @@ method: random
 project: "skin_segmentation"
 
 metric:
-  name: fn_rate
+  name: test_IoU
   goal: minimize
 
 parameters:
   num_epochs:
-    value: 10
+    value: 5
   batch_size: 
-    value: 32
-  train_size: 
     value: 128
+  train_size: 
+    value: 512
   test_size:
-    value: 32
+    value: 256
   lr:
     distribution: uniform
-    min: 0.0001
+    min: 0.001
     max: 0.01
   momentum:
     distribution: uniform
     min: 0.9
-    max: 0.999
+    max: 0.99
+  colour_space: 
+    distribution: categorical
+    values:
+    - "RGB"
+    - "YCrCb"
   loss_function: 
     value: "IoU"

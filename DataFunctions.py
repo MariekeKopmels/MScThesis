@@ -38,6 +38,10 @@ def load_images(config, images, gts, image_dir_path, gt_dir_path, test=False):
         img = cv2.imread(img_path)
         gt = cv2.imread(gt_path)
         
+        if config.colour_space == "YCrCb":
+            # Convert image from RGB to YCrCb
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2YCR_CB)
+        
         # Convert Ground Truth from RGB to 1 channel (Black or White)
         gt = cv2.cvtColor(gt, cv2.COLOR_BGR2GRAY)
         _,gt = cv2.threshold(gt,127,1,0)
@@ -75,6 +79,40 @@ def load_data(config, train, test):
     
     return train_loader, test_loader
 
+def load_pixel_data(config, train, test):
+    path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Skin_NonSkin_Pixel.txt"
+    train_pixels, train_label, test_pixels, test_label = [], [], [], []
+    print("Loading data...")
+    with open(path) as file:
+       lines = [[int(num) for num in line.split()] for line in file]
+    
+    lines = np.array(lines)
+    np.random.shuffle(lines)
+    data_size = config.train_size+config.test_size
+    lines = lines[:data_size,:]
+    pixels = lines[:,:3] 
+    labels = lines[:,3]
+    
+    # Labels are 1 and 2, so transform to 0 and 1
+    labels = labels - 1
+
+    split = config.train_size
+    train_pixels = pixels[:split,:]
+    test_pixels =  pixels[split:,:]
+    train_labels = labels[:split].reshape(-1, 1)
+    test_labels =  labels[split:].reshape(-1, 1)
+    # print(f"Data put in the dataloader is of format [{len(train_labels)}, {train_labels[0]}].")
+    # print(f"Dims: {train_pixels.shape}, {train_labels.shape}.")
+    
+    train = torch.utils.data.TensorDataset(torch.tensor(train_pixels), torch.tensor(train_labels))
+    test = torch.utils.data.TensorDataset(torch.tensor(test_pixels), torch.tensor(test_labels))
+    
+    # Put data into dataloader
+    train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True)
+    test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False)
+    
+    return train_loader, test_loader
+    
 """Returns the values of the confusion matrix of true negative, false negative, true positive and false positive values
 """
 def confusion_matrix(outputs, targets, test=False):
@@ -112,10 +150,34 @@ def confusion_matrix(outputs, targets, test=False):
     
     return tn, fn, fp, tp
 
+"""Returns the values of the confusion matrix of true negative, false negative, true positive and false positive values
+"""
+def pixel_confusion_matrix(config, outputs, labels, test=False):    
+    outputs = outputs.to("cpu")
+    outputs = outputs.detach().numpy()
+    labels = labels.to("cpu")
+    labels = labels.detach().numpy().flatten()
+        
+    outputs = np.array([1.0 if x > 0.5 else 0.0 for x in outputs])
+    # labels = np.array([0 if x == 1 else 2 for x in labels])
+    # print(f"Values in outputs: {list(set(outputs))} and in labels: {labels.unique()}")
+    # print(f"labels: {labels}, outputs: {outputs}")
+    matrix = sklearn.metrics.confusion_matrix(labels, outputs)
+    
+    if test:
+        print("Confusion matrix:\n", matrix)
+    
+    tn = matrix[0][0]
+    fn = matrix[1][0]
+    tp = matrix[1][1]
+    fp = matrix[0][1]
+    
+    return tn, fn, fp, tp
+
 """ Computes metrics based on true/false positive/negative values.
         Returns accuracy, fn_rate, fp_rate and sensitivity.
 """
-def metrics(tn, fn, fp, tp):
+def metrics(tn, fn, fp, tp, pixels=False):
     accuracy = (tp+tn)/(tn+fn+fp+tp)
     # If there are no pixels that should be marked as skin, the fn_rate should be 0
     fn_rate = fn/(fn+tp) if fn+tp != 0 else 0
@@ -127,20 +189,23 @@ def metrics(tn, fn, fp, tp):
     f1_score = tp/(tp+((fp+fn)*0.5))
     IoU = tp/(tp+fp+fn)
         
+    if pixels: 
+        return accuracy, fn_rate, fp_rate, sensitivity, f1_score
+
     return accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU
 
-""" Stores an image to the disk.
-"""
-def save_image(filename, image, bw=False):
-    directory = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Output/WandB/"
-    os.chdir(directory)
+# """ Stores an image to the disk.
+# """
+# def save_image(filename, image, bw=False):
+#     directory = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Output/WandB/"
+#     os.chdir(directory)
     
-    # cv2.imwrite takes input in form height, width, channels
-    image = image.permute(1,2,0)
-    image = image.to("cpu")
-    if bw:
-        image = image*225
-    if type(image) != np.ndarray:
-        cv2.imwrite(filename, image.numpy())
-    else:
-        cv2.imwrite(filename, image)
+#     # cv2.imwrite takes input in form height, width, channels
+#     image = image.permute(1,2,0)
+#     image = image.to("cpu")
+#     if bw:
+#         image = image*225
+#     if type(image) != np.ndarray:
+#         cv2.imwrite(filename, image.numpy())
+#     else:
+#         cv2.imwrite(filename, image)
