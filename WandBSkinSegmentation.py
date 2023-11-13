@@ -12,26 +12,32 @@ import torch.nn as nn
 from torch import optim
 import numpy as np
 
+# TODO Voor morgen: bij de IoU gaat hij goed, maar bij de WBCE gaan de confusion matrices op hol, en komen er 
+# Rare (X*224*224) getallen uit, en dan zou niet moeten kunnen. Er is nooit exact dat aantal false positives bijvoorbeeld) 
+
 # Options for loss function
 loss_dictionary = {
     "IoU": LossFunctions.IoULoss(),
     "Focal": LossFunctions.FocalLoss(),
-    "CE": nn.CrossEntropyLoss(),
+    # "CE": nn.CrossEntropyLoss(),
+    "WBCE_0.9": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([0.9])),
+    "WBCE_0.1": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([0.1])),
+    "WBCE": nn.BCEWithLogitsLoss(),
     "BCE": nn.BCELoss(),
-    "L1": nn.L1Loss(),
 }
 
 # Default parameters
 # Size of dataset: Train=44783 , Test=1157
 default_config = SimpleNamespace(
-    num_epochs = 1,
-    batch_size = 32, 
+    num_epochs = 5,
+    batch_size = 8, 
     train_size = 32, 
-    test_size = 32,
-    lr = 0.009, 
-    momentum = 0.943, 
-    colour_space = "YCrCb",
-    loss_function = "IoU", 
+    test_size = 16,
+    lr = 0.01, 
+    momentum = 0.9, 
+    colour_space = "RGB",
+    loss_function = "IoU",
+    optimizer = "SGD", 
     device = torch.device("mps"),
     dataset = "VisuAAL", 
     architecture = "UNet"
@@ -48,6 +54,7 @@ def parse_args():
     argparser.add_argument('--train_size', type=int, default=default_config.train_size, help='trains size')
     argparser.add_argument('--test_size', type=int, default=default_config.test_size, help='test size')
     argparser.add_argument('--loss_function', type=str, default=default_config.loss_function, help='loss function')
+    argparser.add_argument('--optimizer', type=str, default=default_config.optimizer, help='optimizer')
     argparser.add_argument('--dataset', type=str, default=default_config.dataset, help='dataset')
     argparser.add_argument('--architecture', type=str, default=default_config.architecture, help='architecture')
     argparser.add_argument('--device', type=torch.device, default=default_config.device, help='device')
@@ -55,6 +62,20 @@ def parse_args():
     vars(default_config).update(vars(args))
     return
 
+""" Returns the optimizer based on the configurations
+"""
+def get_optimizer(config, model):
+    if config.optimizer == "SGD":
+        return optim.SGD(model.parameters(), lr=config.lr, momentum=config.momentum)
+    elif config.optimizer == "Adam":
+        return optim.Adam(model.parameters(), lr=config.lr)
+    elif config.optimizer == "RMSprop":
+        return optim.RMSprop(model.parameters(),lr=config.lr)
+    else:
+        print("No matching optimizer found! Used default SGD")
+        print(f"config.optimizer = {config.optimizer}")
+        return optim.SGD(model.parameters(), lr=config.lr, momentum=config.momentum)
+    
 """ Returns dataloaders, model, loss function and optimizer.
 """
 def make(config):
@@ -66,8 +87,8 @@ def make(config):
     model = MyModels.UNET().to(config.device)
 
     # Define loss function and optimizer
-    loss_function = loss_dictionary[config.loss_function]
-    optimizer = optim.SGD(model.parameters(), lr=config.lr, momentum=config.momentum)
+    loss_function = loss_dictionary[config.loss_function].to(config.device)
+    optimizer = get_optimizer(config, model)
     
     return model, train_loader, test_loader, loss_function, optimizer
 
@@ -87,7 +108,7 @@ def train(config, model, train_loader, loss_function, optimizer):
         epoch_tn, epoch_fn, epoch_fp, epoch_tp = 0, 0, 0, 0
         for images, targets in train_loader:  
             batch += 1
-            print(f"-------------------------Starting Batch {batch}/{config.train_size/config.batch_size} batches-------------------------")
+            print(f"-------------------------Starting Batch {batch}/{int(config.train_size/config.batch_size)} batches-------------------------")
             batch_loss, batch_tn, batch_fn, batch_fp, batch_tp = train_batch(config, images, targets, model, optimizer, loss_function)
             epoch_loss += batch_loss.item()
             epoch_tn += batch_tn
@@ -106,15 +127,16 @@ def train_batch(config, images, targets, model, optimizer, loss_function):
     images, targets = images.to(config.device), targets.to(config.device)
     images = images.float()
     targets = targets.float()
-    outputs = model(images)
-    
-    print(f"types: {type(outputs)} and {type(targets)}.") 
+    if "WBCE" in config.loss_function:
+        outputs = model(images, WBCE=True)
+    else: 
+        outputs = model(images)
     
     loss = loss_function(outputs, targets)
     loss.backward()
     optimizer.step()
     
-    tn, fn, fp, tp = DataFunctions.confusion_matrix(outputs, targets)
+    tn, fn, fp, tp = DataFunctions.confusion_matrix(outputs, targets, test=True)
     return loss, tn, fn, fp, tp
 
 """ Prints and logs the intermediate training results to WandB.
@@ -141,7 +163,15 @@ def test(config, model, test_loader, loss_function):
             images, targets = images.to(config.device), targets.to(config.device)
             images = images.float()
             targets = targets.float()
-            outputs = model(images)
+            if "WBCE" in config.loss_function:
+                outputs = model(images, WBCE=True)
+                # For testing, we still need to map the output to range [0,1]
+                print(f"Model output info:\n\nBefore:\ntorch.min(output): {torch.min(outputs[0])}, torch.max(output) {torch.max(outputs[0])}")
+                outputs = torch.sigmoid(outputs)
+                print(f"\n\n\After:\ntorch.min(output): {torch.min(outputs[0])}, torch.max(output) {torch.max(outputs[0])}")
+            else: 
+                print(f"config.loss_function does not contain WBCE, see: {config.loss_function}")
+                outputs = model(images)
             
             # Log example to WandB
             log_test_example(config, example_image, targets[0], outputs[0])
@@ -182,9 +212,14 @@ def test_log(config, mean_test_loss, test_accuracy, test_fn_rate, test_fp_rate, 
 def log_test_example(config, example, target, output):
     # Change cannels from YCrCb or BGR to RGB
     if config.colour_space == "YCrCb": 
+        print("Converted YCrCb to RGB")
         example = cv2.cvtColor(example, cv2.COLOR_YCR_CB2RGB)
-    elif config.colour_space == "RBG":
+    elif config.colour_space == "RGB":
+        print("Converted BGR to RGB")
         example = cv2.cvtColor(example, cv2.COLOR_BGR2RGB)
+    else:
+        print("No colour space found!")
+        print(f"config.colour_space = {config.colour_space}")
     wandb.log({"Input image":[wandb.Image(example)]})
     wandb.log({"Target output": [wandb.Image(target)]})
     wandb.log({"Model greyscale output": [wandb.Image(output)]})

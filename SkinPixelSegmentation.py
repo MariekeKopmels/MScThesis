@@ -20,6 +20,7 @@ loss_dictionary = {
     "BCE": nn.BCELoss(),
     "L1": nn.L1Loss(),
 }
+
 config = SimpleNamespace(
     num_epochs = 50,
     batch_size = 64, 

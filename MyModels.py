@@ -70,7 +70,7 @@ class UNET(nn.Module):
         self.sigmoid = nn.Sigmoid()
         # TODO: checken of sigmoid idd de way to go is 
         
-    def forward(self, inputs):
+    def forward(self, inputs, WBCE=False):
         # For the last few items, the batch size may be smaller than BATCH_SIZE
         batch_size = len(inputs)
         
@@ -88,13 +88,15 @@ class UNET(nn.Module):
         d4 = self.d4(d3, s1)
         """ Classifier """
         x = self.outputs(d4)
-        x = self.sigmoid(x)
+        # TODO: Checken
+        if not WBCE:
+            x = self.sigmoid(x)
         
         """ Reformatting"""
         outputs = x.clone().reshape(batch_size, NO_PIXELS, NO_PIXELS)
         
         return outputs
-
+    
 class NN(nn.Module):
     def __init__(self):
         super(NN, self).__init__()

@@ -1,6 +1,7 @@
 program: WandBSkinSegmentation.py
 
-method: random
+# method: random
+method: grid
 
 project: "skin_segmentation"
 
@@ -12,23 +13,37 @@ parameters:
   num_epochs:
     value: 5
   batch_size: 
-    value: 128
+    value: 64
   train_size: 
-    value: 512
-  test_size:
     value: 256
+  test_size:
+    value: 64
   lr:
-    distribution: uniform
-    min: 0.001
-    max: 0.01
+    value: 0.01
+    # distribution: uniform
+    # min: 0.001
+    # max: 0.01
   momentum:
-    distribution: uniform
-    min: 0.9
-    max: 0.99
+    value: 0.9
+    # distribution: uniform
+    # min: 0.9
+    # max: 0.99
   colour_space: 
-    distribution: categorical
-    values:
-    - "RGB"
-    - "YCrCb"
+    value: "RGB"
+    # distribution: categorical
+    # values:
+    # - "RGB"
+    # - "YCrCb"
   loss_function: 
-    value: "IoU"
+    values: 
+      # - "BCE"
+      # - "WBCE"
+      - "WBCE_0.9"
+      # - "WBCE_0.1"
+      - "IoU"
+      # - "Focal"
+  optimizer:
+    values: 
+      - "SGD"
+      - "RMSprop"
+      - "Adam"

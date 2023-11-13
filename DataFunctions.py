@@ -50,6 +50,8 @@ def load_images(config, images, gts, image_dir_path, gt_dir_path, test=False):
         img = cv2.resize(img, (NO_PIXELS,NO_PIXELS), interpolation=cv2.INTER_CUBIC)
         gt = cv2.resize(gt, (NO_PIXELS,NO_PIXELS), interpolation=cv2.INTER_CUBIC)
         
+        # print(f"max en min in gt: {gt.max()} and {gt.min()}")
+        
         #Store in list
         images.append(img)
         gts.append(gt)
@@ -128,16 +130,43 @@ def confusion_matrix(outputs, targets, test=False):
     #Compute the confusion matrix
     for i in range(batch_size):
         output = outputs[i].flatten()
-        output = [1.0 if x > 0.5 else 0.0 for x in output]
         target = targets[i].flatten()
         
-        # if test: 
-        #     print(f"Number of 0's in output: {np.sum(output == 0)}")
-        #     print(f"Number of 0's in target: {np.sum(target == 0)}")
-        #     print(f"Number of 1's in output: {np.sum(output == 1)}")
-        #     print(f"Number of 1's in target: {np.sum(target == 1)}")
+        # print(f"\n\nBEFORE\n")
+        # print(f"Number of 0's in output: {np.sum(output == 0.0)}")
+        # print(f"Number of 0's in target: {np.sum(target == 0.0)}")
+        # print(f"Number of 1's in output: {np.sum(output == 1.0)}")
+        # print(f"Number of 1's in target: {np.sum(target == 1.0)}")
+        # print(f"Output contents: {output[:20]}")
+        # print(f"Target contents: {target[:20]}")
+
+        # print(f"\n\nBEFORE\nNumber of 0's in output: {sum(1 for value in output if value < 0.5)}")
+        # print(f"Number of 0's in target: {sum(1 for value in target if value < 0.5)}")
+        # print(f"Number of 1's in output: {sum(1 for value in output if value > 0.5)}")
+        # print(f"Number of 1's in target: {sum(1 for value in target if value > 0.5)}")        
+        output = np.array(output) > 0.5
         
+        # print(f"\nAFTER\n")
+        # print(f"Number of 0's in output: {np.sum(output == 0.0)}")
+        # print(f"Number of 0's in target: {np.sum(target == 0.0)}") 
+        # print(f"Number of 1's in output: {np.sum(output == 1.0)}")
+        # print(f"Number of 1's in target: {np.sum(target == 1.0)}")
+        # print(f"Output contents: {output[:20]}")
+        # print(f"Target contents: {target[:20]}")
+        # print(f"\nAFTER\nNumber of 0's in output: {sum(1 for value in output if value < 0.5)}")
+        # print(f"Number of 0's in target: {sum(1 for value in target if value < 0.5)}")
+        # print(f"Number of 1's in output: {sum(1 for value in output if value > 0.5)}")
+        # print(f"Number of 1's in target: {sum(1 for value in target if value > 0.5)}")
+        
+        # print(f"\nContents")
+        # print(f"Min value in output: {min(output)}")
+        # print(f"Max value in output: {max(output)}")
+        # print(f"Unique values in output: {set(output)}")
+        # print(f"types of target and output: {type(target)} and {type(output)}")
+
         i_matrix = sklearn.metrics.confusion_matrix(target, output)
+        
+        # print(f"Confusion matrix: {i_matrix}")
         matrix += i_matrix
     
     if test:
