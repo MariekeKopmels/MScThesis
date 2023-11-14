@@ -11,6 +11,7 @@ import wandb
 import torch.nn as nn
 from torch import optim
 import numpy as np
+import warnings
 
 # TODO Voor morgen: bij de IoU gaat hij goed, maar bij de WBCE gaan de confusion matrices op hol, en komen er 
 # Rare (X*224*224) getallen uit, en dan zou niet moeten kunnen. Er is nooit exact dat aantal false positives bijvoorbeeld) 
@@ -72,8 +73,8 @@ def get_optimizer(config, model):
     elif config.optimizer == "RMSprop":
         return optim.RMSprop(model.parameters(),lr=config.lr)
     else:
-        print("No matching optimizer found! Used default SGD")
-        print(f"config.optimizer = {config.optimizer}")
+        warnings.warn("No matching optimizer found! Used default SGD")
+        print(f"Current config.optimizer = {config.optimizer}")
         return optim.SGD(model.parameters(), lr=config.lr, momentum=config.momentum)
     
 """ Returns dataloaders, model, loss function and optimizer.
@@ -218,8 +219,8 @@ def log_test_example(config, example, target, output):
         print("Converted BGR to RGB")
         example = cv2.cvtColor(example, cv2.COLOR_BGR2RGB)
     else:
-        print("No colour space found!")
-        print(f"config.colour_space = {config.colour_space}")
+        warnings.warn("No colour space found!")
+        print(f"Current config.colour_space = {config.colour_space}")
     wandb.log({"Input image":[wandb.Image(example)]})
     wandb.log({"Target output": [wandb.Image(target)]})
     wandb.log({"Model greyscale output": [wandb.Image(output)]})
