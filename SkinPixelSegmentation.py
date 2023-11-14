@@ -18,18 +18,20 @@ loss_dictionary = {
     "Focal": LossFunctions.FocalLoss(),
     "CE": nn.CrossEntropyLoss(),
     "BCE": nn.BCELoss(),
+    "WBCE": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([0.9])),
     "L1": nn.L1Loss(),
 }
 
 config = SimpleNamespace(
     num_epochs = 50,
-    batch_size = 64, 
-    train_size = 16384,
-    test_size = 1024,
+    batch_size = 32, 
+    train_size = 20,
+    test_size = 20,
     lr = 0.01, 
     momentum = 0.999, 
     colour_space = "RGB",
-    loss_function = "BCE", 
+    loss_function = "IoU", 
+    # TODO: To mps
     device = torch.device("cpu"),
     # dataset = "VisuAAL", 
     # architecture = "UNet"
@@ -68,6 +70,8 @@ def train_batch(config, pixels, labels, model, optimizer, loss_function):
     
     outputs = model(pixels)
     
+    # print(f"Loss outputs and labels: \n{torch.flatten(outputs)}\n{torch.flatten(labels)}")
+    
     loss = loss_function(outputs, labels)
     loss.backward()
     optimizer.step()
@@ -91,7 +95,6 @@ def test(config, model, test_loader, loss_function):
         total_loss = 0.0
         total_tn, total_fn, total_fp, total_tp = 0, 0, 0, 0
         for pixels, labels in test_loader:  
-                    
             pixels, labels = pixels.to(config.device), labels.to(config.device)
             pixels = pixels.float()
             labels = labels.float()
@@ -106,7 +109,7 @@ def test(config, model, test_loader, loss_function):
             total_fn += batch_fn
             total_fp += batch_fp
             total_tp += batch_tp
-            
+
         mean_test_loss = total_loss/config.test_size
         accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU = DataFunctions.metrics(total_tn, total_fn, total_fp, total_tp)
         test_log(config, mean_test_loss, accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU)

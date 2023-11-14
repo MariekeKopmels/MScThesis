@@ -1,4 +1,5 @@
 import os
+import random
 import cv2
 import sklearn.metrics
 import torch 
@@ -16,9 +17,9 @@ def load_images(config, images, gts, image_dir_path, gt_dir_path, test=False):
     image_list = os.listdir(image_dir_path)
     gt_list = os.listdir(gt_dir_path)
     
-    # Not all images have a ground truth, select those that do
-    dir_list = [file for file in image_list if file in gt_list]
-    dir_list = sorted(dir_list, key=str.casefold)
+    # Not all images have a ground truth, select those that do. Also skip the hidden files.
+    dir_list = [file for file in image_list if file in gt_list and not file.startswith(".")]
+    # dir_list = sorted(dir_list, key=str.casefold)
     
     # Include as many items as requested
     if test:
@@ -28,9 +29,6 @@ def load_images(config, images, gts, image_dir_path, gt_dir_path, test=False):
     
     # Store images
     for file_name in dir_list:
-        # Hidden files, irrelevant for this usecase
-        if file_name.startswith('.'):
-            continue
         # Read the images
         img_path = image_dir_path + "/" + file_name
         gt_path = gt_dir_path + "/" + file_name
@@ -52,9 +50,12 @@ def load_images(config, images, gts, image_dir_path, gt_dir_path, test=False):
         
         # print(f"max en min in gt: {gt.max()} and {gt.min()}")
         
-        #Store in list
+        #Store in list if not all black
+        # if gt.max() > 0.5:    
         images.append(img)
         gts.append(gt)
+        # else: 
+        #     print(f"Image {file_name} is all black, so left out.")
         
     return images, gts
 
@@ -83,20 +84,31 @@ def load_data(config, train, test):
 
 def load_pixel_data(config, train, test):
     path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Skin_NonSkin_Pixel.txt"
-    train_pixels, train_label, test_pixels, test_label = [], [], [], []
     print("Loading data...")
     with open(path) as file:
        lines = [[int(num) for num in line.split()] for line in file]
-    
+       
     lines = np.array(lines)
     np.random.shuffle(lines)
     data_size = config.train_size+config.test_size
     lines = lines[:data_size,:]
+    
+    # Balance the dataset
+    lines_1 = lines[lines[:, 3] == 1]
+    lines_2 = lines[(lines[:, 3] == 2)]
+    lines = np.concatenate([lines_1, lines_2[:lines_1.shape[0]]], axis=0)
+    np.random.shuffle(lines)
+    print(lines)
+        
     pixels = lines[:,:3] 
     labels = lines[:,3]
     
+    print(f"Balanced data? labels info: {np.unique(labels, return_counts=True)}")
+    
     # Labels are 1 and 2, so transform to 0 and 1
     labels = labels - 1
+    
+    # TODO: Fix de split (door balancen heb ik niet alle datapunten meer)
 
     split = config.train_size
     train_pixels = pixels[:split,:]
@@ -144,7 +156,8 @@ def confusion_matrix(outputs, targets, test=False):
         # print(f"Number of 0's in target: {sum(1 for value in target if value < 0.5)}")
         # print(f"Number of 1's in output: {sum(1 for value in output if value > 0.5)}")
         # print(f"Number of 1's in target: {sum(1 for value in target if value > 0.5)}")        
-        output = np.array(output) > 0.5
+        # output = np.array(output) > 0.5
+        output = np.array([1.0 if x > 0.5 else 0.0 for x in output])
         
         # print(f"\nAFTER\n")
         # print(f"Number of 0's in output: {np.sum(output == 0.0)}")
@@ -166,8 +179,20 @@ def confusion_matrix(outputs, targets, test=False):
 
         i_matrix = sklearn.metrics.confusion_matrix(target, output)
         
-        # print(f"Confusion matrix: {i_matrix}")
-        matrix += i_matrix
+        # Blijkbaar bij een target met alles 0, krijg je een [[50176]] confusion matrix. Bij de volgende is deze er dus bij alle 
+        # vier de indexen bij opgeteld en klopt het totaal niet meer. 
+        # print("Intermediate confusion matrix:\n", i_matrix)
+        # print(f"\nNumber of <0.5's in output: {sum(1 for value in output if value < 0.5)}")
+        # print(f"Number of <0.5's in target: {sum(1 for value in target if value < 0.5)}")
+        # print(f"Number of >0.5's in output: {sum(1 for value in output if value > 0.5)}")
+        # print(f"Number of >0.5's in target: {sum(1 for value in target if value > 0.5)}")
+        
+        # If all target and output entries are zero, i_matrix has only one dimension as all is true negative
+        # print(f"Dims: {i_matrix.shape}")
+        if i_matrix.shape == (1, 1):
+            matrix[0][0] += i_matrix[0][0]
+        else:
+            matrix += i_matrix
     
     if test:
         print("Confusion matrix test:\n", matrix)
@@ -195,6 +220,17 @@ def pixel_confusion_matrix(config, outputs, labels, test=False):
     
     if test:
         print("Confusion matrix:\n", matrix)
+        
+    # Check if all entries are either 0 or all are 1 (resulting in a value as matrix)
+    if matrix.shape == (1, 1):
+        output_matrix = [[0.0, 0.0],[0.0, 0.0]]
+        if outputs[0] == 1.0:
+            output_matrix[1][1] = matrix[0][0]
+        elif outputs[0] == 0.0:
+            output_matrix[0][0] = matrix[0][0]
+        else:
+            print(f"QUEeeee? outputs[0]:{outputs[0]} so outputs[0] == 1.0:{outputs[0] == 1.0} and matrix[0][0]:{matrix[0][0]}")
+        matrix = output_matrix
     
     tn = matrix[0][0]
     fn = matrix[1][0]

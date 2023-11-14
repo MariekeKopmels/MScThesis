@@ -19,9 +19,9 @@ parameters:
   test_size:
     value: 64
   lr:
-    value: 0.01
+    value: 0.0001
     # distribution: uniform
-    # min: 0.001
+    # min: 0.0001
     # max: 0.01
   momentum:
     value: 0.9
@@ -29,21 +29,23 @@ parameters:
     # min: 0.9
     # max: 0.99
   colour_space: 
-    value: "RGB"
-    # distribution: categorical
-    # values:
-    # - "RGB"
-    # - "YCrCb"
+    # value: "RGB"
+    values:
+    - "RGB"
+    - "YCrCb"
   loss_function: 
     values: 
-      # - "BCE"
-      # - "WBCE"
-      - "WBCE_0.9"
+      - "BCE"
+      - "WBCE"
+      # - "WBCE_0.9"
+      # - "WBCE_0.7"
+      # - "WBCE_0.3"
       # - "WBCE_0.1"
       - "IoU"
-      # - "Focal"
+      - "Focal"
   optimizer:
-    values: 
-      - "SGD"
-      - "RMSprop"
-      - "Adam"
+    value: "Adam"
+    # values: 
+    #   - "SGD"
+    #   - "RMSprop"
+    #   - "Adam"

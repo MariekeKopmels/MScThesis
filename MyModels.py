@@ -70,7 +70,7 @@ class UNET(nn.Module):
         self.sigmoid = nn.Sigmoid()
         # TODO: checken of sigmoid idd de way to go is 
         
-    def forward(self, inputs, WBCE=False):
+    def forward(self, inputs):
         # For the last few items, the batch size may be smaller than BATCH_SIZE
         batch_size = len(inputs)
         
@@ -88,9 +88,7 @@ class UNET(nn.Module):
         d4 = self.d4(d3, s1)
         """ Classifier """
         x = self.outputs(d4)
-        # TODO: Checken
-        if not WBCE:
-            x = self.sigmoid(x)
+        x = self.sigmoid(x)
         
         """ Reformatting"""
         outputs = x.clone().reshape(batch_size, NO_PIXELS, NO_PIXELS)
@@ -122,8 +120,10 @@ class SkinClassifier(nn.Module):
         super(SkinClassifier, self).__init__()
         self.fc1 = nn.Linear(3, 32)  # Input: 3 features (R, G, B), Output: 32 hidden units
         self.fc2 = nn.Linear(32, 1)  # Output: 1 unit for binary classification (no activation)
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
         x = torch.sigmoid(self.fc1(x))
         x = self.fc2(x)  # No sigmoid activation in the final layer for binary classification
+        x = self.sigmoid(x)
         return x

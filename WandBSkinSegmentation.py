@@ -14,7 +14,7 @@ import numpy as np
 import warnings
 
 # TODO Voor morgen: bij de IoU gaat hij goed, maar bij de WBCE gaan de confusion matrices op hol, en komen er 
-# Rare (X*224*224) getallen uit, en dan zou niet moeten kunnen. Er is nooit exact dat aantal false positives bijvoorbeeld) 
+# Rare (X*224*224) getallen uit, en dan zou niet moeten kunnen vgm
 
 # Options for loss function
 loss_dictionary = {
@@ -22,6 +22,8 @@ loss_dictionary = {
     "Focal": LossFunctions.FocalLoss(),
     # "CE": nn.CrossEntropyLoss(),
     "WBCE_0.9": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([0.9])),
+    "WBCE_0.7": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([0.7])),
+    "WBCE_0.3": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([0.3])),
     "WBCE_0.1": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([0.1])),
     "WBCE": nn.BCEWithLogitsLoss(),
     "BCE": nn.BCELoss(),
@@ -31,14 +33,14 @@ loss_dictionary = {
 # Size of dataset: Train=44783 , Test=1157
 default_config = SimpleNamespace(
     num_epochs = 5,
-    batch_size = 8, 
-    train_size = 32, 
-    test_size = 16,
-    lr = 0.01, 
+    batch_size = 4, 
+    train_size = 8, 
+    test_size = 4,
+    lr = 0.0001, 
     momentum = 0.9, 
     colour_space = "RGB",
-    loss_function = "IoU",
-    optimizer = "SGD", 
+    loss_function = "Focal",
+    optimizer = "Adam", 
     device = torch.device("mps"),
     dataset = "VisuAAL", 
     architecture = "UNet"
@@ -95,7 +97,7 @@ def make(config):
 
 """ Trains the passed model. 
 """
-def train(config, model, train_loader, loss_function, optimizer):
+def train(config, model, train_loader, test_loader, loss_function, optimizer):
     # Tell WandB to watch what the model gets up to: gradients, weights, and more!
     wandb.watch(model, log="all", log_freq=1)
     
@@ -120,6 +122,7 @@ def train(config, model, train_loader, loss_function, optimizer):
         accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU = DataFunctions.metrics(epoch_tn, epoch_fn, epoch_fp, epoch_tp)
         train_epoch_log(config, mean_loss, accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU, epoch)
         #TODO: Add validation per training epoch
+        # test(config, model, test_loader, loss_function)
 
 """ Performs training for one batch of datapoints. Returns the true/false positive/negative metrics. 
 """
@@ -128,16 +131,13 @@ def train_batch(config, images, targets, model, optimizer, loss_function):
     images, targets = images.to(config.device), targets.to(config.device)
     images = images.float()
     targets = targets.float()
-    if "WBCE" in config.loss_function:
-        outputs = model(images, WBCE=True)
-    else: 
-        outputs = model(images)
+    outputs = model(images)
     
     loss = loss_function(outputs, targets)
     loss.backward()
     optimizer.step()
     
-    tn, fn, fp, tp = DataFunctions.confusion_matrix(outputs, targets, test=True)
+    tn, fn, fp, tp = DataFunctions.confusion_matrix(outputs, targets)
     return loss, tn, fn, fp, tp
 
 """ Prints and logs the intermediate training results to WandB.
@@ -164,15 +164,8 @@ def test(config, model, test_loader, loss_function):
             images, targets = images.to(config.device), targets.to(config.device)
             images = images.float()
             targets = targets.float()
-            if "WBCE" in config.loss_function:
-                outputs = model(images, WBCE=True)
-                # For testing, we still need to map the output to range [0,1]
-                print(f"Model output info:\n\nBefore:\ntorch.min(output): {torch.min(outputs[0])}, torch.max(output) {torch.max(outputs[0])}")
-                outputs = torch.sigmoid(outputs)
-                print(f"\n\n\After:\ntorch.min(output): {torch.min(outputs[0])}, torch.max(output) {torch.max(outputs[0])}")
-            else: 
-                print(f"config.loss_function does not contain WBCE, see: {config.loss_function}")
-                outputs = model(images)
+            outputs = model(images)
+            print(f"torch.min(output): {torch.min(outputs[0])}, torch.max(output) {torch.max(outputs[0])}")
             
             # Log example to WandB
             log_test_example(config, example_image, targets[0], outputs[0])
@@ -221,9 +214,11 @@ def log_test_example(config, example, target, output):
     else:
         warnings.warn("No colour space found!")
         print(f"Current config.colour_space = {config.colour_space}")
+        
     wandb.log({"Input image":[wandb.Image(example)]})
     wandb.log({"Target output": [wandb.Image(target)]})
     wandb.log({"Model greyscale output": [wandb.Image(output)]})
+    print(f"Values of output: {output.max()} and {output.min()}")
     bw_image = (output >= 0.5).float()
     wandb.log({"Model bw output": [wandb.Image(bw_image)]})
 
@@ -231,16 +226,18 @@ def log_test_example(config, example, target, output):
 """
 def model_pipeline(hyperparameters):
     # start wandb
-    with wandb.init(mode="disabled", project="skin_segmentation", config=hyperparameters): #mode="disabled", 
+    with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # set hyperparameters
         config = wandb.config
+        run_name = f"{config.loss_function}_{config.optimizer}_LR:{config.lr}_M:{config.momentum}_Colourspace:{config.colour_space}"
+        wandb.run.name = run_name
 
         # create model, data loaders, loss function and optimizer
         model, train_loader, test_loader, loss_function, optimizer = make(config)
         # print(f"Model: {model}")
 
         # train the model
-        train(config, model, train_loader, loss_function, optimizer)
+        train(config, model, train_loader, test_loader, loss_function, optimizer)
 
         # test the models performance
         test(config, model, test_loader, loss_function)
