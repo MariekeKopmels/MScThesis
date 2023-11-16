@@ -12,22 +12,29 @@ NO_PIXELS = 224
         Format of return: list of NumPy arrays.
         NumPy arrays are of shape (224,224,3) for images and (224,224) for ground truths 
 """
-def load_images(config, images, gts, image_dir_path, gt_dir_path, test=False):
+def load_images(config, images, gts, image_dir_path, gt_dir_path, type):
     # Load list of files and directories
     image_list = os.listdir(image_dir_path)
     gt_list = os.listdir(gt_dir_path)
     
     # Not all images have a ground truth, select those that do. Also skip the hidden files.
     dir_list = [file for file in image_list if file in gt_list and not file.startswith(".")]
-    # dir_list = sorted(dir_list, key=str.casefold)
     
-    # Include as many items as requested
-    if test:
-        dir_list = dir_list[:config.test_size]
-    else:
+    # Include as many items as requested. test and validation are both from the test set and should not overlap.
+    if type == "train":
         dir_list = dir_list[:config.train_size]
+    elif type == "validation":
+        end = config.test_size + config.validation_size
+        if end > len(dir_list):
+            raise Exception(f"Test ({config.test_size}) and validation ({config.validation_size}) are larger than the test set of size 1157.")
+        dir_list = dir_list[config.test_size:end]
+    elif type == "test":
+        dir_list = dir_list[:config.test_size]
+            
+    # Store images and ground truths
+    images = []
+    gts = []
     
-    # Store images
     for file_name in dir_list:
         # Read the images
         img_path = image_dir_path + "/" + file_name
@@ -47,15 +54,10 @@ def load_images(config, images, gts, image_dir_path, gt_dir_path, test=False):
         # Resize images and ground truths to size 224*224
         img = cv2.resize(img, (NO_PIXELS,NO_PIXELS), interpolation=cv2.INTER_CUBIC)
         gt = cv2.resize(gt, (NO_PIXELS,NO_PIXELS), interpolation=cv2.INTER_CUBIC)
-        
-        # print(f"max en min in gt: {gt.max()} and {gt.min()}")
-        
+                
         #Store in list if not all black
-        # if gt.max() > 0.5:    
         images.append(img)
         gts.append(gt)
-        # else: 
-        #     print(f"Image {file_name} is all black, so left out.")
         
     return images, gts
 
@@ -68,19 +70,23 @@ def load_data(config, train, test):
 
     train_images, train_gts, test_images, test_gts = [], [], [], []
     print("Loading training data...")
-    train_images, train_gts = load_images(config, train_images, train_gts, base_path + "/TrainImages", base_path + "/TrainGroundTruth")
+    train_images, train_gts = load_images(config, train_images, train_gts, base_path + "/TrainImages", base_path + "/TrainGroundTruth", type = "train")
+    print("Loading validation data...")
+    validation_images, validation_gts = load_images(config, test_images, test_gts, base_path + "/TestImages", base_path + "/TestGroundTruth", type = "validation")
     print("Loading testing data...")
-    test_images, test_gts = load_images(config, test_images, test_gts, base_path + "/TestImages", base_path + "/TestGroundTruth", test = True)
-    
+    test_images, test_gts = load_images(config, test_images, test_gts, base_path + "/TestImages", base_path + "/TestGroundTruth", type = "test")
+
     # TODO: fix de eerst naar numpy en daarna pas naar tensor (sneller dan vanaf een list direct naar tensor maar nu heel lelijk)
     train = torch.utils.data.TensorDataset(torch.as_tensor(np.array(train_images)).permute(0,3,1,2), torch.as_tensor(np.array(train_gts)).permute(0,1,2))
+    validation = torch.utils.data.TensorDataset(torch.as_tensor(np.array(validation_images)).permute(0,3,1,2), torch.as_tensor(np.array(validation_gts)).permute(0,1,2))
     test = torch.utils.data.TensorDataset(torch.as_tensor(np.array(test_images)).permute(0,3,1,2), torch.as_tensor(np.array(test_gts)).permute(0,1,2))
 
-    # Put data into dataloader
+    # Put data into dataloaders
     train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True)
+    validation_loader = DataLoader(validation, batch_size=config.batch_size, shuffle=False)
     test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False)
     
-    return train_loader, test_loader
+    return train_loader, validation_loader, test_loader
 
 def load_pixel_data(config, train, test, YCrCb = False):
     path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Skin_NonSkin_Pixel.txt"
@@ -89,10 +95,7 @@ def load_pixel_data(config, train, test, YCrCb = False):
        lines = [[int(num) for num in line.split()] for line in file]
        
     lines = np.array(lines)
-    np.random.shuffle(lines)
-    data_size = config.train_size+config.test_size
-    # lines = lines[:data_size,:]
-    
+    np.random.shuffle(lines)    
     
     # Balance the dataset
     lines_1 = lines[lines[:, 3] == 1]
