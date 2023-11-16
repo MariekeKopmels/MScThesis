@@ -82,7 +82,7 @@ def load_data(config, train, test):
     
     return train_loader, test_loader
 
-def load_pixel_data(config, train, test):
+def load_pixel_data(config, train, test, YCrCb = False):
     path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Skin_NonSkin_Pixel.txt"
     print("Loading data...")
     with open(path) as file:
@@ -91,32 +91,46 @@ def load_pixel_data(config, train, test):
     lines = np.array(lines)
     np.random.shuffle(lines)
     data_size = config.train_size+config.test_size
-    lines = lines[:data_size,:]
+    # lines = lines[:data_size,:]
+    
     
     # Balance the dataset
     lines_1 = lines[lines[:, 3] == 1]
     lines_2 = lines[(lines[:, 3] == 2)]
     lines = np.concatenate([lines_1, lines_2[:lines_1.shape[0]]], axis=0)
     np.random.shuffle(lines)
-    print(lines)
+    print(f"Lines_1: {len(lines_1)} and Lines_2: {len(lines_2)}")
         
     pixels = lines[:,:3] 
     labels = lines[:,3]
     
-    print(f"Balanced data? labels info: {np.unique(labels, return_counts=True)}")
+    if YCrCb:
+        print("YCrCb colour space, so converting.")
+        B = pixels[:, 0]
+        G = pixels[:, 1]
+        R = pixels[:, 2]
+        
+        Y = 0.299 * R + 0.587 * G + 0.114 * B
+        Cr = (R - Y) * 0.713 + 128
+        Cb = (B - Y) * 0.564 + 128
+        
+        pixels_YCrCb = np.column_stack((Y, Cr, Cb))
+        print(f"Pixels: \n{pixels}\n\n and YCrCb pixels: \n{pixels_YCrCb}")
+        pixels = pixels_YCrCb
     
     # Labels are 1 and 2, so transform to 0 and 1
     labels = labels - 1
     
-    # TODO: Fix de split (door balancen heb ik niet alle datapunten meer)
-
     split = config.train_size
+    end = config.train_size + config.test_size
     train_pixels = pixels[:split,:]
-    test_pixels =  pixels[split:,:]
+    test_pixels =  pixels[split:end,:]
     train_labels = labels[:split].reshape(-1, 1)
-    test_labels =  labels[split:].reshape(-1, 1)
-    # print(f"Data put in the dataloader is of format [{len(train_labels)}, {train_labels[0]}].")
-    # print(f"Dims: {train_pixels.shape}, {train_labels.shape}.")
+    test_labels =  labels[split:end].reshape(-1, 1)
+    
+    # TODO: Figure out waarom train wel maar test niet exact balanced is
+    print(f"Balanced data? train labels info: {np.unique(train_labels, return_counts=True)}")
+    print(f"Balanced data? test labels info: {np.unique(test_labels, return_counts=True)}")
     
     train = torch.utils.data.TensorDataset(torch.tensor(train_pixels), torch.tensor(train_labels))
     test = torch.utils.data.TensorDataset(torch.tensor(test_pixels), torch.tensor(test_labels))

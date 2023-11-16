@@ -21,25 +21,23 @@ loss_dictionary = {
     "IoU": LossFunctions.IoULoss(),
     "Focal": LossFunctions.FocalLoss(),
     # "CE": nn.CrossEntropyLoss(),
-    "WBCE_0.9": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([0.9])),
-    "WBCE_0.7": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([0.7])),
-    "WBCE_0.3": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([0.3])),
-    "WBCE_0.1": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([0.1])),
     "WBCE": nn.BCEWithLogitsLoss(),
+    "WBCE_10": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([10])),
+    "WBCE_20": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([20])),
     "BCE": nn.BCELoss(),
 }
 
 # Default parameters
 # Size of dataset: Train=44783 , Test=1157
 default_config = SimpleNamespace(
-    num_epochs = 5,
-    batch_size = 4, 
-    train_size = 8, 
-    test_size = 4,
+    num_epochs = 10,
+    batch_size = 128, 
+    train_size = 10000, 
+    test_size = 1000,
     lr = 0.0001, 
-    momentum = 0.9, 
+    momentum = 0.99, 
     colour_space = "RGB",
-    loss_function = "Focal",
+    loss_function = "WBCE_10",
     optimizer = "Adam", 
     device = torch.device("mps"),
     dataset = "VisuAAL", 
@@ -49,18 +47,18 @@ default_config = SimpleNamespace(
 def parse_args():
     "Overriding default arguments"
     argparser = argparse.ArgumentParser(description='Process hyper-parameters')
-    argparser.add_argument('--batch_size', type=int, default=default_config.batch_size, help='batch size')
     argparser.add_argument('--num_epochs', type=int, default=default_config.num_epochs, help='number of epochs')
+    argparser.add_argument('--batch_size', type=int, default=default_config.batch_size, help='batch size')
+    argparser.add_argument('--train_size', type=int, default=default_config.train_size, help='trains size')
+    argparser.add_argument('--test_size', type=int, default=default_config.test_size, help='test size')
     argparser.add_argument('--lr', type=float, default=default_config.lr, help='learning rate')
     argparser.add_argument('--momentum', type=float, default=default_config.momentum, help='momentum')
     argparser.add_argument('--colour_space', type=str, default=default_config.colour_space, help='colour space')
-    argparser.add_argument('--train_size', type=int, default=default_config.train_size, help='trains size')
-    argparser.add_argument('--test_size', type=int, default=default_config.test_size, help='test size')
     argparser.add_argument('--loss_function', type=str, default=default_config.loss_function, help='loss function')
     argparser.add_argument('--optimizer', type=str, default=default_config.optimizer, help='optimizer')
+    argparser.add_argument('--device', type=torch.device, default=default_config.device, help='device')
     argparser.add_argument('--dataset', type=str, default=default_config.dataset, help='dataset')
     argparser.add_argument('--architecture', type=str, default=default_config.architecture, help='architecture')
-    argparser.add_argument('--device', type=torch.device, default=default_config.device, help='device')
     args = argparser.parse_args()
     vars(default_config).update(vars(args))
     return
