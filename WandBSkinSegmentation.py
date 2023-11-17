@@ -23,8 +23,7 @@ loss_dictionary = {
     "Focal": LossFunctions.FocalLoss(),
     # "CE": nn.CrossEntropyLoss(),
     "WBCE": nn.BCEWithLogitsLoss(),
-    "WBCE_10": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([10])),
-    "WBCE_20": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([20])),
+    "WBCE_9": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([9])),
     "BCE": nn.BCELoss(),
 }
 
@@ -40,7 +39,7 @@ default_config = SimpleNamespace(
     lr = 0.0001, 
     momentum = 0.99, 
     colour_space = "RGB",
-    loss_function = "WBCE_10",
+    loss_function = "WBCE_9",
     optimizer = "Adam", 
     device = torch.device("mps"),
     dataset = "VisuAAL", 
@@ -114,10 +113,11 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
             epoch_fn += batch_fn
             epoch_fp += batch_fp
             epoch_tp += batch_tp
+            LogFunctions.new_log_metrics(batch_loss/config.batch_size, batch_tn, batch_fn, batch_fp, batch_tp, "batch")
+            
         mean_loss = epoch_loss/config.train_size
-        accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU = DataFunctions.metrics(epoch_tn, epoch_fn, epoch_fp, epoch_tp)
-        LogFunctions.log_metrics(mean_loss, accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU, "train")
-        test_performance(config, model, validation_loader, loss_function, "validation")
+        LogFunctions.new_log_metrics(mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
+        test_performance(config, epoch, model, validation_loader, loss_function, "validation")
 
 """ Performs training for one batch of datapoints. Returns the true/false positive/negative metrics. 
 """
@@ -135,7 +135,7 @@ def train_batch(config, images, targets, model, optimizer, loss_function):
     tn, fn, fp, tp = DataFunctions.confusion_matrix(outputs, targets, "train")
     return loss, tn, fn, fp, tp
 
-def test_performance(config, model, data_loader, loss_function, type):
+def test_performance(config, epoch, model, data_loader, loss_function, type):
     print(f"-------------------------Start {type}-------------------------")
     model.eval()
     
@@ -162,16 +162,24 @@ def test_performance(config, model, data_loader, loss_function, type):
             LogFunctions.log_example(config, example_image, targets[0], outputs[0], type)
             
             # Update metrics
-            total_loss += loss_function(outputs, targets).item()
+            batch_loss = loss_function(outputs, targets).item()
+            total_loss += batch_loss
             batch_tn, batch_fn, batch_fp, batch_tp = DataFunctions.confusion_matrix(outputs, targets, type)
             total_tn += batch_tn
             total_fn += batch_fn
             total_fp += batch_fp
             total_tp += batch_tp
+            LogFunctions.new_log_metrics(batch_loss/config.batch_size, batch_tn, batch_fn, batch_fp, batch_tp, "batch")
 
         mean_loss = total_loss/len(data_loader.dataset)
-        accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU = DataFunctions.metrics(total_tn, total_fn, total_fp, total_tp)
-        LogFunctions.log_metrics(mean_loss, accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU, type)
+        LogFunctions.new_log_metrics(mean_loss, total_tn, total_fn, total_fp, total_tp, type)
+        
+        # if type == "validation":
+            # Save the model
+            # TODO: fix, it now raises errors
+            # x = torch.ones(config.batch_size, 3, config.dims, config.dims).to(dtype=torch.float32).to(config.device)
+            # torch.onnx.export(model, x, f"Models/model_epoch_{epoch}.onnx")
+            # wandb.save(f"model_epoch_{epoch}.onnx")
 
 """ Runs the whole pipeline of creating, training and testing a model
 """
@@ -193,7 +201,7 @@ def model_pipeline(hyperparameters):
         train(config, model, train_loader, validation_loader, loss_function, optimizer)
 
         # Test the models performance
-        test_performance(config, model, test_loader, loss_function, "test")
+        test_performance(config, config.num_epochs, model, test_loader, loss_function, "test")
 
     return model
 

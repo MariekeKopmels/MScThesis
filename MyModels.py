@@ -129,4 +129,3 @@ class SkinClassifier(nn.Module):
 #         x = self.fc3(x)
 #         x = self.sigmoid(x)
 #         return x
-    

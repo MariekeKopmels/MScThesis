@@ -50,4 +50,3 @@ class FocalLoss(nn.Module):
             return focal_loss.sum()
         else:
             return focal_loss
-        
