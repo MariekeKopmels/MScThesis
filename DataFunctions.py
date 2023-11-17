@@ -146,7 +146,7 @@ def load_pixel_data(config, train, test, YCrCb = False):
     
 """Returns the values of the confusion matrix of true negative, false negative, true positive and false positive values
 """
-def confusion_matrix(outputs, targets, test=False):
+def confusion_matrix(outputs, targets, type):
     batch_size = outputs.shape[0]
     
     outputs = outputs.to("cpu")
@@ -211,7 +211,7 @@ def confusion_matrix(outputs, targets, test=False):
         else:
             matrix += i_matrix
     
-    if test:
+    if type == "test":
         print("Confusion matrix test:\n", matrix)
     
     tn = matrix[0][0]
@@ -238,7 +238,7 @@ def pixel_confusion_matrix(config, outputs, labels, test=False):
     if test:
         print("Confusion matrix:\n", matrix)
         
-    # Check if all entries are either 0 or all are 1 (resulting in a value as matrix)
+    # Check if all entries are either 0 or all are 1 (resulting in one value as matrix)
     if matrix.shape == (1, 1):
         output_matrix = [[0.0, 0.0],[0.0, 0.0]]
         if outputs[0] == 1.0:

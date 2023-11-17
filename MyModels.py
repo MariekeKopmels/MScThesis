@@ -51,8 +51,9 @@ class decoder_block(nn.Module):
         Output contains 1 channel with values between 0 (background) and 1 (skin).
 """
 class UNET(nn.Module):
-    def __init__(self):
+    def __init__(self, dims):
         super().__init__()
+        self.dims = dims
         """ Encoder """
         self.e1 = encoder_block(3, 64)
         self.e2 = encoder_block(64, 128)
@@ -91,29 +92,9 @@ class UNET(nn.Module):
         x = self.sigmoid(x)
         
         """ Reformatting"""
-        outputs = x.clone().reshape(batch_size, NO_PIXELS, NO_PIXELS)
+        outputs = x.clone().reshape(batch_size, self.dims, self.dims)
         
         return outputs
-    
-class NN(nn.Module):
-    def __init__(self):
-        super(NN, self).__init__()
-        self.fc1 = nn.Linear(3, 16)
-        self.relu1 = nn.ReLU()
-        self.fc2 = nn.Linear(16, 32)
-        self.relu2 = nn.ReLU()
-        self.fc3 = nn.Linear(32, 1)
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = self.relu1(x)
-        x = self.fc2(x)
-        x = self.relu2(x)
-        x = self.fc3(x)
-        x = self.sigmoid(x)
-        return x
-    
     
 class SkinClassifier(nn.Module):
     def __init__(self):
@@ -127,3 +108,25 @@ class SkinClassifier(nn.Module):
         x = self.fc2(x)  # No sigmoid activation in the final layer for binary classification
         x = self.sigmoid(x)
         return x
+    
+    
+        
+# class NN(nn.Module):
+#     def __init__(self):
+#         super(NN, self).__init__()
+#         self.fc1 = nn.Linear(3, 16)
+#         self.relu1 = nn.ReLU()
+#         self.fc2 = nn.Linear(16, 32)
+#         self.relu2 = nn.ReLU()
+#         self.fc3 = nn.Linear(32, 1)
+#         self.sigmoid = nn.Sigmoid()
+
+#     def forward(self, x):
+#         x = self.fc1(x)
+#         x = self.relu1(x)
+#         x = self.fc2(x)
+#         x = self.relu2(x)
+#         x = self.fc3(x)
+#         x = self.sigmoid(x)
+#         return x
+    
