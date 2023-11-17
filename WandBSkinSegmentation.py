@@ -14,9 +14,6 @@ from torch import optim
 import numpy as np
 import warnings
 
-# TODO Voor morgen: bij de IoU gaat hij goed, maar bij de WBCE gaan de confusion matrices op hol, en komen er 
-# Rare (X*224*224) getallen uit, en dan zou niet moeten kunnen vgm
-
 # Options for loss function
 loss_dictionary = {
     "IoU": LossFunctions.IoULoss(),
@@ -30,18 +27,19 @@ loss_dictionary = {
 # Default parameters
 # Size of dataset: Train=44783 , Test=1157
 default_config = SimpleNamespace(
+    machine = "TS2",
+    device = torch.device("cuda"),
     dims = 224,
-    num_epochs = 5,
-    batch_size = 4, 
-    train_size = 32, 
-    test_size = 16,
-    validation_size = 8,
+    num_epochs = 10,
+    batch_size = 32, 
+    train_size = 32768, 
+    test_size = 1024,
+    validation_size = 128,
     lr = 0.0001, 
     momentum = 0.99, 
     colour_space = "RGB",
     loss_function = "WBCE_9",
     optimizer = "Adam", 
-    device = torch.device("mps"),
     dataset = "VisuAAL", 
     architecture = "UNet"
 )
@@ -138,9 +136,7 @@ def train_batch(config, images, targets, model, optimizer, loss_function):
 def test_performance(config, epoch, model, data_loader, loss_function, type):
     print(f"-------------------------Start {type}-------------------------")
     model.eval()
-    
-    print(f"len(data_loader): {len(data_loader.dataset)}. Should be equal to either test {config.test_size} or validation {config.validation_size} size.")
-    
+        
     # Test the performance of the model on the data in the passed data loader, either test or validation data
     with torch.no_grad():
         total_loss = 0.0
@@ -160,6 +156,7 @@ def test_performance(config, epoch, model, data_loader, loss_function, type):
             
             # Log example to WandB
             LogFunctions.log_example(config, example_image, targets[0], outputs[0], type)
+            # masked_images = DataFunctions.mask_images(images, outputs)
             
             # Update metrics
             batch_loss = loss_function(outputs, targets).item()
@@ -175,27 +172,25 @@ def test_performance(config, epoch, model, data_loader, loss_function, type):
         LogFunctions.new_log_metrics(mean_loss, total_tn, total_fn, total_fp, total_tp, type)
         
         # if type == "validation":
-            # Save the model
-            # TODO: fix, it now raises errors
-            # x = torch.ones(config.batch_size, 3, config.dims, config.dims).to(dtype=torch.float32).to(config.device)
-            # torch.onnx.export(model, x, f"Models/model_epoch_{epoch}.onnx")
-            # wandb.save(f"model_epoch_{epoch}.onnx")
+        #     # Save the model
+        #     # TODO: fix, it now raises errors
+        #     x = torch.ones(config.batch_size, 3, config.dims, config.dims).to(dtype=torch.float32).to(config.device)
+        #     torch.onnx.export(model, x, f"Models/model_epoch_{epoch}.onnx")
+        #     wandb.save(f"model_epoch_{epoch}.onnx")
 
 """ Runs the whole pipeline of creating, training and testing a model
 """
 def model_pipeline(hyperparameters):
     # Start wandb
-    with wandb.init(mode="run", project="skin_segmentation", config=hyperparameters): #mode="disabled", 
+    with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # Set hyperparameters
         config = wandb.config
-        run_name = f"{config.loss_function}_train_size:{config.train_size}"
+        run_name = f"{config.machine}_train_size:{config.train_size}"
         wandb.run.name = run_name
 
         # Create model, data loaders, loss function and optimizer
         model, train_loader, validation_loader, test_loader, loss_function, optimizer = make(config)
-        # TODO: Check of dit werkt, stond eerst bovenaan train function
         wandb.watch(model, log="all", log_freq=1)
-        # print(f"Model: {model}")
 
         # Train the model, incl. validation
         train(config, model, train_loader, validation_loader, loss_function, optimizer)

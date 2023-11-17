@@ -66,7 +66,10 @@ def load_images(config, images, gts, image_dir_path, gt_dir_path, type):
         Image tensors are of shape (batch_size, channels, height, width)
 """
 def load_data(config, train, test):
-    base_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/visuAAL"
+    if config.machine == "Mac":
+        base_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/visuAAL"
+    else: 
+        base_path = "/home/oddity/marieke/Datasets/VisuAAL"
 
     train_images, train_gts, test_images, test_gts = [], [], [], []
     print("Loading training data...")
@@ -275,6 +278,11 @@ def metrics(tn, fn, fp, tp, pixels=False):
         return accuracy, fn_rate, fp_rate, sensitivity, f1_score
 
     return accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU
+
+# def mask_images(images, outputs):
+#     images[outputs > 0.5] 
+#     altered_images[mask == 1]
+#     return
 
 # """ Stores an image to the disk.
 # """
