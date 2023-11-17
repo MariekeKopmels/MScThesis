@@ -27,14 +27,31 @@ loss_dictionary = {
 # Default parameters
 # Size of dataset: Train=44783 , Test=1157
 default_config = SimpleNamespace(
-    machine = "TS2",
-    device = torch.device("cuda"),
+    # machine = "TS2",
+    # device = torch.device("cuda"),
+    # dims = 224,
+    # num_epochs = 10,
+    # batch_size = 32, 
+    # train_size = 32768, 
+    # test_size = 1024,
+    # validation_size = 128,
+    # lr = 0.0001, 
+    # momentum = 0.99, 
+    # colour_space = "RGB",
+    # loss_function = "WBCE_9",
+    # optimizer = "Adam", 
+    # dataset = "VisuAAL", 
+    # architecture = "UNet"
+
+# TODO: Maandag: kijken naar num_workers voor data loader. Hij blijft hangen op ----Starting Batch 1/32 batches---- atm.
+    machine = "Mac",
+    device = torch.device("cpu"),
     dims = 224,
     num_epochs = 10,
-    batch_size = 32, 
-    train_size = 32768, 
-    test_size = 1024,
-    validation_size = 128,
+    batch_size = 8, 
+    train_size = 256, 
+    test_size = 128,
+    validation_size = 64,
     lr = 0.0001, 
     momentum = 0.99, 
     colour_space = "RGB",

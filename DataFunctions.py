@@ -85,9 +85,9 @@ def load_data(config, train, test):
     test = torch.utils.data.TensorDataset(torch.as_tensor(np.array(test_images)).permute(0,3,1,2), torch.as_tensor(np.array(test_gts)).permute(0,1,2))
 
     # Put data into dataloaders
-    train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True)
-    validation_loader = DataLoader(validation, batch_size=config.batch_size, shuffle=False)
-    test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False)
+    train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True, num_workers=4)
+    validation_loader = DataLoader(validation, batch_size=config.batch_size, shuffle=False, num_workers=4)
+    test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False, num_workers=4)
     
     return train_loader, validation_loader, test_loader
 
