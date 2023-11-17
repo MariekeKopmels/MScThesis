@@ -277,7 +277,7 @@ def model_pipeline(hyperparameters):
     with wandb.init(mode="disabled", project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # set hyperparameters
         config = wandb.config
-        run_name = f"{config.loss_function}_{config.optimizer}_LR:{config.lr}_M:{config.momentum}_Colourspace:{config.colour_space}"
+        run_name = f"{config.loss_function}_train_size:{config.train_size}"
         wandb.run.name = run_name
 
         # create model, data loaders, loss function and optimizer
