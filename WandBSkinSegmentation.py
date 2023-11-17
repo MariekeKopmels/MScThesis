@@ -1,205 +1,210 @@
 #MSc Thesis Marieke Kopmels
-import os
-import random
-import time
-from os import listdir
-import numpy as np
-import LossFunctions
-import UNet
+import argparse
+from types import SimpleNamespace
+
 import cv2
-import matplotlib.pyplot as plt
+import MyModels
+import LossFunctions
+import LogFunctions
+import DataFunctions
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch import optim
-from torchmetrics.classification import Dice
-from torch.utils.data import DataLoader
-
 import wandb
+import torch.nn as nn
+from torch import optim
+import numpy as np
+import warnings
 
-NO_PIXELS = 224 
+# TODO Voor morgen: bij de IoU gaat hij goed, maar bij de WBCE gaan de confusion matrices op hol, en komen er 
+# Rare (X*224*224) getallen uit, en dan zou niet moeten kunnen vgm
 
+# Options for loss function
 loss_dictionary = {
     "IoU": LossFunctions.IoULoss(),
     "Focal": LossFunctions.FocalLoss(),
-    "CE": nn.CrossEntropyLoss(),
+    # "CE": nn.CrossEntropyLoss(),
+    "WBCE": nn.BCEWithLogitsLoss(),
+    "WBCE_9": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([9])),
     "BCE": nn.BCELoss(),
-    "L1": nn.L1Loss(),
 }
 
-config = dict(
-    BATCH_SIZE=32,
-    NUM_EPOCHS=5,
-    LR=0.01,
-    MOMENTUM=0.99,
-    TRAIN_SIZE=128,
-    TEST_SIZE=32,
-    loss_function = "IoU",
-    dataset="VisuAAL",
-    architecture="UNet", 
-    device=torch.device("mps"))
+# Default parameters
+# Size of dataset: Train=44783 , Test=1157
+default_config = SimpleNamespace(
+    dims = 224,
+    num_epochs = 5,
+    batch_size = 4, 
+    train_size = 32, 
+    test_size = 16,
+    validation_size = 8,
+    lr = 0.0001, 
+    momentum = 0.99, 
+    colour_space = "RGB",
+    loss_function = "WBCE_9",
+    optimizer = "Adam", 
+    device = torch.device("mps"),
+    dataset = "VisuAAL", 
+    architecture = "UNet"
+)
 
-"""Returns images in a given directory
-        Format of return: list of NumPy arrays.
-        NumPy arrays are of shape (224,224,3) for images and (224,224) for ground truths 
+def parse_args():
+    "Overriding default arguments"
+    argparser = argparse.ArgumentParser(description='Process hyper-parameters')
+    argparser.add_argument('--num_epochs', type=int, default=default_config.num_epochs, help='number of epochs')
+    argparser.add_argument('--batch_size', type=int, default=default_config.batch_size, help='batch size')
+    argparser.add_argument('--train_size', type=int, default=default_config.train_size, help='trains size')
+    argparser.add_argument('--test_size', type=int, default=default_config.test_size, help='test size')
+    argparser.add_argument('--lr', type=float, default=default_config.lr, help='learning rate')
+    argparser.add_argument('--momentum', type=float, default=default_config.momentum, help='momentum')
+    argparser.add_argument('--colour_space', type=str, default=default_config.colour_space, help='colour space')
+    argparser.add_argument('--loss_function', type=str, default=default_config.loss_function, help='loss function')
+    argparser.add_argument('--optimizer', type=str, default=default_config.optimizer, help='optimizer')
+    argparser.add_argument('--device', type=torch.device, default=default_config.device, help='device')
+    argparser.add_argument('--dataset', type=str, default=default_config.dataset, help='dataset')
+    argparser.add_argument('--architecture', type=str, default=default_config.architecture, help='architecture')
+    args = argparser.parse_args()
+    vars(default_config).update(vars(args))
+    return
+
+""" Returns the optimizer based on the configurations
 """
-def load_images(config, images, gts, image_dir_path, gt_dir_path, test=False):
-    # Load list of files and directories
-    image_list = listdir(image_dir_path)
-    gt_list = listdir(gt_dir_path)
-    
-    # Not all images have a ground truth, select those that do
-    dir_list = [file for file in image_list if file in gt_list]
-    dir_list = sorted(dir_list, key=str.casefold)
-    
-    if test:
-        dir_list = dir_list[:config.TEST_SIZE]
+def get_optimizer(config, model):
+    if config.optimizer == "SGD":
+        return optim.SGD(model.parameters(), lr=config.lr, momentum=config.momentum)
+    elif config.optimizer == "Adam":
+        return optim.Adam(model.parameters(), lr=config.lr)
+    elif config.optimizer == "RMSprop":
+        return optim.RMSprop(model.parameters(),lr=config.lr)
     else:
-        dir_list = dir_list[:config.TRAIN_SIZE]
+        warnings.warn("No matching optimizer found! Used default SGD")
+        print(f"Current config.optimizer = {config.optimizer}")
+        return optim.SGD(model.parameters(), lr=config.lr, momentum=config.momentum)
     
-    for file_name in dir_list:
-        # Hidden files, irrelevant for this usecase
-        if file_name.startswith('.'):
-            continue
-        # Read the images
-        img_path = image_dir_path + "/" + file_name
-        gt_path = gt_dir_path + "/" + file_name
-        
-        img = cv2.imread(img_path)
-        gt = cv2.imread(gt_path)
-        
-        # Convert Ground Truth from RGB to 1 channel (Black or White)
-        gt = cv2.cvtColor(gt, cv2.COLOR_BGR2GRAY)
-        _,gt = cv2.threshold(gt,127,1,0)
-        
-        # Resize images and ground truths to size 224*224
-        img = cv2.resize(img, (NO_PIXELS,NO_PIXELS), interpolation=cv2.INTER_CUBIC)
-        gt = cv2.resize(gt, (NO_PIXELS,NO_PIXELS), interpolation=cv2.INTER_CUBIC)
-        
-        #Store in list
-        images.append(img)
-        gts.append(gt)
-        
-    return images, gts
-
-"""Returns train and test, both being tensors with tuples of input images and corresponding ground truths.
-        Format of return: Tensor of tuples containging an input tensor and a ground truth tensor
-        Image tensors are of shape (batch_size, channels, height, width)
+""" Returns dataloaders, model, loss function and optimizer.
 """
-def load_data(config, train, test):
-    base_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/visuAAL"
-
-    train_images, train_gts, test_images, test_gts = [], [], [], []
-    print("Loading training data...")
-    train_images, train_gts = load_images(config, train_images, train_gts, base_path + "/TrainImages", base_path + "/TrainGroundTruth")
-    print("Loading testing data...")
-    test_images, test_gts = load_images(config, test_images, test_gts, base_path + "/TestImages", base_path + "/TestGroundTruth", test = True)
-    
-    # TODO: fix de eerst naar numpy en daarna pas naar tensor (sneller dan vanaf een list direct naar tensor maar nu heel lelijk)
-    train = torch.utils.data.TensorDataset(torch.as_tensor(np.array(train_images)).permute(0,3,1,2), torch.as_tensor(np.array(train_gts)).permute(0,1,2))
-    test = torch.utils.data.TensorDataset(torch.as_tensor(np.array(test_images)).permute(0,3,1,2), torch.as_tensor(np.array(test_gts)).permute(0,1,2))
-
-    return train, test
-
 def make(config):
-    # Make the data
-    train, test = load_data(config, [], [])
-    train_loader = DataLoader(train, batch_size=config.BATCH_SIZE, shuffle=True)
-    test_loader = DataLoader(test, batch_size=config.BATCH_SIZE, shuffle=False)
-
+    # Fetch data
+    train_loader, validation_loader, test_loader = DataFunctions.load_data(config, [], [])
+    
     # Make the model
-    model = UNet.UNET().to(config.device)
+    model = MyModels.UNET(config.dims).to(config.device)
 
     # Define loss function and optimizer
-    loss_function = loss_dictionary[config.loss_function]
-    optimizer = optim.SGD(model.parameters(), lr=config.LR, momentum=config.MOMENTUM)
-    # optimizer = optim.Adam(model.parameters(), lr=config.LR)
+    loss_function = loss_dictionary[config.loss_function].to(config.device)
+    optimizer = get_optimizer(config, model)
     
-    return model, train_loader, test_loader, loss_function, optimizer
+    return model, train_loader, validation_loader, test_loader, loss_function, optimizer
 
-def train(config, model, train_loader, loss_function, optimizer):
-    # Tell wandb to watch what the model gets up to: gradients, weights, and more!
-    wandb.watch(model, loss_function, log="all", log_freq=1)
-    
-    # Store the losses
-    train_losses = []
-    
-    for epoch in range(config.NUM_EPOCHS):
-        print(f"-------------------------Starting Epoch {epoch+1}/{config.NUM_EPOCHS} epochs-------------------------")
+
+""" Trains the passed model, tests it performance after each epoch on the validation set. Prints and logs the results to WandB.
+"""
+def train(config, model, train_loader, validation_loader, loss_function, optimizer):
+    for epoch in range(config.num_epochs):
+        print(f"-------------------------Starting Epoch {epoch+1}/{config.num_epochs} epochs-------------------------")
         model.train()
-        epoch_train_loss = 0.0
-        # epoch_test_loss = 0.0
-        # batch = 0
+        epoch_loss = 0.0
+        batch = 0
+        epoch_tn, epoch_fn, epoch_fp, epoch_tp = 0, 0, 0, 0
         for images, targets in train_loader:  
-            loss = train_batch(config, images, targets, model, optimizer, loss_function)
-            epoch_train_loss += loss.item()
-        train_log(config, epoch_train_loss, epoch)
+            batch += 1
+            print(f"-------------------------Starting Batch {batch}/{int(config.train_size/config.batch_size)} batches-------------------------")
+            batch_loss, batch_tn, batch_fn, batch_fp, batch_tp = train_batch(config, images, targets, model, optimizer, loss_function)
+            epoch_loss += batch_loss.item()
+            epoch_tn += batch_tn
+            epoch_fn += batch_fn
+            epoch_fp += batch_fp
+            epoch_tp += batch_tp
+            LogFunctions.new_log_metrics(batch_loss/config.batch_size, batch_tn, batch_fn, batch_fp, batch_tp, "batch")
             
-    train_losses.append(epoch_train_loss/config.TRAIN_SIZE)
-    print(f"mean train loss: {epoch_train_loss/config.TRAIN_SIZE:.6f}")         
-    
+        mean_loss = epoch_loss/config.train_size
+        LogFunctions.new_log_metrics(mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
+        test_performance(config, epoch, model, validation_loader, loss_function, "validation")
+
+""" Performs training for one batch of datapoints. Returns the true/false positive/negative metrics. 
+"""
 def train_batch(config, images, targets, model, optimizer, loss_function):
+    
     images, targets = images.to(config.device), targets.to(config.device)
     images = images.float()
     targets = targets.float()
-    
-    outputs = model(images, NO_PIXELS)
+    outputs = model(images)
     
     loss = loss_function(outputs, targets)
     loss.backward()
     optimizer.step()
     
-    return loss
+    tn, fn, fp, tp = DataFunctions.confusion_matrix(outputs, targets, "train")
+    return loss, tn, fn, fp, tp
 
-def train_log(config, epoch_train_loss, epoch):
-    # Where the magic happens
-    wandb.log({"epoch": epoch, "mean_loss": epoch_train_loss})
-    print(f"mean train loss: {epoch_train_loss/config.TRAIN_SIZE:.6f}") 
-    # print(f"Loss after {str(example_ct).zfill(5)} examples: {loss:.3f}")
-    
-def test(config, model, test_loader, loss_function):
+def test_performance(config, epoch, model, data_loader, loss_function, type):
+    print(f"-------------------------Start {type}-------------------------")
     model.eval()
-    test_losses = []
     
-    # Run the model on some test examples
+    print(f"len(data_loader): {len(data_loader.dataset)}. Should be equal to either test {config.test_size} or validation {config.validation_size} size.")
+    
+    # Test the performance of the model on the data in the passed data loader, either test or validation data
     with torch.no_grad():
-        for images, targets in test_loader:
+        total_loss = 0.0
+        total_tn, total_fn, total_fp, total_tp = 0, 0, 0, 0
+        batch = 0
+        for images, targets in data_loader:
+            batch += 1
+            print(f"-------------------------Starting Batch {batch}/{int(len(data_loader.dataset)/config.batch_size)} batches-------------------------")
+
+            # Store example for printing while on CPU
+            example_image = np.array(images[0].permute(1,2,0))
             
             images, targets = images.to(config.device), targets.to(config.device)
             images = images.float()
             targets = targets.float()
             outputs = model(images)
             
-            loss = loss_function(outputs, targets)
-            test_loss += loss.item()
+            # Log example to WandB
+            LogFunctions.log_example(config, example_image, targets[0], outputs[0], type)
+            
+            # Update metrics
+            batch_loss = loss_function(outputs, targets).item()
+            total_loss += batch_loss
+            batch_tn, batch_fn, batch_fp, batch_tp = DataFunctions.confusion_matrix(outputs, targets, type)
+            total_tn += batch_tn
+            total_fn += batch_fn
+            total_fp += batch_fp
+            total_tp += batch_tp
+            LogFunctions.new_log_metrics(batch_loss/config.batch_size, batch_tn, batch_fn, batch_fp, batch_tp, "batch")
 
-        test_losses.append(test_loss/config.TEST_SIZE)
-        wandb.log({"mean test loss": test_losses/config.TEST_SIZE})
+        mean_loss = total_loss/len(data_loader.dataset)
+        LogFunctions.new_log_metrics(mean_loss, total_tn, total_fn, total_fp, total_tp, type)
+        
+        # if type == "validation":
+            # Save the model
+            # TODO: fix, it now raises errors
+            # x = torch.ones(config.batch_size, 3, config.dims, config.dims).to(dtype=torch.float32).to(config.device)
+            # torch.onnx.export(model, x, f"Models/model_epoch_{epoch}.onnx")
+            # wandb.save(f"model_epoch_{epoch}.onnx")
 
-    # Save the model in the exchangeable ONNX format
-    torch.onnx.export(model, images, "model.onnx")
-    wandb.save("model.onnx")
-
+""" Runs the whole pipeline of creating, training and testing a model
+"""
 def model_pipeline(hyperparameters):
-    # tell wandb to get started
-    with wandb.init(project="skin_segmentation", config=hyperparameters):
-      # access all HPs through wandb.config, so logging matches execution!
-      config = wandb.config
+    # Start wandb
+    with wandb.init(mode="run", project="skin_segmentation", config=hyperparameters): #mode="disabled", 
+        # Set hyperparameters
+        config = wandb.config
+        run_name = f"{config.loss_function}_train_size:{config.train_size}"
+        wandb.run.name = run_name
 
-      # make the model, data, and optimization problem
-      model, train_loader, test_loader, loss_function, optimizer = make(config)
-      print(f"Model: {model}")
+        # Create model, data loaders, loss function and optimizer
+        model, train_loader, validation_loader, test_loader, loss_function, optimizer = make(config)
+        # TODO: Check of dit werkt, stond eerst bovenaan train function
+        wandb.watch(model, log="all", log_freq=1)
+        # print(f"Model: {model}")
 
-      # and use them to train the model
-      train(config, model, train_loader, loss_function, optimizer)
+        # Train the model, incl. validation
+        train(config, model, train_loader, validation_loader, loss_function, optimizer)
 
-      # and test its final performance
-    test(config, model, test_loader, loss_function)
+        # Test the models performance
+        test_performance(config, config.num_epochs, model, test_loader, loss_function, "test")
 
     return model
 
 if __name__ == '__main__':
-    start_time = time.time()
-    model = model_pipeline(config)
-    run_time = time.time() - start_time
-    print("Running time: ", round(run_time,3))
+    parse_args()
+    model = model_pipeline(default_config)
