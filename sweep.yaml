@@ -1,5 +1,11 @@
 program: WandBSkinSegmentation.py
 
+command: 
+ - ${env}
+ - python3
+ - ${program}
+ - ${args}
+
 # method: random
 method: grid
 
@@ -10,14 +16,24 @@ metric:
   goal: maximize
 
 parameters:
+  num_workers:
+    values:
+      - 1
+      - 4
+      - 8
   num_epochs:
-    value: 10
+    value: 2
   batch_size: 
-    value: 64
+    values: 
+      - 16
+      - 32
+      - 64
   train_size: 
-    value: 512
-  test_size:
+    value: 1024
+  validation_size: 
     value: 64
+  test_size:
+    value: 256
   lr:
     value: 0.0001
     # values:
@@ -38,10 +54,10 @@ parameters:
   loss_function: 
     values: 
       # - "BCE"
-      - "WBCE"
+      - "WBCE_9"
       # - "WBCE_5"
-      - "WBCE_10"
-      - "WBCE_20"
+      # - "WBCE_10"
+      # - "WBCE_20"
       # - "IoU"
       # - "Focal"
   optimizer:

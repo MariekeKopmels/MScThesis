@@ -29,12 +29,13 @@ loss_dictionary = {
 default_config = SimpleNamespace(
     # machine = "TS2",
     # device = torch.device("cuda"),
+    # num_workers = 1,
     # dims = 224,
     # num_epochs = 10,
     # batch_size = 32, 
     # train_size = 32768, 
-    # test_size = 1024,
     # validation_size = 128,
+    # test_size = 1024,
     # lr = 0.0001, 
     # momentum = 0.99, 
     # colour_space = "RGB",
@@ -43,15 +44,15 @@ default_config = SimpleNamespace(
     # dataset = "VisuAAL", 
     # architecture = "UNet"
 
-# TODO: Maandag: kijken naar num_workers voor data loader. Hij blijft hangen op ----Starting Batch 1/32 batches---- atm.
     machine = "Mac",
     device = torch.device("cpu"),
+    num_workers = 1,
     dims = 224,
     num_epochs = 10,
     batch_size = 8, 
     train_size = 64, 
-    test_size = 16,
     validation_size = 32,
+    test_size = 16,
     lr = 0.0001, 
     momentum = 0.99, 
     colour_space = "RGB",
@@ -64,9 +65,11 @@ default_config = SimpleNamespace(
 def parse_args():
     "Overriding default arguments"
     argparser = argparse.ArgumentParser(description='Process hyper-parameters')
+    argparser.add_argument('--num_workers', type=int, default=default_config.num_workers, help='number of workers in DataLoader')
     argparser.add_argument('--num_epochs', type=int, default=default_config.num_epochs, help='number of epochs')
     argparser.add_argument('--batch_size', type=int, default=default_config.batch_size, help='batch size')
     argparser.add_argument('--train_size', type=int, default=default_config.train_size, help='trains size')
+    argparser.add_argument('--validation_size', type=int, default=default_config.validation_size, help='validation size')
     argparser.add_argument('--test_size', type=int, default=default_config.test_size, help='test size')
     argparser.add_argument('--lr', type=float, default=default_config.lr, help='learning rate')
     argparser.add_argument('--momentum', type=float, default=default_config.momentum, help='momentum')
@@ -199,10 +202,10 @@ def test_performance(config, epoch, model, data_loader, loss_function, type):
 """
 def model_pipeline(hyperparameters):
     # Start wandb
-    with wandb.init(mode="disabled", project="skin_segmentation", config=hyperparameters): #mode="disabled", 
+    with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # Set hyperparameters
         config = wandb.config
-        run_name = f"{config.machine}_train_size:{config.train_size}"
+        run_name = f"{config.machine}_batch_size:{config.batch_size}_num_workers:{config.num_workers}"
         wandb.run.name = run_name
 
         # Create model, data loaders, loss function and optimizer

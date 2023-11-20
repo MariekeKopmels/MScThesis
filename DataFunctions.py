@@ -47,6 +47,8 @@ def load_images(config, image_dir_path, gt_dir_path, type):
             # Convert image from RGB to YCrCb
             img = cv2.cvtColor(img, cv2.COLOR_BGR2YCR_CB)
         
+        
+        # TODO: vgm kan de regel hieronder weg als er cv2.IMREAD_GRAYSCALE bij de imread toegevoegd wordt.
         # Convert Ground Truth from RGB to 1 channel (Black or White)
         gt = cv2.cvtColor(gt, cv2.COLOR_BGR2GRAY)
         _,gt = cv2.threshold(gt,127,1,0)
@@ -84,9 +86,9 @@ def load_data(config, train, test):
     test = torch.utils.data.TensorDataset(test_images, test_gts)
 
     # Put data into dataloaders
-    train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True, num_workers=4)
-    validation_loader = DataLoader(validation, batch_size=config.batch_size, shuffle=False, num_workers=4)
-    test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False, num_workers=4)
+    train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True, num_workers=config.num_workers)
+    validation_loader = DataLoader(validation, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers)
+    test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers)
     
     return train_loader, validation_loader, test_loader
 
@@ -146,6 +148,13 @@ def load_pixel_data(config, train, test, YCrCb = False):
     test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False)
     
     return train_loader, test_loader
+
+# TODO: dinsdag. testen
+def make_grinch(config, images, outputs):
+    grinch = images.clone()
+    mask = outputs == 1
+    grinch[:,:,mask] = torch.tensor([0, 255, 0], dtype=grinch.dtype, device=grinch.device)
+    
     
 """Returns the values of the confusion matrix of true negative, false negative, true positive and false positive values
 """
