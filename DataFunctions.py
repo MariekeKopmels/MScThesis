@@ -12,7 +12,7 @@ NO_PIXELS = 224
         Format of return: torch tensor.
         Torch tensors are of shape batch_size,3,224,224 for images and batch_size,224,224 for ground truths 
 """
-def load_images(config, images, gts, image_dir_path, gt_dir_path, type):
+def load_images(config, image_dir_path, gt_dir_path, type):
     # Load list of files and directories
     image_list = os.listdir(image_dir_path)
     gt_list = os.listdir(gt_dir_path)
@@ -71,14 +71,14 @@ def load_data(config, train, test):
     else: 
         base_path = "/home/oddity/marieke/Datasets/VisuAAL"
 
-    train_images, train_gts, test_images, test_gts = [], [], [], []
     print("Loading training data...")
-    train_images, train_gts = load_images(config, train_images, train_gts, base_path + "/TrainImages", base_path + "/TrainGroundTruth", type = "train")
+    train_images, train_gts = load_images(config, base_path + "/TrainImages", base_path + "/TrainGroundTruth", type = "train")
     print("Loading validation data...")
-    validation_images, validation_gts = load_images(config, test_images, test_gts, base_path + "/TestImages", base_path + "/TestGroundTruth", type = "validation")
+    validation_images, validation_gts = load_images(config, base_path + "/TestImages", base_path + "/TestGroundTruth", type = "validation")
     print("Loading testing data...")
-    test_images, test_gts = load_images(config, test_images, test_gts, base_path + "/TestImages", base_path + "/TestGroundTruth", type = "test")
+    test_images, test_gts = load_images(config, base_path + "/TestImages", base_path + "/TestGroundTruth", type = "test")
 
+    # Combine images and ground truths in TensorDataset format
     train = torch.utils.data.TensorDataset(train_images, train_gts)
     validation = torch.utils.data.TensorDataset(validation_images, validation_gts)
     test = torch.utils.data.TensorDataset(test_images, test_gts)
@@ -89,6 +89,7 @@ def load_data(config, train, test):
     test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False, num_workers=4)
     
     return train_loader, validation_loader, test_loader
+
 
 def load_pixel_data(config, train, test, YCrCb = False):
     path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Skin_NonSkin_Pixel.txt"
