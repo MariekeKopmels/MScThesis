@@ -9,8 +9,8 @@ from torch.utils.data import DataLoader
 NO_PIXELS = 224
 
 """Returns images in a given directory
-        Format of return: list of NumPy arrays.
-        NumPy arrays are of shape (224,224,3) for images and (224,224) for ground truths 
+        Format of return: torch tensor.
+        Torch tensors are of shape batch_size,3,224,224 for images and batch_size,224,224 for ground truths 
 """
 def load_images(config, images, gts, image_dir_path, gt_dir_path, type):
     # Load list of files and directories
@@ -31,11 +31,11 @@ def load_images(config, images, gts, image_dir_path, gt_dir_path, type):
     elif type == "test":
         dir_list = dir_list[:config.test_size]
             
-    # Store images and ground truths
-    images = []
-    gts = []
+    # Store images and ground truths in tensor format
+    images = torch.empty(len(dir_list), 3, NO_PIXELS, NO_PIXELS, dtype=torch.float32)
+    gts = torch.empty(len(dir_list), NO_PIXELS, NO_PIXELS, dtype=torch.float32)
     
-    for file_name in dir_list:
+    for i, file_name in enumerate(dir_list):
         # Read the images
         img_path = image_dir_path + "/" + file_name
         gt_path = gt_dir_path + "/" + file_name
@@ -54,10 +54,10 @@ def load_images(config, images, gts, image_dir_path, gt_dir_path, type):
         # Resize images and ground truths to size 224*224
         img = cv2.resize(img, (NO_PIXELS,NO_PIXELS), interpolation=cv2.INTER_CUBIC)
         gt = cv2.resize(gt, (NO_PIXELS,NO_PIXELS), interpolation=cv2.INTER_CUBIC)
-                
-        #Store in list if not all black
-        images.append(img)
-        gts.append(gt)
+        
+        # Add to tensor
+        images[i] = torch.tensor(img, dtype=torch.float32).permute(2, 0, 1)
+        gts[i] = torch.tensor(gt, dtype=torch.float32).unsqueeze(0)
         
     return images, gts
 
@@ -79,10 +79,9 @@ def load_data(config, train, test):
     print("Loading testing data...")
     test_images, test_gts = load_images(config, test_images, test_gts, base_path + "/TestImages", base_path + "/TestGroundTruth", type = "test")
 
-    # TODO: fix de eerst naar numpy en daarna pas naar tensor (sneller dan vanaf een list direct naar tensor maar nu heel lelijk)
-    train = torch.utils.data.TensorDataset(torch.as_tensor(np.array(train_images)).permute(0,3,1,2), torch.as_tensor(np.array(train_gts)).permute(0,1,2))
-    validation = torch.utils.data.TensorDataset(torch.as_tensor(np.array(validation_images)).permute(0,3,1,2), torch.as_tensor(np.array(validation_gts)).permute(0,1,2))
-    test = torch.utils.data.TensorDataset(torch.as_tensor(np.array(test_images)).permute(0,3,1,2), torch.as_tensor(np.array(test_gts)).permute(0,1,2))
+    train = torch.utils.data.TensorDataset(train_images, train_gts)
+    validation = torch.utils.data.TensorDataset(validation_images, validation_gts)
+    test = torch.utils.data.TensorDataset(test_images, test_gts)
 
     # Put data into dataloaders
     train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True, num_workers=4)

@@ -49,9 +49,9 @@ default_config = SimpleNamespace(
     dims = 224,
     num_epochs = 10,
     batch_size = 8, 
-    train_size = 256, 
-    test_size = 128,
-    validation_size = 64,
+    train_size = 64, 
+    test_size = 16,
+    validation_size = 32,
     lr = 0.0001, 
     momentum = 0.99, 
     colour_space = "RGB",
@@ -199,7 +199,7 @@ def test_performance(config, epoch, model, data_loader, loss_function, type):
 """
 def model_pipeline(hyperparameters):
     # Start wandb
-    with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
+    with wandb.init(mode="disabled", project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # Set hyperparameters
         config = wandb.config
         run_name = f"{config.machine}_train_size:{config.train_size}"
