@@ -42,6 +42,8 @@ default_config = SimpleNamespace(
     # loss_function = "WBCE_9",
     # optimizer = "Adam", 
     # dataset = "VisuAAL", 
+    # data_path = "/home/oddity/marieke/Datasets/VisuAAL",
+    # model_path = "/home/oddity/marieke/Output/Models/",
     # architecture = "UNet"
 
     machine = "Mac",
@@ -59,6 +61,8 @@ default_config = SimpleNamespace(
     loss_function = "WBCE_9",
     optimizer = "Adam", 
     dataset = "VisuAAL", 
+    data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/visuAAL",
+    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/",
     architecture = "UNet"
 )
 
@@ -101,7 +105,7 @@ def get_optimizer(config, model):
 """
 def make(config):
     # Fetch data
-    train_loader, validation_loader, test_loader = DataFunctions.load_data(config, [], [])
+    train_loader, validation_loader, test_loader = DataFunctions.load_data(config)
     
     # Make the model
     model = MyModels.UNET(config.dims).to(config.device)
@@ -135,7 +139,7 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
             
         mean_loss = epoch_loss/config.train_size
         LogFunctions.log_metrics(mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
-        LogFunctions.log_model(config, model, epoch)
+        LogFunctions.save_model(config, model, epoch)
         test_performance(config, epoch, model, validation_loader, loss_function, "validation")
         
 

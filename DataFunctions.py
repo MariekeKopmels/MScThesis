@@ -6,13 +6,46 @@ import torch
 import numpy as np 
 from torch.utils.data import DataLoader
 
-NO_PIXELS = 224
+def load_images(config, dir_path, dir_list, gts=False):
+    
+    # Store images in tensor format
+    if gts:
+        images = torch.empty(len(dir_list), config.dims, config.dims, dtype=torch.float32)
+    else:
+        images = torch.empty(len(dir_list), 3, config.dims, config.dims, dtype=torch.float32)
+
+    for i, file_name in enumerate(dir_list):
+        # Read the images
+        img_path = dir_path + "/" + file_name
+        img = cv2.imread(img_path)
+        
+        if config.colour_space == "YCrCb":
+            # Convert image from RGB to YCrCb
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2YCR_CB)
+        
+        # TODO: vgm kan de regel hieronder weg als er cv2.IMREAD_GRAYSCALE bij de imread toegevoegd wordt.
+        # Convert Ground Truth from RGB to 1 channel (Black or White)
+        if gts:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            _,img = cv2.threshold(img,127,1,0)
+            
+        # Resize images and ground truths to size 224*224
+        img = cv2.resize(img, (config.dims,config.dims), interpolation=cv2.INTER_CUBIC)
+        
+        # Add to tensor
+        if gts:
+            images[i] = torch.tensor(img, dtype=torch.float32).unsqueeze(0)
+        else: 
+            images[i] = torch.tensor(img, dtype=torch.float32).permute(2, 0, 1)
+
+    return images
+
 
 """Returns images in a given directory
         Format of return: torch tensor.
         Torch tensors are of shape batch_size,3,224,224 for images and batch_size,224,224 for ground truths 
 """
-def load_images(config, image_dir_path, gt_dir_path, type):
+def load_input(config, image_dir_path, gt_dir_path, stage):
     # Load list of files and directories
     image_list = os.listdir(image_dir_path)
     gt_list = os.listdir(gt_dir_path)
@@ -21,64 +54,33 @@ def load_images(config, image_dir_path, gt_dir_path, type):
     dir_list = [file for file in image_list if file in gt_list and not file.startswith(".")]
     
     # Include as many items as requested. test and validation are both from the test set and should not overlap.
-    if type == "train":
+    if stage == "train":
         dir_list = dir_list[:config.train_size]
-    elif type == "validation":
+    elif stage == "validation":
         end = config.test_size + config.validation_size
         if end > len(dir_list):
             raise Exception(f"Test ({config.test_size}) and validation ({config.validation_size}) are larger than the test set of size 1157.")
         dir_list = dir_list[config.test_size:end]
-    elif type == "test":
+    elif stage == "test":
         dir_list = dir_list[:config.test_size]
+        
+    images = load_images(config, image_dir_path, dir_list, gts=False)
+    gts = load_images(config, image_dir_path, dir_list, gts=True)
             
-    # Store images and ground truths in tensor format
-    images = torch.empty(len(dir_list), 3, NO_PIXELS, NO_PIXELS, dtype=torch.float32)
-    gts = torch.empty(len(dir_list), NO_PIXELS, NO_PIXELS, dtype=torch.float32)
-    
-    for i, file_name in enumerate(dir_list):
-        # Read the images
-        img_path = image_dir_path + "/" + file_name
-        gt_path = gt_dir_path + "/" + file_name
-        
-        img = cv2.imread(img_path)
-        gt = cv2.imread(gt_path)
-        
-        if config.colour_space == "YCrCb":
-            # Convert image from RGB to YCrCb
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2YCR_CB)
-        
-        
-        # TODO: vgm kan de regel hieronder weg als er cv2.IMREAD_GRAYSCALE bij de imread toegevoegd wordt.
-        # Convert Ground Truth from RGB to 1 channel (Black or White)
-        gt = cv2.cvtColor(gt, cv2.COLOR_BGR2GRAY)
-        _,gt = cv2.threshold(gt,127,1,0)
-        
-        # Resize images and ground truths to size 224*224
-        img = cv2.resize(img, (NO_PIXELS,NO_PIXELS), interpolation=cv2.INTER_CUBIC)
-        gt = cv2.resize(gt, (NO_PIXELS,NO_PIXELS), interpolation=cv2.INTER_CUBIC)
-        
-        # Add to tensor
-        images[i] = torch.tensor(img, dtype=torch.float32).permute(2, 0, 1)
-        gts[i] = torch.tensor(gt, dtype=torch.float32).unsqueeze(0)
-        
     return images, gts
 
 """Returns train and test, both being data loaders with tuples of input images and corresponding ground truths.
         Format of return: Data loaders of tuples containging an input tensor and a ground truth tensor
         Image tensors are of shape (batch_size, channels, height, width)
 """
-def load_data(config, train, test):
-    if config.machine == "Mac":
-        base_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/visuAAL"
-    else: 
-        base_path = "/home/oddity/marieke/Datasets/VisuAAL"
-
+def load_data(config):
+    base_path = config.data_path
     print("Loading training data...")
-    train_images, train_gts = load_images(config, base_path + "/TrainImages", base_path + "/TrainGroundTruth", type = "train")
+    train_images, train_gts = load_input(config, base_path + "/TrainImages", base_path + "/TrainGroundTruth", stage = "train")
     print("Loading validation data...")
-    validation_images, validation_gts = load_images(config, base_path + "/TestImages", base_path + "/TestGroundTruth", type = "validation")
+    validation_images, validation_gts = load_input(config, base_path + "/TestImages", base_path + "/TestGroundTruth", stage = "validation")
     print("Loading testing data...")
-    test_images, test_gts = load_images(config, base_path + "/TestImages", base_path + "/TestGroundTruth", type = "test")
+    test_images, test_gts = load_input(config, base_path + "/TestImages", base_path + "/TestGroundTruth", stage = "test")
 
     # Combine images and ground truths in TensorDataset format
     train = torch.utils.data.TensorDataset(train_images, train_gts)
@@ -161,7 +163,7 @@ def make_grinch(image, output):
     
 """Returns the values of the confusion matrix of true negative, false negative, true positive and false positive values
 """
-def confusion_matrix(outputs, targets, type):
+def confusion_matrix(outputs, targets, stage):
     batch_size = outputs.shape[0]
     
     outputs = outputs.to("cpu")
@@ -226,7 +228,7 @@ def confusion_matrix(outputs, targets, type):
         else:
             matrix += i_matrix
     
-    if type == "test":
+    if stage == "test":
         print("Confusion matrix test:\n", matrix)
     
     tn = matrix[0][0]
@@ -295,19 +297,3 @@ def metrics(tn, fn, fp, tp, pixels=False):
 #     images[outputs > 0.5] 
 #     altered_images[mask == 1]
 #     return
-
-# """ Stores an image to the disk.
-# """
-# def save_image(filename, image, bw=False):
-#     directory = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Output/WandB/"
-#     os.chdir(directory)
-    
-#     # cv2.imwrite takes input in form height, width, channels
-#     image = image.permute(1,2,0)
-#     image = image.to("cpu")
-#     if bw:
-#         image = image*225
-#     if type(image) != np.ndarray:
-#         cv2.imwrite(filename, image.numpy())
-#     else:
-#         cv2.imwrite(filename, image)

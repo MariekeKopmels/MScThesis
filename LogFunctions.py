@@ -15,13 +15,12 @@ def log_metrics(mean_loss, tn, fn, fp, tp, stage):
     
 """ Stores the model to the disk.
 """
-def log_model(config, model, epoch):
-    if config.machine == "Mac":
-        path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/"
-    elif config.machine == "TS2":
-        path = "/home/oddity/marieke/Output/Models/"
-    path = path + f"epoch_{epoch}.pt"
-    torch.save(model.state_dict(), path)
+def save_model(config, model, epoch, final=False):
+    path = config.model_path + f"epoch_{epoch}.pt"
+    if final:
+        path = path + f"final.pt"
+    # TODO: Checken of dit idd de manier is om het model op te slaan en niet met model.state_dict()
+    # torch.save(model, path)
 
 """ Logs test examples of input image, ground truth and model output.
 """
@@ -45,3 +44,5 @@ def log_example(config, example, target, output, stage="UNKNOWN"):
     
     grinch = DataFunctions.make_grinch(example, bw_output)
     wandb.log({f"Model {stage} grinch output": [wandb.Image(grinch)]})
+    
+# def store_grinch()
