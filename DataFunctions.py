@@ -149,11 +149,14 @@ def load_pixel_data(config, train, test, YCrCb = False):
     
     return train_loader, test_loader
 
-# TODO: dinsdag. testen
-def make_grinch(config, images, outputs):
-    grinch = images.clone()
-    mask = outputs == 1
-    grinch[:,:,mask] = torch.tensor([0, 255, 0], dtype=grinch.dtype, device=grinch.device)
+''' Returns the grinch version of the image, based on the given output of the model
+'''
+def make_grinch(image, output):
+    output = output.to("cpu").numpy()
+    grinch = np.copy(image)
+    mask = output == 1
+    grinch[mask] = [0,255,0]
+    return grinch
     
     
 """Returns the values of the confusion matrix of true negative, false negative, true positive and false positive values

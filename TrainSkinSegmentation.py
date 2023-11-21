@@ -31,11 +31,11 @@ default_config = SimpleNamespace(
     # device = torch.device("cuda"),
     # num_workers = 1,
     # dims = 224,
-    # num_epochs = 10,
+    # num_epochs = 5,
     # batch_size = 32, 
-    # train_size = 32768, 
-    # validation_size = 128,
-    # test_size = 1024,
+    # train_size = 256, 
+    # validation_size = 32,
+    # test_size = 64,
     # lr = 0.0001, 
     # momentum = 0.99, 
     # colour_space = "RGB",
@@ -45,14 +45,14 @@ default_config = SimpleNamespace(
     # architecture = "UNet"
 
     machine = "Mac",
-    device = torch.device("cpu"),
+    device = torch.device("mps"),
     num_workers = 1,
     dims = 224,
-    num_epochs = 10,
+    num_epochs = 1,
     batch_size = 8, 
-    train_size = 64, 
-    validation_size = 32,
-    test_size = 16,
+    train_size = 8, 
+    validation_size = 8,
+    test_size = 8,
     lr = 0.0001, 
     momentum = 0.99, 
     colour_space = "RGB",
@@ -131,11 +131,13 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
             epoch_fn += batch_fn
             epoch_fp += batch_fp
             epoch_tp += batch_tp
-            LogFunctions.new_log_metrics(batch_loss/config.batch_size, batch_tn, batch_fn, batch_fp, batch_tp, "batch")
+            LogFunctions.log_metrics(batch_loss/config.batch_size, batch_tn, batch_fn, batch_fp, batch_tp, "batch")
             
         mean_loss = epoch_loss/config.train_size
-        LogFunctions.new_log_metrics(mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
+        LogFunctions.log_metrics(mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
+        LogFunctions.log_model(config, model, epoch)
         test_performance(config, epoch, model, validation_loader, loss_function, "validation")
+        
 
 """ Performs training for one batch of datapoints. Returns the true/false positive/negative metrics. 
 """
@@ -153,8 +155,8 @@ def train_batch(config, images, targets, model, optimizer, loss_function):
     tn, fn, fp, tp = DataFunctions.confusion_matrix(outputs, targets, "train")
     return loss, tn, fn, fp, tp
 
-def test_performance(config, epoch, model, data_loader, loss_function, type):
-    print(f"-------------------------Start {type}-------------------------")
+def test_performance(config, epoch, model, data_loader, loss_function, stage):
+    print(f"-------------------------Start {stage}-------------------------")
     model.eval()
         
     # Test the performance of the model on the data in the passed data loader, either test or validation data
@@ -175,23 +177,22 @@ def test_performance(config, epoch, model, data_loader, loss_function, type):
             outputs = model(images)
             
             # Log example to WandB
-            LogFunctions.log_example(config, example_image, targets[0], outputs[0], type)
-            # masked_images = DataFunctions.mask_images(images, outputs)
+            LogFunctions.log_example(config, example_image, targets[0], outputs[0], stage)
             
             # Update metrics
             batch_loss = loss_function(outputs, targets).item()
             total_loss += batch_loss
-            batch_tn, batch_fn, batch_fp, batch_tp = DataFunctions.confusion_matrix(outputs, targets, type)
+            batch_tn, batch_fn, batch_fp, batch_tp = DataFunctions.confusion_matrix(outputs, targets, stage)
             total_tn += batch_tn
             total_fn += batch_fn
             total_fp += batch_fp
             total_tp += batch_tp
-            LogFunctions.new_log_metrics(batch_loss/config.batch_size, batch_tn, batch_fn, batch_fp, batch_tp, "batch")
+            LogFunctions.log_metrics(batch_loss/config.batch_size, batch_tn, batch_fn, batch_fp, batch_tp, "batch")
 
         mean_loss = total_loss/len(data_loader.dataset)
-        LogFunctions.new_log_metrics(mean_loss, total_tn, total_fn, total_fp, total_tp, type)
+        LogFunctions.log_metrics(mean_loss, total_tn, total_fn, total_fp, total_tp, stage)
         
-        # if type == "validation":
+        # if stage == "validation":
         #     # Save the model
         #     # TODO: fix, it now raises errors
         #     x = torch.ones(config.batch_size, 3, config.dims, config.dims).to(dtype=torch.float32).to(config.device)
