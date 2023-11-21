@@ -1,5 +1,4 @@
 import os
-import random
 import cv2
 import sklearn.metrics
 import torch 
@@ -156,6 +155,16 @@ def make_grinch(image, output):
     mask = output == 1
     grinch[mask] = [0,255,0]
     return grinch
+
+def make_grinches(images, outputs):
+    outputs = outputs.cpu().numpy()
+    grinches = np.copy(images.cpu().numpy())
+    mask = outputs == 1
+    
+    print(f"Grinches dims: {np.shape(grinches)}, mask dims: {np.shape(mask)}, outputs dims: {np.shape(outputs)}")
+    grinches[:, mask] = [0, 255, 0]
+    
+    return torch.from_numpy(grinches)
     
     
 """Returns the values of the confusion matrix of true negative, false negative, true positive and false positive values

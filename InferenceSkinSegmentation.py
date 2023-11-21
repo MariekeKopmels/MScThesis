@@ -20,7 +20,7 @@ default_config = SimpleNamespace(
     # data_path = "/home/oddity/marieke/Datasets/VisuAAL"
     
     machine = "Mac",
-    device = torch.device("mps"),
+    device = torch.device("cpu"),
     num_workers = 1,
     dims = 224,
     batch_size = 32, 
@@ -28,8 +28,8 @@ default_config = SimpleNamespace(
     colour_space = "RGB",
     architecture = "UNet",
     model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/final.pt",
-    grinch_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Grinch",
-    data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/visuAAL"
+    grinch_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/visuAAL/Grinch",
+    data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/visuAAL/ToGrinch"
 )
 
 
@@ -49,29 +49,38 @@ def parse_args():
 
 
 """ Stores an image to the disk.
-# """
-# def save_image(config, image, filename="grinch.jpg", bw=False):
-#     directory = config.grinch_path
-#     os.chdir(directory)
+"""
+def save_image(config, image, i, bw=False):
+    directory = config.grinch_path
+    os.chdir(directory)
     
-#     # cv2.imwrite takes input in form height, width, channels
-#     image = image.permute(1,2,0)
-#     image = image.to("cpu")
-#     if bw:
-#         image = image*225
-#     if type(image) != np.ndarray:
-#         cv2.imwrite(filename, image.numpy())
-#     else:
-#         cv2.imwrite(filename, image)
+    # cv2.imwrite takes input in form height, width, channels
+    image = image.permute(1,2,0)
+    image = image.to("cpu")
+    # if bw:
+    #     image = image*225
+    filename = "Grinch_" + str(i) + ".jpg"
+    if type(image) != np.ndarray:
+        cv2.imwrite(filename, image.numpy())
+    else:
+        cv2.imwrite(filename, image)
 
 def inference(config):
-    model = torch.load(config.model_path)
+    model = torch.load(config.model_path).to(config.device)
     model.eval()
     dir_list = os.listdir(config.data_path)
-    images = DataFunctions.load_images(config, config.data_path, dir_list)
-    masks = model(images)
-    # grinches = 
-    # save_image(config, outputs[0])
+    images = DataFunctions.load_images(config, dir_list, config.data_path)
+    
+    print(f"Device of images: {images.get_device()}")
+    with torch.no_grad():
+        masks = model(images)
+        
+    print("Masks shape: " ,np.shape(masks))
+    
+    grinches = DataFunctions.make_grinches(images, masks)
+    
+    for i, image in grinches:
+        save_image(config, image, i)
     
     return 
 
