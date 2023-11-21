@@ -18,9 +18,12 @@ def log_metrics(mean_loss, tn, fn, fp, tp, stage):
 def save_model(config, model, epoch, final=False):
     path = config.model_path + f"epoch_{epoch}.pt"
     if final:
-        path = path + f"final.pt"
+        path = config.model_path + f"final.pt"
     # TODO: Checken of dit idd de manier is om het model op te slaan en niet met model.state_dict()
-    # torch.save(model, path)
+    wandb.unwatch()
+    torch.save(model, path)
+    wandb.watch(model, log="all", log_freq=1)
+    
 
 """ Logs test examples of input image, ground truth and model output.
 """

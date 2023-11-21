@@ -27,43 +27,43 @@ loss_dictionary = {
 # Default parameters
 # Size of dataset: Train=44783 , Test=1157
 default_config = SimpleNamespace(
-    # machine = "TS2",
-    # device = torch.device("cuda"),
+    machine = "TS2",
+    device = torch.device("cuda"),
+    num_workers = 1,
+    dims = 224,
+    num_epochs = 10,
+    batch_size = 32, 
+    train_size = 32768, 
+    validation_size = 128,
+    test_size = 1024,
+    lr = 0.0001, 
+    momentum = 0.999, 
+    colour_space = "RGB",
+    loss_function = "WBCE_9",
+    optimizer = "Adam", 
+    dataset = "VisuAAL", 
+    data_path = "/home/oddity/marieke/Datasets/VisuAAL",
+    model_path = "/home/oddity/marieke/Output/Models/",
+    architecture = "UNet"
+
+    # machine = "Mac",
+    # device = torch.device("mps"),
     # num_workers = 1,
     # dims = 224,
-    # num_epochs = 5,
-    # batch_size = 32, 
-    # train_size = 256, 
-    # validation_size = 32,
-    # test_size = 64,
+    # num_epochs = 1,
+    # batch_size = 8, 
+    # train_size = 8, 
+    # validation_size = 8,
+    # test_size = 8,
     # lr = 0.0001, 
     # momentum = 0.99, 
     # colour_space = "RGB",
     # loss_function = "WBCE_9",
     # optimizer = "Adam", 
     # dataset = "VisuAAL", 
-    # data_path = "/home/oddity/marieke/Datasets/VisuAAL",
-    # model_path = "/home/oddity/marieke/Output/Models/",
+    # data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/visuAAL",
+    # model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/",
     # architecture = "UNet"
-
-    machine = "Mac",
-    device = torch.device("mps"),
-    num_workers = 1,
-    dims = 224,
-    num_epochs = 1,
-    batch_size = 8, 
-    train_size = 8, 
-    validation_size = 8,
-    test_size = 8,
-    lr = 0.0001, 
-    momentum = 0.99, 
-    colour_space = "RGB",
-    loss_function = "WBCE_9",
-    optimizer = "Adam", 
-    dataset = "VisuAAL", 
-    data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/visuAAL",
-    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/",
-    architecture = "UNet"
 )
 
 def parse_args():
@@ -120,8 +120,9 @@ def make(config):
 """ Trains the passed model, tests it performance after each epoch on the validation set. Prints and logs the results to WandB.
 """
 def train(config, model, train_loader, validation_loader, loss_function, optimizer):
+    print(f"-------------------------Start Training-------------------------")
     for epoch in range(config.num_epochs):
-        print(f"-------------------------Starting Epoch {epoch+1}/{config.num_epochs} epochs-------------------------")
+        print(f"-------------------------Starting Training Epoch {epoch+1}/{config.num_epochs} epochs-------------------------")
         model.train()
         epoch_loss = 0.0
         batch = 0
@@ -139,7 +140,7 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
             
         mean_loss = epoch_loss/config.train_size
         LogFunctions.log_metrics(mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
-        LogFunctions.save_model(config, model, epoch)
+        LogFunctions.save_model(config, model, epoch+1)
         test_performance(config, epoch, model, validation_loader, loss_function, "validation")
         
 
@@ -222,6 +223,9 @@ def model_pipeline(hyperparameters):
 
         # Test the models performance
         test_performance(config, config.num_epochs, model, test_loader, loss_function, "test")
+        
+        # Store the final model
+        LogFunctions.save_model(config, model, 0, final=True)
 
     return model
 

@@ -6,43 +6,40 @@ import torch
 import numpy as np 
 from torch.utils.data import DataLoader
 
-def load_images(config, dir_path, dir_list, gts=False):
-    
-    # Store images in tensor format
-    if gts:
+""" Loads the requeste images, returns them in a Torch tensor.
+"""
+def load_images(config, dir_list, dir_path, gts=False):
+    images = torch.empty(len(dir_list), 3, config.dims, config.dims, dtype=torch.float32)
+    if gts: 
         images = torch.empty(len(dir_list), config.dims, config.dims, dtype=torch.float32)
-    else:
-        images = torch.empty(len(dir_list), 3, config.dims, config.dims, dtype=torch.float32)
 
     for i, file_name in enumerate(dir_list):
         # Read the images
-        img_path = dir_path + "/" + file_name
-        img = cv2.imread(img_path)
+        path = dir_path + "/" + file_name
         
+        img = cv2.imread(path)
+        
+        # Convert image from RGB to YCrCb if needed
         if config.colour_space == "YCrCb":
-            # Convert image from RGB to YCrCb
             img = cv2.cvtColor(img, cv2.COLOR_BGR2YCR_CB)
-        
-        # TODO: vgm kan de regel hieronder weg als er cv2.IMREAD_GRAYSCALE bij de imread toegevoegd wordt.
+    
         # Convert Ground Truth from RGB to 1 channel (Black or White)
-        if gts:
+        if gts: 
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             _,img = cv2.threshold(img,127,1,0)
-            
+        
         # Resize images and ground truths to size 224*224
         img = cv2.resize(img, (config.dims,config.dims), interpolation=cv2.INTER_CUBIC)
-        
-        # Add to tensor
+
         if gts:
             images[i] = torch.tensor(img, dtype=torch.float32).unsqueeze(0)
-        else: 
+        else:
             images[i] = torch.tensor(img, dtype=torch.float32).permute(2, 0, 1)
-
+            
     return images
 
-
-"""Returns images in a given directory
-        Format of return: torch tensor.
+"""Returns input in a given directory
+        Format of return: torch tensors containin images and corresponding ground truths.
         Torch tensors are of shape batch_size,3,224,224 for images and batch_size,224,224 for ground truths 
 """
 def load_input(config, image_dir_path, gt_dir_path, stage):
@@ -63,10 +60,10 @@ def load_input(config, image_dir_path, gt_dir_path, stage):
         dir_list = dir_list[config.test_size:end]
     elif stage == "test":
         dir_list = dir_list[:config.test_size]
-        
-    images = load_images(config, image_dir_path, dir_list, gts=False)
-    gts = load_images(config, image_dir_path, dir_list, gts=True)
-            
+    
+    images = load_images(config, dir_list, image_dir_path)
+    gts = load_images(config, dir_list, gt_dir_path, gts=True)
+    
     return images, gts
 
 """Returns train and test, both being data loaders with tuples of input images and corresponding ground truths.
@@ -228,8 +225,8 @@ def confusion_matrix(outputs, targets, stage):
         else:
             matrix += i_matrix
     
-    if stage == "test":
-        print("Confusion matrix test:\n", matrix)
+    # if stage == "test":
+    #     print("Confusion matrix test:\n", matrix)
     
     tn = matrix[0][0]
     fn = matrix[1][0]
@@ -297,3 +294,67 @@ def metrics(tn, fn, fp, tp, pixels=False):
 #     images[outputs > 0.5] 
 #     altered_images[mask == 1]
 #     return
+
+
+# def load_images(config, dir_path, dir_list, gts=False):
+    
+#     # Store images in tensor format
+#     if gts:
+#         images = torch.empty(len(dir_list), config.dims, config.dims, dtype=torch.float32)
+#     else:
+#         images = torch.empty(len(dir_list), 3, config.dims, config.dims, dtype=torch.float32)
+
+#     for i, file_name in enumerate(dir_list):
+#         # Read the images
+#         img_path = dir_path + "/" + file_name
+#         img = cv2.imread(img_path)
+        
+#         if config.colour_space == "YCrCb":
+#             # Convert image from RGB to YCrCb
+#             img = cv2.cvtColor(img, cv2.COLOR_BGR2YCR_CB)
+        
+#         # TODO: vgm kan de regel hieronder weg als er cv2.IMREAD_GRAYSCALE bij de imread toegevoegd wordt.
+#         # Convert Ground Truth from RGB to 1 channel (Black or White)
+#         if gts:
+#             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+#             _,img = cv2.threshold(img,127,1,0)
+            
+#         # Resize images and ground truths to size 224*224
+#         img = cv2.resize(img, (config.dims,config.dims), interpolation=cv2.INTER_CUBIC)
+        
+#         # Add to tensor
+#         if gts:
+#             images[i] = torch.tensor(img, dtype=torch.float32).unsqueeze(0)
+#         else: 
+#             images[i] = torch.tensor(img, dtype=torch.float32).permute(2, 0, 1)
+
+#     return images
+
+
+"""Returns images in a given directory
+        Format of return: torch tensor.
+        Torch tensors are of shape batch_size,3,224,224 for images and batch_size,224,224 for ground truths 
+"""
+# def load_input(config, image_dir_path, gt_dir_path, stage):
+#     # Load list of files and directories
+#     image_list = os.listdir(image_dir_path)
+#     gt_list = os.listdir(gt_dir_path)
+    
+#     # Not all images have a ground truth, select those that do. Also skip the hidden files.
+#     dir_list = [file for file in image_list if file in gt_list and not file.startswith(".")]
+    
+#     # Include as many items as requested. test and validation are both from the test set and should not overlap.
+#     if stage == "train":
+#         dir_list = dir_list[:config.train_size]
+#     elif stage == "validation":
+#         end = config.test_size + config.validation_size
+#         if end > len(dir_list):
+#             raise Exception(f"Test ({config.test_size}) and validation ({config.validation_size}) are larger than the test set of size 1157.")
+#         dir_list = dir_list[config.test_size:end]
+#     elif stage == "test":
+#         dir_list = dir_list[:config.test_size]
+        
+#     images = load_images(config, image_dir_path, dir_list, gts=False)
+#     gts = load_images(config, image_dir_path, dir_list, gts=True)
+            
+#     return images, gts
