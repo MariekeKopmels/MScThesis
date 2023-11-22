@@ -163,7 +163,7 @@ def make_grinch(image, output):
     
     return grinch
 
-
+# Takes baches of images in ndarrays, stores and returns the grinch versions
 def to_grinches(config, images, outputs):
     outputs = outputs.cpu().numpy()
     grinches = np.copy(images.cpu().numpy())
@@ -322,7 +322,7 @@ def save_image(config, image, i, bw=False):
     # image = image.to("cpu")
     # if bw:
     #     image = image*225
-    filename = "Grinch_" + str(i) + ".jpg"
+    filename = "Grinch_" + str(i).zfill(5) + ".jpg"
     if type(image) != np.ndarray:
         cv2.imwrite(filename, image.numpy())
     else:
