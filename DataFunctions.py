@@ -150,11 +150,12 @@ def load_pixel_data(config, train, test, YCrCb = False):
 ''' Returns the grinch version of the image, based on the given output of the model
 '''
 def make_grinch(image, output):
-    output = output.to("cpu").numpy()
+    # output = output.to("cpu").numpy()
     grinch = np.copy(image)
     mask = output == 1
     grinch[mask] = [0,255,0]
     return grinch
+
 
 def make_grinches(images, outputs):
     outputs = outputs.cpu().numpy()
@@ -162,8 +163,11 @@ def make_grinches(images, outputs):
     mask = outputs == 1
     
     print(f"Grinches dims: {np.shape(grinches)}, mask dims: {np.shape(mask)}, outputs dims: {np.shape(outputs)}")
-    grinches[:, mask] = [0, 255, 0]
-    
+    for i in range(len(mask)):
+        print(f"Grinches[{i}] dims: {np.shape(grinches[i])}, outputs[{i}] dims: {np.shape(outputs[i])}")
+        print(f"ptp: {np.ptp(outputs[i])}")
+        grinches[i] = make_grinch(grinches[i].transpose(1,2,0), outputs[i]).transpose(2,0,1)
+        
     return torch.from_numpy(grinches)
     
     

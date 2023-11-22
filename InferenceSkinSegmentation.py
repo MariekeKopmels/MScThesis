@@ -69,17 +69,23 @@ def inference(config):
     model = torch.load(config.model_path).to(config.device)
     model.eval()
     dir_list = os.listdir(config.data_path)
+    dir_list = [dir for dir in dir_list if not dir.startswith(".")]
     images = DataFunctions.load_images(config, dir_list, config.data_path)
     
     print(f"Device of images: {images.get_device()}")
     with torch.no_grad():
         masks = model(images)
         
-    print("Masks shape: " ,np.shape(masks))
+    print("Masks shape: ", np.shape(masks))
     
     grinches = DataFunctions.make_grinches(images, masks)
     
-    for i, image in grinches:
+    print("Grinches: ", np.shape(grinches))
+    
+    i = 0
+    for image in grinches:
+        i += 1
+        print(f"Image {i}")
         save_image(config, image, i)
     
     return 

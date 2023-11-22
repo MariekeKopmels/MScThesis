@@ -21,6 +21,9 @@ def save_model(config, model, epoch, final=False):
         path = config.model_path + f"final.pt"
     # TODO: Checken of dit idd de manier is om het model op te slaan en niet met model.state_dict()
     wandb.unwatch()
+    
+    # Store the model on CPU, since my laptop can't open cuda and the server can't open mps
+    model = model.to("cpu")
     torch.save(model, path)
     wandb.watch(model, log="all", log_freq=1)
     
