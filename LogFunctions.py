@@ -20,11 +20,13 @@ def save_model(config, model, epoch, final=False):
     if final:
         path = config.model_path + f"final.pt"
     # TODO: Checken of dit idd de manier is om het model op te slaan en niet met model.state_dict()
+    # Oddity doet het anders(met statedict): https://github.com/oddity-ai/oddity-ml/blob/master/backend/pytorch/utils/persistence.py   
     wandb.unwatch()
     
     # Store the model on CPU, since my laptop can't open cuda and the server can't open mps
     model = model.to("cpu")
     torch.save(model, path)
+    model = model.to(config.device)
     wandb.watch(model, log="all", log_freq=1)
     
 

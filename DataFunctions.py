@@ -150,24 +150,31 @@ def load_pixel_data(config, train, test, YCrCb = False):
 ''' Returns the grinch version of the image, based on the given output of the model
 '''
 def make_grinch(image, output):
-    # output = output.to("cpu").numpy()
+    # print(f"Input types: {type(image)}, and {type(output)}")
+    if type(output) == torch.Tensor:
+        output = output.to("cpu").numpy()
+    # print(f"New input types: {type(image)}, and {type(output)}")
     grinch = np.copy(image)
     mask = output == 1
     grinch[mask] = [0,255,0]
+    
+    # print(f"Grinch type: {type(grinch)}")
+    # print(f"Mask type: {type(mask)}")
+    
     return grinch
 
 
-def make_grinches(images, outputs):
+def to_grinches(config, images, outputs):
     outputs = outputs.cpu().numpy()
     grinches = np.copy(images.cpu().numpy())
     mask = outputs == 1
     
-    print(f"Grinches dims: {np.shape(grinches)}, mask dims: {np.shape(mask)}, outputs dims: {np.shape(outputs)}")
+    # print(f"Grinches dims: {np.shape(grinches)}, mask dims: {np.shape(mask)}, outputs dims: {np.shape(outputs)}")
     for i in range(len(mask)):
-        print(f"Grinches[{i}] dims: {np.shape(grinches[i])}, outputs[{i}] dims: {np.shape(outputs[i])}")
-        print(f"ptp: {np.ptp(outputs[i])}")
+        # print(f"Grinches[{i}] dims: {np.shape(grinches[i])}, outputs[{i}] dims: {np.shape(outputs[i])}")
+        # print(f"ptp: {np.ptp(outputs[i])}")
         grinches[i] = make_grinch(grinches[i].transpose(1,2,0), outputs[i]).transpose(2,0,1)
-        
+        save_image(config, grinches[i], i)
     return torch.from_numpy(grinches)
     
     
@@ -302,6 +309,24 @@ def metrics(tn, fn, fp, tp, pixels=False):
         return accuracy, fn_rate, fp_rate, sensitivity, f1_score
 
     return accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU
+
+
+""" Stores an image (in form of ndarray) to the disk.
+"""
+def save_image(config, image, i, bw=False):
+    directory = config.grinch_path
+    os.chdir(directory)
+    
+    # cv2.imwrite takes input in form height, width, channels
+    image = image.transpose(1,2,0)
+    # image = image.to("cpu")
+    # if bw:
+    #     image = image*225
+    filename = "Grinch_" + str(i) + ".jpg"
+    if type(image) != np.ndarray:
+        cv2.imwrite(filename, image.numpy())
+    else:
+        cv2.imwrite(filename, image)
 
 # def mask_images(images, outputs):
 #     images[outputs > 0.5] 

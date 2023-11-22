@@ -29,7 +29,7 @@ default_config = SimpleNamespace(
     architecture = "UNet",
     model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/final.pt",
     grinch_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/visuAAL/Grinch",
-    data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/visuAAL/ToGrinch"
+    data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/visuAAL/TestImages"
 )
 
 
@@ -48,45 +48,24 @@ def parse_args():
     return
 
 
-""" Stores an image to the disk.
-"""
-def save_image(config, image, i, bw=False):
-    directory = config.grinch_path
-    os.chdir(directory)
-    
-    # cv2.imwrite takes input in form height, width, channels
-    image = image.permute(1,2,0)
-    image = image.to("cpu")
-    # if bw:
-    #     image = image*225
-    filename = "Grinch_" + str(i) + ".jpg"
-    if type(image) != np.ndarray:
-        cv2.imwrite(filename, image.numpy())
-    else:
-        cv2.imwrite(filename, image)
-
 def inference(config):
     model = torch.load(config.model_path).to(config.device)
     model.eval()
     dir_list = os.listdir(config.data_path)
     dir_list = [dir for dir in dir_list if not dir.startswith(".")]
+    dir_list = dir_list[:100]
     images = DataFunctions.load_images(config, dir_list, config.data_path)
     
-    print(f"Device of images: {images.get_device()}")
+    # print(f"Device of images: {images.get_device()}")
     with torch.no_grad():
         masks = model(images)
+        masks = (masks >= 0.5).float()
         
-    print("Masks shape: ", np.shape(masks))
-    
-    grinches = DataFunctions.make_grinches(images, masks)
+    # print("Masks shape: ", np.shape(masks))
+    print("Start making grinches")    
+    grinches = DataFunctions.to_grinches(config, images, masks)
     
     print("Grinches: ", np.shape(grinches))
-    
-    i = 0
-    for image in grinches:
-        i += 1
-        print(f"Image {i}")
-        save_image(config, image, i)
     
     return 
 
