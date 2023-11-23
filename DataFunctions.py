@@ -41,7 +41,7 @@ def load_images(config, dir_list, dir_path, gts=False):
         Format of return: torch tensors containin images and corresponding ground truths.
         Torch tensors are of shape batch_size,3,224,224 for images and batch_size,224,224 for ground truths 
 """
-def load_input(config, image_dir_path, gt_dir_path, stage):
+def load_input_images(config, image_dir_path, gt_dir_path, stage):
     # Load list of files and directories
     image_list = os.listdir(image_dir_path)
     gt_list = os.listdir(gt_dir_path)
@@ -65,18 +65,79 @@ def load_input(config, image_dir_path, gt_dir_path, stage):
     
     return images, gts
 
+def split_video_to_images(config):    
+    video_list = os.listdir(config.video_path)
+    video_list = [video for video in video_list if not video.startswith(".") and video.endswith(".mp4")]
+    
+    print("Video_list: ", video_list)
+        
+    video_no = 0
+    for video in video_list:
+        video_path = config.video_path + "/" + video
+        print("video_path: ", video_path)
+        os.chdir(config.video_path)
+        os.mkdir(f"video_{video_no}")
+        os.chdir(f"{config.video_path}/video_{video_no}")
+        
+        video_capture = cv2.VideoCapture(video_path)
+        frame_no = 0
+        while video_capture.isOpened():
+            frame_is_read, frame = video_capture.read()
+            if frame_is_read:
+                # TODO: temp, eruit halen
+                frame = cv2.resize(frame, (config.dims,config.dims), interpolation=cv2.INTER_CUBIC)
+                cv2.imwrite(f"frame_{str(frame_no).zfill(5)}.jpg", frame)
+                frame_no += 1
+            else: 
+                print(f"Reached the end of video {video_no}!")
+                video_capture.release()
+            if frame_no == config.max_video_length: 
+                print(f"Reached the max video length!")
+                video_capture.release()
+
+        video_no += 1
+    return
+
+
+def merge_images_to_video(config):
+    video_list = os.listdir(config.grinch_path)
+    video_list = [video for video in video_list if not video.startswith(".") and not video.endswith(".mp4")]
+    video_list.sort()
+    print("videolist: ", video_list)
+    for video in video_list:
+        os.chdir(f"{config.grinch_path}")
+        
+        image_list = os.listdir(f"{config.grinch_path}/{video}")
+        image_list = [image for image in image_list if not image.startswith(".")]
+        image_list.sort()
+        # print("image_list: ", image_list)
+        
+        video_name = "grinch_" + video + ".mp4"
+        fourcc = cv2.VideoWriter_fourcc('m','p','4','v')        
+        video_writer = cv2.VideoWriter(filename=video_name, fourcc=fourcc, fps=25, frameSize=(config.dims, config.dims))
+        
+        os.chdir(f"{config.grinch_path}/{video}")
+        while video_writer.isOpened():
+            for i in image_list:
+                image = cv2.imread(i)
+                video_writer.write(image)
+            
+            video_writer.release()
+    return
+
+
 """Returns train and test, both being data loaders with tuples of input images and corresponding ground truths.
         Format of return: Data loaders of tuples containging an input tensor and a ground truth tensor
         Image tensors are of shape (batch_size, channels, height, width)
 """
-def load_data(config):
+def load_image_data(config):
     base_path = config.data_path
     print("Loading training data...")
-    train_images, train_gts = load_input(config, base_path + "/TrainImages", base_path + "/TrainGroundTruth", stage = "train")
+    train_images, train_gts = load_input_images(config, base_path + "/TrainImages", base_path + "/TrainGroundTruth", stage = "train")
     print("Loading validation data...")
-    validation_images, validation_gts = load_input(config, base_path + "/TestImages", base_path + "/TestGroundTruth", stage = "validation")
+    validation_images, validation_gts = load_input_images(config, base_path + "/TestImages", base_path + "/TestGroundTruth", stage = "validation")
     print("Loading testing data...")
-    test_images, test_gts = load_input(config, base_path + "/TestImages", base_path + "/TestGroundTruth", stage = "test")
+    test_images, test_gts = load_input_images(config, base_path + "/TestImages", base_path + "/TestGroundTruth", stage = "test")
 
     # Combine images and ground truths in TensorDataset format
     train = torch.utils.data.TensorDataset(train_images, train_gts)
@@ -164,17 +225,20 @@ def make_grinch(image, output):
     return grinch
 
 # Takes baches of images in ndarrays, stores and returns the grinch versions
-def to_grinches(config, images, outputs):
+def to_grinches(config, images, outputs, video):
     outputs = outputs.cpu().numpy()
     grinches = np.copy(images.cpu().numpy())
     mask = outputs == 1
+    
+    os.chdir(config.grinch_path)
+    os.mkdir(video)
     
     # print(f"Grinches dims: {np.shape(grinches)}, mask dims: {np.shape(mask)}, outputs dims: {np.shape(outputs)}")
     for i in range(len(mask)):
         # print(f"Grinches[{i}] dims: {np.shape(grinches[i])}, outputs[{i}] dims: {np.shape(outputs[i])}")
         # print(f"ptp: {np.ptp(outputs[i])}")
         grinches[i] = make_grinch(grinches[i].transpose(1,2,0), outputs[i]).transpose(2,0,1)
-        save_image(config, grinches[i], i)
+        save_image(config, grinches[i], i, video)
     return torch.from_numpy(grinches)
     
     
@@ -313,8 +377,8 @@ def metrics(tn, fn, fp, tp, pixels=False):
 
 """ Stores an image (in form of ndarray) to the disk.
 """
-def save_image(config, image, i, bw=False):
-    directory = config.grinch_path
+def save_image(config, image, i, video,  bw=False):
+    directory = config.grinch_path + "/" + video
     os.chdir(directory)
     
     # cv2.imwrite takes input in form height, width, channels
@@ -322,7 +386,7 @@ def save_image(config, image, i, bw=False):
     # image = image.to("cpu")
     # if bw:
     #     image = image*225
-    filename = "Grinch_" + str(i).zfill(5) + ".jpg"
+    filename = "grinchframe_" + str(i).zfill(5) + ".jpg"
     if type(image) != np.ndarray:
         cv2.imwrite(filename, image.numpy())
     else:

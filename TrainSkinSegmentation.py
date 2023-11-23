@@ -106,7 +106,7 @@ def get_optimizer(config, model):
 """
 def make(config):
     # Fetch data
-    train_loader, validation_loader, test_loader = DataFunctions.load_data(config)
+    train_loader, validation_loader, test_loader = DataFunctions.load_image_data(config)
     
     # Make the model
     model = MyModels.UNET(config.dims).to(config.device)

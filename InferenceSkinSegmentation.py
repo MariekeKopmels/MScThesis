@@ -6,33 +6,36 @@ import torch
 import numpy as np
 import os
 import cv2
+import wandb
 
 default_config = SimpleNamespace(
-    machine = "TS2",
-    device = torch.device("cpu"),
-    num_workers = 1,
-    dims = 224,
-    batch_size = 32, 
-    dataset = "Demo",
-    colour_space = "RGB",
-    architecture = "UNet", 
-    model_path = "/home/oddity/marieke/Output/Models/SmallModel/final.pt",
-    data_path = "/home/oddity/marieke/Datasets/Demo/demoimages/",
-    grinch_path = "/home/oddity/marieke/Datasets/Demo/demogrinches/",
-    
-    # machine = "Mac",
-    # device = torch.device("cpu"),
+    # machine = "TS2",
+    # device = torch.device("cuda"),
     # num_workers = 1,
     # dims = 224,
+    # max_video_length = 100,
     # batch_size = 32, 
-    # dataset = "VisuAAL",
+    # dataset = "Demo",
     # colour_space = "RGB",
-    # architecture = "UNet",
-    # model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/final.pt",
-    # grinch_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/visuAAL/Grinch",
-    # data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/visuAAL/TestImages"
+    # architecture = "UNet", 
+    # model_path = "/home/oddity/marieke/Output/Models/LargeModel/final.pt",
+    # data_path = "/home/oddity/marieke/Datasets/Demo/demoimages/",
+    # grinch_path = "/home/oddity/marieke/Datasets/Demo/demogrinches/",
+    # video_path = "/home/oddity/marieke/Datasets/Demo/demovideos/"
+    
+    machine = "Mac",
+    device = torch.device("mps"),
+    num_workers = 1,
+    dims = 224,
+    max_video_length = 500,
+    batch_size = 32, 
+    dataset = "VisuAAL",
+    colour_space = "RGB",
+    architecture = "UNet",
+    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/final.pt",    
+    video_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/DemoInputVideos", 
+    grinch_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/DemoGrinchVideos"
 )
-
 
 def parse_args():
     "Overriding default arguments"
@@ -52,34 +55,69 @@ def parse_args():
 def inference(config):
     model = torch.load(config.model_path).to(config.device)
     model.eval()
-    dir_list = os.listdir(config.data_path)
-    dir_list = [dir for dir in dir_list if not dir.startswith(".")]
-    dir_list.sort()
-    dir_list = dir_list[:200]
     
-    print("len of Dir_list: ", len(dir_list))
-    
-    print("Loading images...")
-    images = DataFunctions.load_images(config, dir_list, config.data_path)
-    images.to(config.device)
-    
-    # print(f"Device of images: {images.get_device()}")
-    # print(f"Device of model: {model.get_device()}")
-    
-    print("Calculating masks")
-    with torch.no_grad():
-        masks = model(images)
-        masks = (masks >= 0.5).float()
+    video_dir = os.listdir(config.video_path)
+    video_dir = [folder for folder in video_dir if not folder.startswith(".") and not folder.endswith(".mp4")]
+    video_dir.sort()
+    print("directory contents: ", video_dir)
         
-    print("Masks shape: ", np.shape(masks))
-    print("Start making grinches")    
-    grinches = DataFunctions.to_grinches(config, images, masks)
-    
-    print("Grinches shape: ", np.shape(grinches))
-    
+    for video in video_dir:
+        image_list = os.listdir(f"{config.video_path}/{video}")
+        image_list = [image for image in image_list if not image.startswith(".")]
+        image_list.sort()
+        image_list = image_list[:config.max_video_length]
+        
+        print("len of file_list: ", len(image_list))
+        
+        print("Loading images...")
+        images = DataFunctions.load_images(config, image_list, f"{config.video_path}/{video}")
+        images = images.to(device=config.device)
+        
+        # print(f"Device of images: {images.get_device()}")
+        # print(f"Device of model: {model.get_device()}")
+        
+        with torch.no_grad():
+            print(f"Calculating masks of {video}")
+            images.to(config.device)
+            masks = model(images)
+            print("Making masks black&white")
+            masks = (masks >= 0.5).float()
+            
+        print("Masks shape: ", np.shape(masks))
+        print("Start making grinches")    
+        grinches = DataFunctions.to_grinches(config, images, masks, video)
+        
+        print("Grinches shape: ", np.shape(grinches))
+        
     return 
+    
 
+def inference_pipeline(hyperparameters):
+    with wandb.init(mode="disabled", project="skin_inference", config=hyperparameters):
+        config = wandb.config
+        
+        # Splits videos into images
+        DataFunctions.split_video_to_images(config)
+        
+        # put images through model
+        inference(config)
+        
+        # merge grinch images into grinch videos
+        DataFunctions.merge_images_to_video(config)
+        
 
 if __name__ == '__main__':
     parse_args()
-    inference(default_config)
+    # inference(default_config)
+
+
+    # Load videos
+    inference_pipeline(default_config)
+    
+    # split into images
+    
+    # put images through model
+    
+    # store grinches
+    
+    # merge into video
