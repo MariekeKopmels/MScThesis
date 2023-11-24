@@ -85,7 +85,7 @@ def split_video_to_images(config):
             frame_is_read, frame = video_capture.read()
             if frame_is_read:
                 # TODO: temp, eruit halen
-                frame = cv2.resize(frame, (config.dims,config.dims), interpolation=cv2.INTER_CUBIC)
+                # frame = cv2.resize(frame, (config.dims,config.dims), interpolation=cv2.INTER_CUBIC)
                 cv2.imwrite(f"frame_{str(frame_no).zfill(5)}.jpg", frame)
                 frame_no += 1
             else: 

@@ -34,7 +34,7 @@ default_config = SimpleNamespace(
     dims = 224,
     num_epochs = 25,
     batch_size = 32, 
-    train_size = 32768, 
+    train_size = 4096, 
     validation_size = 128,
     test_size = 1024,
     lr = 0.0001, 
@@ -198,12 +198,6 @@ def test_performance(config, epoch, model, data_loader, loss_function, stage):
         mean_loss = total_loss/len(data_loader.dataset)
         LogFunctions.log_metrics(mean_loss, total_tn, total_fn, total_fp, total_tp, stage)
         
-        # if stage == "validation":
-        #     # Save the model
-        #     # TODO: fix, it now raises errors
-        #     x = torch.ones(config.batch_size, 3, config.dims, config.dims).to(dtype=torch.float32).to(config.device)
-        #     torch.onnx.export(model, x, f"Models/model_epoch_{epoch}.onnx")
-        #     wandb.save(f"model_epoch_{epoch}.onnx")
 
 """ Runs the whole pipeline of creating, training and testing a model
 """

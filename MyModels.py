@@ -51,9 +51,10 @@ class decoder_block(nn.Module):
         Output contains 1 channel with values between 0 (background) and 1 (skin).
 """
 class UNET(nn.Module):
-    def __init__(self, dims):
+    def __init__(self, config):
         super().__init__()
-        self.dims = dims
+        
+        self.dims = config.dims
         """ Encoder """
         self.e1 = encoder_block(3, 64)
         self.e2 = encoder_block(64, 128)
@@ -69,7 +70,7 @@ class UNET(nn.Module):
         """ Classifier """
         self.outputs = nn.Conv2d(64, 1, kernel_size=1, padding=0)
         self.sigmoid = nn.Sigmoid()
-        # TODO: checken of sigmoid idd de way to go is 
+
         
     def forward(self, inputs):
         # For the last few items, the batch size may be smaller than BATCH_SIZE

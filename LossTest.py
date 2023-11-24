@@ -190,6 +190,7 @@ class UNET(nn.Module):
         
         """ Reformatting"""
         outputs = x.clone().reshape(batch_size, NO_PIXELS, NO_PIXELS)
+        # Not correct, should be a sigmoid
         binary_outputs = (outputs>=0.5).float()
         return binary_outputs
 
