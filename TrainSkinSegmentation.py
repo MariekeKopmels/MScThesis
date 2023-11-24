@@ -109,7 +109,7 @@ def make(config):
     train_loader, validation_loader, test_loader = DataFunctions.load_image_data(config)
     
     # Make the model
-    model = MyModels.UNET(config.dims).to(config.device)
+    model = MyModels.UNET(config).to(config.device)
 
     # Define loss function and optimizer
     loss_function = loss_dictionary[config.loss_function].to(config.device)
