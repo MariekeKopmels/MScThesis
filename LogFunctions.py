@@ -56,4 +56,3 @@ def log_example(config, example, target, output, stage="UNKNOWN"):
     grinch = DataFunctions.make_grinch(example, bw_output)
     wandb.log({f"Model {stage} grinch output": [wandb.Image(grinch)]})
     
-# def store_grinch()

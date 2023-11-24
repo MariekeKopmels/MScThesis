@@ -238,7 +238,9 @@ def to_grinches(config, images, outputs, video):
         # print(f"Grinches[{i}] dims: {np.shape(grinches[i])}, outputs[{i}] dims: {np.shape(outputs[i])}")
         # print(f"ptp: {np.ptp(outputs[i])}")
         grinches[i] = make_grinch(grinches[i].transpose(1,2,0), outputs[i]).transpose(2,0,1)
-        save_image(config, grinches[i], i, video)
+        save_path = config.grinch_path + "/" + video
+        save_name = "grinchframe_" + str(i).zfill(5) + ".jpg"
+        save_image(grinches[i], save_path, save_name)
     return torch.from_numpy(grinches)
     
     
@@ -377,20 +379,26 @@ def metrics(tn, fn, fp, tp, pixels=False):
 
 """ Stores an image (in form of ndarray) to the disk.
 """
-def save_image(config, image, i, video,  bw=False):
-    directory = config.grinch_path + "/" + video
-    os.chdir(directory)
-    
+def save_image(image, path, filename, bw=False, gt=False):
+    os.chdir(path)
+
     # cv2.imwrite takes input in form height, width, channels
-    image = image.transpose(1,2,0)
+    if type(image) == torch.Tensor:
+        print("Shape: ", image.shape)
+        # image = image.permute(1,2,0)
+        image = image.to("cpu")
+        if gt:
+            image = cv2.cvtColor(image.numpy(), cv2.COLOR_GRAY2BGR)
+            print("New Shape: ", np.shape(image))
+            cv2.imwrite(filename, image*255)
+        else:
+            cv2.imwrite(filename, image.numpy().transpose(1,2,0))
+    else:   
+        image = image.transpose(1,2,0)
+        cv2.imwrite(filename, image)
     # image = image.to("cpu")
     # if bw:
     #     image = image*225
-    filename = "grinchframe_" + str(i).zfill(5) + ".jpg"
-    if type(image) != np.ndarray:
-        cv2.imwrite(filename, image.numpy())
-    else:
-        cv2.imwrite(filename, image)
 
 # def mask_images(images, outputs):
 #     images[outputs > 0.5] 

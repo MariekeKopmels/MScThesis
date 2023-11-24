@@ -19,9 +19,9 @@ default_config = SimpleNamespace(
     # colour_space = "RGB",
     # architecture = "UNet", 
     # model_path = "/home/oddity/marieke/Output/Models/LargeModel/final.pt",
-    # data_path = "/home/oddity/marieke/Datasets/Demo/demoimages/",
-    # grinch_path = "/home/oddity/marieke/Datasets/Demo/demogrinches/",
-    # video_path = "/home/oddity/marieke/Datasets/Demo/demovideos/"
+    # video_path = "/home/oddity/marieke/Datasets/Demo/demovideos/",
+    # grinch_path = "/home/oddity/marieke/Datasets/Demo/demogrinches/"
+
     
     machine = "Mac",
     device = torch.device("mps"),
@@ -33,8 +33,8 @@ default_config = SimpleNamespace(
     colour_space = "RGB",
     architecture = "UNet",
     model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/final.pt",    
-    video_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/DemoInputVideos", 
-    grinch_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/DemoGrinchVideos"
+    video_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch/DemoInputVideos", 
+    grinch_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch/DemoGrinchVideos"
 )
 
 def parse_args():
@@ -108,16 +108,5 @@ def inference_pipeline(hyperparameters):
 
 if __name__ == '__main__':
     parse_args()
-    # inference(default_config)
-
-
-    # Load videos
     inference_pipeline(default_config)
     
-    # split into images
-    
-    # put images through model
-    
-    # store grinches
-    
-    # merge into video
