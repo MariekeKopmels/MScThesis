@@ -54,39 +54,39 @@ def parse_args():
     return
 
 def flip(config, i, image, gt):
-    augmented_image = torch.flip(image, [2])
+    augmented_image = torch.flip(image, [-2])
     save_path = config.augmented_image_path
-    save_name = f"image_{i}_flipped.jpg"
+    save_name = f"image_{i}_upsidedown.jpg"
     DataFunctions.save_image(augmented_image, save_path, save_name)
     augmented_gt = torch.flip(gt, [0])
     save_path = config.augmented_gt_path
-    save_name = f"image_{i}_flipped.jpg"
+    save_name = f"image_{i}_upsidedown.jpg"
     DataFunctions.save_image(augmented_gt, save_path, save_name, gt=True)
+    return
     
 def rotate(config, i, image, gt):
-    # TODO: aanpassen, zodat flip en rotate van dezelfde package komen.
+    # TODO: aanpassen, zodat flip en rotate van dezelfde package komen en ook meer dan 180* en mirrored kunnen.
     # rotater = transforms.tworandom(transforms.RandomRotation(degrees=(0, 180)))
     # augmented_image = rotater(image)
-    augmented_image = torch.rotate(image, [2])
+    augmented_image = torch.flip(image, [2])
     save_path = config.augmented_image_path
-    save_name = f"image_{i}_flipped.jpg"
+    save_name = f"image_{i}_mirrored.jpg"
     DataFunctions.save_image(augmented_image, save_path, save_name)
-    augmented_gt = torch.flip(gt, [0])
+    augmented_gt = torch.flip(gt, [1])
     # augmented_gt = rotater(gt)
     save_path = config.augmented_gt_path
-    save_name = f"image_{i}_flipped.jpg"
+    save_name = f"image_{i}_mirrored.jpg"
     DataFunctions.save_image(augmented_gt, save_path, save_name, gt=True)
     return
 
 def create_augmentations(config, images, gts):
+    # TODO: Kijken of dit efficienter kan (per batch of images)
     for i, (image, gt) in enumerate(zip(images, gts)):
         # Do the actual augmentations
         if config.flip:
             flip(config, i, image, gt)
         if config.rotate:
             rotate(config, i, image, gt)
-        
-        
     return
 
 def preprocessing_pipeline(config):
