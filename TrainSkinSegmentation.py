@@ -28,43 +28,45 @@ loss_dictionary = {
 # Default parameters
 # Size of dataset: Train=44783 , Test=1157
 default_config = SimpleNamespace(
-    machine = "TS2",
-    device = torch.device("cuda"),
-    num_workers = 1,
-    dims = 224,
-    num_epochs = 25,
-    batch_size = 32, 
-    train_size = 4096, 
-    validation_size = 128,
-    test_size = 1024,
-    lr = 0.0001, 
-    momentum = 0.99, 
-    colour_space = "RGB",
-    loss_function = "WBCE_9",
-    optimizer = "Adam", 
-    dataset = "VisuAAL", 
-    data_path = "/home/oddity/marieke/Datasets/VisuAAL",
-    model_path = "/home/oddity/marieke/Output/Models/",
-    architecture = "UNet"
-
-    # machine = "Mac",
-    # device = torch.device("mps"),
+    # machine = "TS2",
+    # device = torch.device("cuda"),
     # num_workers = 1,
     # dims = 224,
-    # num_epochs = 1,
-    # batch_size = 8, 
-    # train_size = 8, 
-    # validation_size = 8,
-    # test_size = 8,
+    # num_epochs = 25,
+    # batch_size = 32, 
+    # train_size = 4096, 
+    # validation_size = 128,
+    # test_size = 1024,
     # lr = 0.0001, 
     # momentum = 0.99, 
     # colour_space = "RGB",
     # loss_function = "WBCE_9",
     # optimizer = "Adam", 
     # dataset = "VisuAAL", 
-    # data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/visuAAL",
-    # model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/",
+    # data_path = "/home/oddity/marieke/Datasets/VisuAAL",
+    # model_path = "/home/oddity/marieke/Output/Models/",
     # architecture = "UNet"
+
+    machine = "Mac",
+    device = torch.device("mps"),
+    num_workers = 1,
+    dims = 224,
+    num_epochs = 50,
+    batch_size = 8, 
+    train_size = 180, 
+    validation_size = 18,
+    test_size = 36,
+    lr = 0.0001, 
+    momentum = 0.99, 
+    colour_space = "RGB",
+    loss_function = "WBCE_9",
+    optimizer = "Adam", 
+    dataset = "AugmentationPratheepan", 
+    data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/AugmentationPratheepan",
+    testdata_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/CombinedTestset",
+    
+    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/",
+    architecture = "UNet"
 )
 
 def parse_args():
@@ -206,7 +208,7 @@ def model_pipeline(hyperparameters):
     with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # Set hyperparameters
         config = wandb.config
-        run_name = f"{config.machine}_batch_size:{config.batch_size}_num_workers:{config.num_workers}"
+        run_name = f"Dataset:{config.dataset}_train_size:{config.train_size}_num_epochs:{config.num_epochs}_testset:CombinedTestset"
         wandb.run.name = run_name
 
         # Create model, data loaders, loss function and optimizer

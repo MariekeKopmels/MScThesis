@@ -49,14 +49,21 @@ def load_input_images(config, image_dir_path, gt_dir_path, stage):
     # Not all images have a ground truth, select those that do. Also skip the hidden files.
     dir_list = [file for file in image_list if file in gt_list and not file.startswith(".")]
     
+    # print(f"Number of examples in the dataset: {len(dir_list)}\nGiven that train_size:{config.train_size}, validation_size:{config.validation_size} and test_size:{config.test_size}")
+    
     # Include as many items as requested. test and validation are both from the test set and should not overlap.
     if stage == "train":
         dir_list = dir_list[:config.train_size]
     elif stage == "validation":
-        end = config.test_size + config.validation_size
+        #TODO: terugzetten als ik weer 1 dataset gebruik
+        # end = config.test_size + config.validation_size
+        end = config.validation_size
         if end > len(dir_list):
-            raise Exception(f"Test ({config.test_size}) and validation ({config.validation_size}) are larger than the test set of size 1157.")
-        dir_list = dir_list[config.test_size:end]
+            print(f"in stage validation, should be of size {config.validation_size} but is of size {len(dir_list)}")
+            raise Exception(f"Test ({config.test_size}) and validation ({config.validation_size}) are larger than the test set of size 1157 (for VisuAAL).")
+        #TODO: terugzetten als ik weer 1 dataset gebruik
+        # dir_list = dir_list[config.test_size:end]
+        dir_list = dir_list[:config.validation_size]
     elif stage == "test":
         dir_list = dir_list[:config.test_size]
     
@@ -121,7 +128,6 @@ def merge_images_to_video(config):
             for i in image_list:
                 image = cv2.imread(i)
                 video_writer.write(image)
-            
             video_writer.release()
     return
 
@@ -136,6 +142,7 @@ def load_image_data(config):
     train_images, train_gts = load_input_images(config, base_path + "/TrainImages", base_path + "/TrainGroundTruth", stage = "train")
     print("Loading validation data...")
     validation_images, validation_gts = load_input_images(config, base_path + "/TestImages", base_path + "/TestGroundTruth", stage = "validation")
+    base_path = config.testdata_path
     print("Loading testing data...")
     test_images, test_gts = load_input_images(config, base_path + "/TestImages", base_path + "/TestGroundTruth", stage = "test")
 

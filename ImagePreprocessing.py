@@ -35,10 +35,10 @@ default_config = SimpleNamespace(
     flip = True, 
     rotate = True,
     
-    image_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Augmentation/InputImages",
-    gt_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Augmentation/InputGTs",
-    augmented_image_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Augmentation/AugmentedImages",
-    augmented_gt_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Augmentation/AugmentedGTs",
+    image_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Pratheepan/TrainImages",
+    gt_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Pratheepan/TrainGroundTruth",
+    augmented_image_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/AugmentationPratheepan/TrainImages",
+    augmented_gt_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/AugmentationPratheepan/TrainGroundTruth",
 )
 
 def parse_args():
@@ -82,6 +82,13 @@ def rotate(config, i, image, gt):
 def create_augmentations(config, images, gts):
     # TODO: Kijken of dit efficienter kan (per batch of images)
     for i, (image, gt) in enumerate(zip(images, gts)):
+        # copy original image and gt to new folder
+        save_path = config.augmented_image_path
+        save_name = f"image_{i}.jpg"
+        DataFunctions.save_image(image, save_path, save_name)
+        save_path = config.augmented_gt_path
+        save_name = f"image_{i}.jpg"
+        DataFunctions.save_image(image, save_path, save_name)
         # Do the actual augmentations
         if config.flip:
             flip(config, i, image, gt)

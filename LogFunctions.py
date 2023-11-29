@@ -18,10 +18,10 @@ def log_metrics(mean_loss, tn, fn, fp, tp, stage):
 """
 def save_model(config, model, epoch, final=False):
     os.chdir(config.model_path)
-    os.mkdir(f"{config.colour_space}")
-    path = config.model_path + f"{config.colour_space}/epoch_{epoch}.pt"
+    # os.mkdir(f"{config.dataset}")
+    path = config.model_path + f"{config.dataset}/epoch_{epoch}.pt"
     if final:
-        path = config.model_path + f"{config.colour_space}/final.pt"
+        path = config.model_path + f"{config.dataset}/final.pt"
     # TODO: Checken of dit idd de manier is om het model op te slaan en niet met model.state_dict()
     # Oddity doet het anders(met statedict): https://github.com/oddity-ai/oddity-ml/blob/master/backend/pytorch/utils/persistence.py   
     wandb.unwatch()
