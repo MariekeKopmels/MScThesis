@@ -119,16 +119,17 @@ def merge_images_to_video(config):
         image_list.sort()
         # print("image_list: ", image_list)
         
-        video_name = "grinch_" + video + ".mp4"
-        fourcc = cv2.VideoWriter_fourcc('m','p','4','v')        
-        video_writer = cv2.VideoWriter(filename=video_name, fourcc=fourcc, fps=25, frameSize=(config.dims, config.dims))
-        
-        os.chdir(f"{config.grinch_path}/{video}")
-        while video_writer.isOpened():
-            for i in image_list:
-                image = cv2.imread(i)
-                video_writer.write(image)
-            video_writer.release()
+        if config.log: 
+            video_name = "grinch_" + video + ".mp4"
+            fourcc = cv2.VideoWriter_fourcc('m','p','4','v')        
+            video_writer = cv2.VideoWriter(filename=video_name, fourcc=fourcc, fps=25, frameSize=(config.dims, config.dims))
+            
+            os.chdir(f"{config.grinch_path}/{video}")
+            while video_writer.isOpened():
+                for i in image_list:
+                    image = cv2.imread(i)
+                    video_writer.write(image)
+                video_writer.release()
     return
 
 
@@ -152,16 +153,16 @@ def load_image_data(config):
     test = torch.utils.data.TensorDataset(test_images, test_gts)
 
     # Put data into dataloaders
-    train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True, num_workers=config.num_workers)
-    validation_loader = DataLoader(validation, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers)
-    test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers)
+    train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True, num_workers=config.num_workers, pin_memory=True)
+    validation_loader = DataLoader(validation, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True)
+    test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True)
     
     return train_loader, validation_loader, test_loader
 
 
 def load_pixel_data(config, train, test, YCrCb = False):
     path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Skin_NonSkin_Pixel.txt"
-    print("Loading data...")
+    print("Loading data...") 
     with open(path) as file:
        lines = [[int(num) for num in line.split()] for line in file]
        
@@ -247,7 +248,8 @@ def to_grinches(config, images, outputs, video):
         grinches[i] = make_grinch(grinches[i].transpose(1,2,0), outputs[i]).transpose(2,0,1)
         save_path = config.grinch_path + "/" + video
         save_name = "grinchframe_" + str(i).zfill(5) + ".jpg"
-        save_image(grinches[i], save_path, save_name)
+        if config.log:
+            save_image(config, grinches[i], save_path, save_name)
     return torch.from_numpy(grinches)
     
     
@@ -386,23 +388,24 @@ def metrics(tn, fn, fp, tp, pixels=False):
 
 """ Stores an image (in form of ndarray) to the disk.
 """
-def save_image(image, path, filename, bw=False, gt=False):
-    os.chdir(path)
+def save_image(config, image, path, filename, bw=False, gt=False):
+    if config.log:
+        os.chdir(path)
 
-    # cv2.imwrite takes input in form height, width, channels
-    if type(image) == torch.Tensor:
-        print("Shape: ", image.shape)
-        # image = image.permute(1,2,0)
-        image = image.to("cpu")
-        if gt:
-            image = cv2.cvtColor(image.numpy(), cv2.COLOR_GRAY2BGR)
-            print("New Shape: ", np.shape(image))
-            cv2.imwrite(filename, image*255)
-        else:
-            cv2.imwrite(filename, image.numpy().transpose(1,2,0))
-    else:   
-        image = image.transpose(1,2,0)
-        cv2.imwrite(filename, image)
+        # cv2.imwrite takes input in form height, width, channels
+        if type(image) == torch.Tensor:
+            print("Shape: ", image.shape)
+            # image = image.permute(1,2,0)
+            image = image.to("cpu")
+            if gt:
+                image = cv2.cvtColor(image.numpy(), cv2.COLOR_GRAY2BGR)
+                print("New Shape: ", np.shape(image))
+                cv2.imwrite(filename, image*255)
+            else:
+                cv2.imwrite(filename, image.numpy().transpose(1,2,0))
+        else:   
+            image = image.transpose(1,2,0)
+            cv2.imwrite(filename, image)
     # image = image.to("cpu")
     # if bw:
     #     image = image*225

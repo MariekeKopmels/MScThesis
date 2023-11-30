@@ -2,7 +2,7 @@
 import argparse
 from types import SimpleNamespace
 
-import cv2
+import time
 import MyModels
 import LossFunctions
 import LogFunctions
@@ -18,7 +18,6 @@ import warnings
 loss_dictionary = {
     "IoU": LossFunctions.IoULoss(),
     "Focal": LossFunctions.FocalLoss(),
-    # "CE": nn.CrossEntropyLoss(),
     "WBCE": nn.BCEWithLogitsLoss(),
     "WBCE_9": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([9])),
     "BCE": nn.BCELoss(),
@@ -28,50 +27,53 @@ loss_dictionary = {
 # Default parameters
 # Size of dataset: Train=44783 , Test=1157
 default_config = SimpleNamespace(
-    # machine = "TS2",
-    # device = torch.device("cuda"),
-    # num_workers = 1,
-    # dims = 224,
-    # num_epochs = 25,
-    # batch_size = 32, 
-    # train_size = 4096, 
-    # validation_size = 128,
-    # test_size = 1024,
-    # lr = 0.0001, 
-    # momentum = 0.99, 
-    # colour_space = "RGB",
-    # loss_function = "WBCE_9",
-    # optimizer = "Adam", 
-    # dataset = "VisuAAL", 
-    # data_path = "/home/oddity/marieke/Datasets/VisuAAL",
-    # model_path = "/home/oddity/marieke/Output/Models/",
-    # architecture = "UNet"
-
-    machine = "Mac",
-    device = torch.device("mps"),
+    machine = "TS2",
+    device = torch.device("cuda"),
+    log = False,
     num_workers = 1,
     dims = 224,
-    num_epochs = 50,
-    batch_size = 8, 
-    train_size = 180, 
-    validation_size = 18,
-    test_size = 36,
+    num_epochs = 2,
+    batch_size = 32, 
+    train_size = 44783, 
+    validation_size = 128,
+    test_size = 1024,
     lr = 0.0001, 
     momentum = 0.99, 
     colour_space = "RGB",
     loss_function = "WBCE_9",
     optimizer = "Adam", 
-    dataset = "AugmentationPratheepan", 
-    data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/AugmentationPratheepan",
-    testdata_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/CombinedTestset",
-    
-    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/",
+    dataset = "VisuAAL", 
+    data_path = "/home/oddity/marieke/Datasets/VisuAAL",
+    testdata_path = "/home/oddity/marieke/Datasets/VisuAAL",
+    model_path = "/home/oddity/marieke/Output/Models/",
     architecture = "UNet"
+
+    # machine = "Mac",
+    # device = torch.device("mps"),
+    # log = False,
+    # num_workers = 1,
+    # dims = 224,
+    # num_epochs = 2,
+    # batch_size = 8, 
+    # train_size = 180, 
+    # validation_size = 18,
+    # test_size = 36,
+    # lr = 0.0001, 
+    # momentum = 0.99, 
+    # colour_space = "RGB",
+    # loss_function = "WBCE_9",
+    # optimizer = "Adam", 
+    # dataset = "AugmentationPratheepan", 
+    # data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/AugmentationPratheepan",
+    # testdata_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/CombinedTestset",
+    # model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/",
+    # architecture = "UNet"
 )
 
 def parse_args():
     "Overriding default arguments"
     argparser = argparse.ArgumentParser(description='Process hyper-parameters')
+    argparser.add_argument('--log', type=str, default=default_config.log, help='turns logging on or off')
     argparser.add_argument('--num_workers', type=int, default=default_config.num_workers, help='number of workers in DataLoader')
     argparser.add_argument('--num_epochs', type=int, default=default_config.num_epochs, help='number of epochs')
     argparser.add_argument('--batch_size', type=int, default=default_config.batch_size, help='batch size')
@@ -139,10 +141,10 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
             epoch_fn += batch_fn
             epoch_fp += batch_fp
             epoch_tp += batch_tp
-            LogFunctions.log_metrics(batch_loss/config.batch_size, batch_tn, batch_fn, batch_fp, batch_tp, "batch")
+            LogFunctions.log_metrics(config, batch_loss/config.batch_size, batch_tn, batch_fn, batch_fp, batch_tp, "batch")
             
         mean_loss = epoch_loss/config.train_size
-        LogFunctions.log_metrics(mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
+        LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
         LogFunctions.save_model(config, model, epoch+1)
         test_performance(config, epoch, model, validation_loader, loss_function, "validation")
         
@@ -195,10 +197,10 @@ def test_performance(config, epoch, model, data_loader, loss_function, stage):
             total_fn += batch_fn
             total_fp += batch_fp
             total_tp += batch_tp
-            LogFunctions.log_metrics(batch_loss/config.batch_size, batch_tn, batch_fn, batch_fp, batch_tp, "batch")
+            LogFunctions.log_metrics(config, batch_loss/config.batch_size, batch_tn, batch_fn, batch_fp, batch_tp, "batch")
 
         mean_loss = total_loss/len(data_loader.dataset)
-        LogFunctions.log_metrics(mean_loss, total_tn, total_fn, total_fp, total_tp, stage)
+        LogFunctions.log_metrics(config, mean_loss, total_tn, total_fn, total_fp, total_tp, stage)
         
 
 """ Runs the whole pipeline of creating, training and testing a model
@@ -208,12 +210,18 @@ def model_pipeline(hyperparameters):
     with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # Set hyperparameters
         config = wandb.config
-        run_name = f"Dataset:{config.dataset}_train_size:{config.train_size}_num_epochs:{config.num_epochs}_testset:CombinedTestset"
+        run_name = f"Machine:{config.machine}_Dataset:{config.dataset}_train_size:{config.train_size}_num_epochs:{config.num_epochs}"
         wandb.run.name = run_name
+
+        # TODO: Aanzetten en testen
+        # LogFunctions.init_device(config)
 
         # Create model, data loaders, loss function and optimizer
         model, train_loader, validation_loader, test_loader, loss_function, optimizer = make(config)
-        wandb.watch(model, log="all", log_freq=1)
+        if config.log:
+            wandb.watch(model, log="all", log_freq=1)
+        else: 
+            wandb.watch(model, log=None, log_freq=1)
 
         # Train the model, incl. validation
         train(config, model, train_loader, validation_loader, loss_function, optimizer)
@@ -227,5 +235,7 @@ def model_pipeline(hyperparameters):
     return model
 
 if __name__ == '__main__':
+    start_time = time.time()
     parse_args()
     model = model_pipeline(default_config)
+    print(f"Runtime = {time.time() - start_time}")

@@ -57,11 +57,11 @@ def flip(config, i, image, gt):
     augmented_image = torch.flip(image, [-2])
     save_path = config.augmented_image_path
     save_name = f"image_{i}_upsidedown.jpg"
-    DataFunctions.save_image(augmented_image, save_path, save_name)
+    DataFunctions.save_image(config, augmented_image, save_path, save_name)
     augmented_gt = torch.flip(gt, [0])
     save_path = config.augmented_gt_path
     save_name = f"image_{i}_upsidedown.jpg"
-    DataFunctions.save_image(augmented_gt, save_path, save_name, gt=True)
+    DataFunctions.save_image(config, augmented_gt, save_path, save_name, gt=True)
     return
     
 def rotate(config, i, image, gt):
@@ -71,12 +71,12 @@ def rotate(config, i, image, gt):
     augmented_image = torch.flip(image, [2])
     save_path = config.augmented_image_path
     save_name = f"image_{i}_mirrored.jpg"
-    DataFunctions.save_image(augmented_image, save_path, save_name)
+    DataFunctions.save_image(config, augmented_image, save_path, save_name)
     augmented_gt = torch.flip(gt, [1])
     # augmented_gt = rotater(gt)
     save_path = config.augmented_gt_path
     save_name = f"image_{i}_mirrored.jpg"
-    DataFunctions.save_image(augmented_gt, save_path, save_name, gt=True)
+    DataFunctions.save_image(config, augmented_gt, save_path, save_name, gt=True)
     return
 
 def create_augmentations(config, images, gts):
@@ -85,10 +85,10 @@ def create_augmentations(config, images, gts):
         # copy original image and gt to new folder
         save_path = config.augmented_image_path
         save_name = f"image_{i}.jpg"
-        DataFunctions.save_image(image, save_path, save_name)
+        DataFunctions.save_image(config, image, save_path, save_name)
         save_path = config.augmented_gt_path
         save_name = f"image_{i}.jpg"
-        DataFunctions.save_image(image, save_path, save_name)
+        DataFunctions.save_image(config, image, save_path, save_name)
         # Do the actual augmentations
         if config.flip:
             flip(config, i, image, gt)
