@@ -4,6 +4,7 @@ import sklearn.metrics
 import torch 
 import numpy as np 
 from torch.utils.data import DataLoader
+import time
 
 """ Loads the requeste images, returns them in a Torch tensor.
 """
@@ -255,79 +256,49 @@ def to_grinches(config, images, outputs, video):
     
 """Returns the values of the confusion matrix of true negative, false negative, true positive and false positive values
 """
-def confusion_matrix(outputs, targets, stage):
-    batch_size = outputs.shape[0]
+def confusion_matrix(config, outputs, targets, stage):
+    # print("Calculating confusion matrix")
+    start_time = time.time()
     
-    outputs = outputs.to("cpu")
-    outputs = outputs.detach().numpy()
-    targets = targets.to("cpu")
-    targets = targets.detach().numpy()
+    # print("Flattening")
+    output = torch.flatten(outputs)
+    target = torch.flatten(targets)
     
-    matrix = [[0.0, 0.0],[0.0, 0.0]]
+    # print("Making output binary")
+    output = output > 0.5
     
-    #Compute the confusion matrix
-    for i in range(batch_size):
-        output = outputs[i].flatten()
-        target = targets[i].flatten()
-        
-        # print(f"\n\nBEFORE\n")
-        # print(f"Number of 0's in output: {np.sum(output == 0.0)}")
-        # print(f"Number of 0's in target: {np.sum(target == 0.0)}")
-        # print(f"Number of 1's in output: {np.sum(output == 1.0)}")
-        # print(f"Number of 1's in target: {np.sum(target == 1.0)}")
-        # print(f"Output contents: {output[:20]}")
-        # print(f"Target contents: {target[:20]}")
-
-        # print(f"\n\nBEFORE\nNumber of 0's in output: {sum(1 for value in output if value < 0.5)}")
-        # print(f"Number of 0's in target: {sum(1 for value in target if value < 0.5)}")
-        # print(f"Number of 1's in output: {sum(1 for value in output if value > 0.5)}")
-        # print(f"Number of 1's in target: {sum(1 for value in target if value > 0.5)}")        
-        # output = np.array(output) > 0.5
-        output = np.array([1.0 if x > 0.5 else 0.0 for x in output])
-        
-        # print(f"\nAFTER\n")
-        # print(f"Number of 0's in output: {np.sum(output == 0.0)}")
-        # print(f"Number of 0's in target: {np.sum(target == 0.0)}") 
-        # print(f"Number of 1's in output: {np.sum(output == 1.0)}")
-        # print(f"Number of 1's in target: {np.sum(target == 1.0)}")
-        # print(f"Output contents: {output[:20]}")
-        # print(f"Target contents: {target[:20]}")
-        # print(f"\nAFTER\nNumber of 0's in output: {sum(1 for value in output if value < 0.5)}")
-        # print(f"Number of 0's in target: {sum(1 for value in target if value < 0.5)}")
-        # print(f"Number of 1's in output: {sum(1 for value in output if value > 0.5)}")
-        # print(f"Number of 1's in target: {sum(1 for value in target if value > 0.5)}")
-        
-        # print(f"\nContents")
-        # print(f"Min value in output: {min(output)}")
-        # print(f"Max value in output: {max(output)}")
-        # print(f"Unique values in output: {set(output)}")
-        # print(f"types of target and output: {type(target)} and {type(output)}")
-
-        i_matrix = sklearn.metrics.confusion_matrix(target, output)
-        
-        # Blijkbaar bij een target met alles 0, krijg je een [[50176]] confusion matrix. Bij de volgende is deze er dus bij alle 
-        # vier de indexen bij opgeteld en klopt het totaal niet meer. 
-        # print("Intermediate confusion matrix:\n", i_matrix)
-        # print(f"\nNumber of <0.5's in output: {sum(1 for value in output if value < 0.5)}")
-        # print(f"Number of <0.5's in target: {sum(1 for value in target if value < 0.5)}")
-        # print(f"Number of >0.5's in output: {sum(1 for value in output if value > 0.5)}")
-        # print(f"Number of >0.5's in target: {sum(1 for value in target if value > 0.5)}")
-        
-        # If all target and output entries are zero, i_matrix has only one dimension as all is true negative
-        # print(f"Dims: {i_matrix.shape}")
-        if i_matrix.shape == (1, 1):
-            matrix[0][0] += i_matrix[0][0]
-        else:
-            matrix += i_matrix
+    if stage == "train":
+        total_elements = output.numel()
+        num_parts = 16
+        part_size = total_elements/num_parts
+        parts = torch.Tensor((0)).to(config.device)
+        # parts = []
+        for i in range(num_parts):
+            start_idx = int(i * part_size)
+            end_idx = int(min((i + 1) * part_size, total_elements))
+            # print(f"Start: {start_idx} and end: {end_idx}")
+            chunk = output[start_idx:end_idx].float()
+            # print(f"Chunk shape: {chunk.shape}")
+            parts = torch.cat((parts, chunk))
+            # TODO: testen
+            # print("Dims: ", parts.shape)
+        output = parts
+        # output = torch.Tensor(parts)
+    else:
+        output.float()
     
-    # if stage == "test":
-    #     print("Confusion matrix test:\n", matrix)
+    # print("Going into sklearn function")
+    matrix = sklearn.metrics.confusion_matrix(target.to("cpu"), output.to("cpu"))
+    duration = time.time() - start_time
+    print("Matrix calculation finished in %.2f seconds." % duration)
+    # print("Confusion matrix:\n", matrix)
     
     tn = matrix[0][0]
     fn = matrix[1][0]
     tp = matrix[1][1]
     fp = matrix[0][1]
     
+    # print("Returning confusion matrix")
     return tn, fn, fp, tp
 
 """Returns the values of the confusion matrix of true negative, false negative, true positive and false positive values
@@ -357,7 +328,7 @@ def pixel_confusion_matrix(config, outputs, labels, test=False):
         else:
             print(f"QUEeeee? outputs[0]:{outputs[0]} so outputs[0] == 1.0:{outputs[0] == 1.0} and matrix[0][0]:{matrix[0][0]}")
         matrix = output_matrix
-    
+
     tn = matrix[0][0]
     fn = matrix[1][0]
     tp = matrix[1][1]
@@ -369,6 +340,7 @@ def pixel_confusion_matrix(config, outputs, labels, test=False):
         Returns accuracy, fn_rate, fp_rate and sensitivity.
 """
 def metrics(tn, fn, fp, tp, pixels=False):
+    # print("Calculating metrics")
     accuracy = (tp+tn)/(tn+fn+fp+tp)
     # If there are no pixels that should be marked as skin, the fn_rate should be 0
     fn_rate = fn/(fn+tp) if fn+tp != 0 else 0
@@ -406,75 +378,4 @@ def save_image(config, image, path, filename, bw=False, gt=False):
         else:   
             image = image.transpose(1,2,0)
             cv2.imwrite(filename, image)
-    # image = image.to("cpu")
-    # if bw:
-    #     image = image*225
-
-# def mask_images(images, outputs):
-#     images[outputs > 0.5] 
-#     altered_images[mask == 1]
-#     return
-
-
-# def load_images(config, dir_path, dir_list, gts=False):
     
-#     # Store images in tensor format
-#     if gts:
-#         images = torch.empty(len(dir_list), config.dims, config.dims, dtype=torch.float32)
-#     else:
-#         images = torch.empty(len(dir_list), 3, config.dims, config.dims, dtype=torch.float32)
-
-#     for i, file_name in enumerate(dir_list):
-#         # Read the images
-#         img_path = dir_path + "/" + file_name
-#         img = cv2.imread(img_path)
-        
-#         if config.colour_space == "YCrCb":
-#             # Convert image from RGB to YCrCb
-#             img = cv2.cvtColor(img, cv2.COLOR_BGR2YCR_CB)
-        
-#         # TODO: vgm kan de regel hieronder weg als er cv2.IMREAD_GRAYSCALE bij de imread toegevoegd wordt.
-#         # Convert Ground Truth from RGB to 1 channel (Black or White)
-#         if gts:
-#             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-#             _,img = cv2.threshold(img,127,1,0)
-            
-#         # Resize images and ground truths to size 224*224
-#         img = cv2.resize(img, (config.dims,config.dims), interpolation=cv2.INTER_CUBIC)
-        
-#         # Add to tensor
-#         if gts:
-#             images[i] = torch.tensor(img, dtype=torch.float32).unsqueeze(0)
-#         else: 
-#             images[i] = torch.tensor(img, dtype=torch.float32).permute(2, 0, 1)
-
-#     return images
-
-
-"""Returns images in a given directory
-        Format of return: torch tensor.
-        Torch tensors are of shape batch_size,3,224,224 for images and batch_size,224,224 for ground truths 
-"""
-# def load_input(config, image_dir_path, gt_dir_path, stage):
-#     # Load list of files and directories
-#     image_list = os.listdir(image_dir_path)
-#     gt_list = os.listdir(gt_dir_path)
-    
-#     # Not all images have a ground truth, select those that do. Also skip the hidden files.
-#     dir_list = [file for file in image_list if file in gt_list and not file.startswith(".")]
-    
-#     # Include as many items as requested. test and validation are both from the test set and should not overlap.
-#     if stage == "train":
-#         dir_list = dir_list[:config.train_size]
-#     elif stage == "validation":
-#         end = config.test_size + config.validation_size
-#         if end > len(dir_list):
-#             raise Exception(f"Test ({config.test_size}) and validation ({config.validation_size}) are larger than the test set of size 1157.")
-#         dir_list = dir_list[config.test_size:end]
-#     elif stage == "test":
-#         dir_list = dir_list[:config.test_size]
-        
-#     images = load_images(config, image_dir_path, dir_list, gts=False)
-#     gts = load_images(config, image_dir_path, dir_list, gts=True)
-            
-#     return images, gts

@@ -27,10 +27,13 @@ def log_metrics(config, mean_loss, tn, fn, fp, tp, stage):
 """ Stores the model to the disk.
 """
 def save_model(config, model, epoch, final=False):
+    print("Saving model")
     if config.log:
         os.chdir(config.model_path)
-        folder = f"Dataset:{config.dataset}_Log:{config.log}"
-        os.mkdir(folder)
+        folder = f"Dataset:{config.dataset}_num_workers:{config.num_workers}_testset:{config.testset}"
+        # TODO: remove temp if models need to be saved permanently
+        # folder = "temp"
+        os.makedirs(folder, exist_ok=True)
         path = config.model_path + f"{folder}/epoch_{epoch}.pt"
         if final:
             path = config.model_path + f"{folder}/final.pt"
