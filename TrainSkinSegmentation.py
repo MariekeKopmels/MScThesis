@@ -29,18 +29,20 @@ default_config = SimpleNamespace(
     machine = "TS2",
     device = torch.device("cuda"),
     log = True,
-    num_workers = 8,
+    num_workers = 2,
     dims = 224,
     num_epochs = 10,
     batch_size = 32, 
-    train_size = 32768, 
+    train_size = 2048, 
     validation_size = 256,
     test_size = 60,
-    lr = 0.0001, 
-    momentum = 0.99, 
+    cm_train = False,
+    cm_parts = 16,
+    lr = 0.001, 
+    momentum = 0.999, 
     colour_space = "RGB",
     loss_function = "WBCE_9",
-    optimizer = "Adam", 
+    optimizer = "RMSprop", 
     dataset = "VisuAAL", 
     testset = "Combined",
     data_path = "/home/oddity/marieke/Datasets/VisuAAL",
@@ -58,6 +60,8 @@ default_config = SimpleNamespace(
     # train_size = 128, 
     # validation_size = 16,
     # test_size = 64,
+    # cm_train = False,
+    # cm_parts = 1,
     # lr = 0.0001, 
     # momentum = 0.99, 
     # colour_space = "RGB",
@@ -142,24 +146,20 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
             batch_loss, batch_outputs = train_batch(config, images, targets, model, optimizer, loss_function)
             epoch_loss += batch_loss.item()
             
-            # print(f"Shape of train batch_outputs: {batch_outputs.shape}")
-            # print(f"Shape of train batch_targets: {targets.shape}")
-            # print(f"Devices: {epoch_targets.get_device()}, {epoch_outputs.get_device()}, {batch_outputs.get_device()}, {targets.get_device()} ")
             epoch_outputs = torch.cat((epoch_outputs, batch_outputs), dim=0)
             epoch_targets = torch.cat((epoch_targets, targets.to(config.device)), dim=0)
-            # print(f"Shape of train epoch_outputs: {epoch_outputs.shape}")
-            # print(f"Shape of train epoch_targets: {epoch_targets.shape}")
             
-            # epoch_tn += batch_tn
-            # epoch_fn += batch_fn
-            # epoch_fp += batch_fp
-            # epoch_tp += batch_tp
-            # LogFunctions.log_metrics(config, batch_loss/config.batch_size, batch_tn, batch_fn, batch_fp, batch_tp, "batch")
         print(f"-------------------------Finished training batches-------------------------") 
-        epoch_tn, epoch_fn, epoch_fp, epoch_tp = DataFunctions.confusion_matrix(config, epoch_outputs, epoch_targets, "train")
-        mean_loss = epoch_loss/config.train_size #TODO: alter if cut off non complete batches (drop_last=True in dataloader)
-        LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
+        
+        # Keep track of training epoch stats, or skip for sake of efficiency
+        if config.cm_train:
+            epoch_tn, epoch_fn, epoch_fp, epoch_tp = DataFunctions.confusion_matrix(config, epoch_outputs, epoch_targets, "train")
+            mean_loss = epoch_loss/config.train_size #TODO: alter if cut off non complete batches (drop_last=True in dataloader)
+            LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
+        
         LogFunctions.save_model(config, model, epoch+1)
+        
+        # Test the performance with validation
         test_performance(config, model, validation_loader, loss_function, "validation")
         
 

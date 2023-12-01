@@ -267,23 +267,17 @@ def confusion_matrix(config, outputs, targets, stage):
     # print("Making output binary")
     output = output > 0.5
     
-    if stage == "train":
+    # make output floats, split up in parts if confusion matrix parts is larger than 1
+    if stage == "train" and config.cm_parts > 1:
         total_elements = output.numel()
-        num_parts = 16
-        part_size = total_elements/num_parts
+        part_size = total_elements/config.cm_parts
         parts = torch.Tensor((0)).to(config.device)
-        # parts = []
-        for i in range(num_parts):
+        for i in range(config.cm_parts):
             start_idx = int(i * part_size)
             end_idx = int(min((i + 1) * part_size, total_elements))
-            # print(f"Start: {start_idx} and end: {end_idx}")
             chunk = output[start_idx:end_idx].float()
-            # print(f"Chunk shape: {chunk.shape}")
             parts = torch.cat((parts, chunk))
-            # TODO: testen
-            # print("Dims: ", parts.shape)
         output = parts
-        # output = torch.Tensor(parts)
     else:
         output.float()
     
