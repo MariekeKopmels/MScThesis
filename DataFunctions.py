@@ -351,24 +351,25 @@ def metrics(tn, fn, fp, tp, pixels=False):
 
 """ Stores an image (in form of ndarray) to the disk.
 """
+# TODO: remove config as input
 def save_image(config, image, path, filename, bw=False, gt=False):
-    if config.log:
-        os.chdir(path)
+    os.makedirs(path, exist_ok=True)
+    os.chdir(path)
 
-        # cv2.imwrite takes input in form height, width, channels
-        if type(image) == torch.Tensor:
-            print("Shape: ", image.shape)
-            # image = image.permute(1,2,0)
-            image = image.to("cpu")
-            if gt:
-                image = cv2.cvtColor(image.numpy(), cv2.COLOR_GRAY2BGR)
-                print("New Shape: ", np.shape(image))
-                cv2.imwrite(filename, image*255)
-            else:
-                cv2.imwrite(filename, image.numpy().transpose(1,2,0))
-        else:   
-            image = image.transpose(1,2,0)
-            cv2.imwrite(filename, image)
+    # cv2.imwrite takes input in form height, width, channels
+    if type(image) == torch.Tensor:
+        print("Shape: ", image.shape)
+        # image = image.permute(1,2,0)
+        image = image.to("cpu")
+        if gt:
+            image = cv2.cvtColor(image.numpy(), cv2.COLOR_GRAY2BGR)
+            print("New Shape: ", np.shape(image))
+            cv2.imwrite(filename, image*255)
+        else:
+            cv2.imwrite(filename, image.numpy().transpose(1,2,0))
+    else:   
+        image = image.transpose(1,2,0)
+        cv2.imwrite(filename, image)
     
 
 """ Stores the image and ground truth with the same filename, but in a different folder.

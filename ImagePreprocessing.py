@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import torch 
 import os
 import DataFunctions
+import cv2
 
 import torchvision.transforms as transforms
 
@@ -37,8 +38,8 @@ default_config = SimpleNamespace(
     
     image_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Pratheepan/TrainImages",
     gt_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Pratheepan/TrainGroundTruth",
-    augmented_image_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/AugmentationPratheepan/TrainImages",
-    augmented_gt_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/AugmentationPratheepan/TrainGroundTruth",
+    augmented_image_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/AugmentedPratheepan/TrainImages",
+    augmented_gt_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/AugmentedPratheepan/TrainGroundTruth",
 )
 
 def parse_args():
@@ -58,13 +59,6 @@ def flip(config, i, image, gt):
     augmented_gt = torch.flip(gt, [0])
     
     DataFunctions.save_augmentation(config, i, augmented_image, augmented_gt, "upsidedown")
-    # save_path = config.augmented_image_path
-    # save_name = f"image_{i}_upsidedown.jpg"
-    # DataFunctions.save_image(config, augmented_image, save_path, save_name)
-    
-    # save_path = config.augmented_gt_path
-    # save_name = f"image_{i}_upsidedown.jpg"
-    # DataFunctions.save_image(config, augmented_gt, save_path, save_name, gt=True)
     return
     
 def rotate(config, i, image, gt):
@@ -73,16 +67,12 @@ def rotate(config, i, image, gt):
     # augmented_image = rotater(image)
     augmented_image = torch.flip(image, [2])
     augmented_gt = torch.flip(gt, [1])
+    
+    # augmented_image = cv2.flip(image, 0)
+    # augmented_gt = cv2.flip(gt, 0)
     # augmented_gt = rotater(gt)
     
     DataFunctions.save_augmentation(config, i, augmented_image, augmented_gt, "mirrored")
-    # save_path = config.augmented_image_path
-    # save_name = f"image_{i}_mirrored.jpg"
-    # DataFunctions.save_image(config, augmented_image, save_path, save_name)
-    
-    # save_path = config.augmented_gt_path
-    # save_name = f"image_{i}_mirrored.jpg"
-    # DataFunctions.save_image(config, augmented_gt, save_path, save_name, gt=True)
     
     return
 
@@ -91,13 +81,7 @@ def rotate(config, i, image, gt):
 def create_augmentations(config, images, gts):
     # TODO: Kijken of dit efficienter kan (per batch of images)
     for i, (image, gt) in enumerate(zip(images, gts)):
-        # copy original image and gt to new folder
-        # save_path = config.augmented_image_path
-        # save_name = f"image_{i}.jpg"
-        # DataFunctions.save_image(config, image, save_path, save_name)
-        # save_path = config.augmented_gt_path
-        # save_name = f"image_{i}.jpg"
-        # DataFunctions.save_image(config, image, save_path, save_name, gt=True)
+        
         DataFunctions.save_augmentation(config, i, image, gt, "original")
         
         # Compute the augmentations
