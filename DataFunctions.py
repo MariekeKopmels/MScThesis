@@ -154,9 +154,9 @@ def load_image_data(config):
     test = torch.utils.data.TensorDataset(test_images, test_gts)
 
     # Put data into dataloaders
-    train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True, num_workers=config.num_workers, pin_memory=True)
-    validation_loader = DataLoader(validation, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True)
-    test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True)
+    train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True, num_workers=config.num_workers, pin_memory=True, drop_last=True)
+    validation_loader = DataLoader(validation, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True, drop_last=True)
+    test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True, drop_last=True)
     
     return train_loader, validation_loader, test_loader
 
@@ -257,17 +257,16 @@ def to_grinches(config, images, outputs, video):
 """Returns the values of the confusion matrix of true negative, false negative, true positive and false positive values
 """
 def confusion_matrix(config, outputs, targets, stage):
-    # print("Calculating confusion matrix")
     start_time = time.time()
     
-    # print("Flattening")
+    # Flatten output and target
     output = torch.flatten(outputs)
     target = torch.flatten(targets)
     
-    # print("Making output binary")
+    # Binarize output of the model
     output = output > 0.5
     
-    # make output floats, split up in parts if confusion matrix parts is larger than 1
+    # Make output floats, split up in parts if confusion matrix parts is larger than 1
     if stage == "train" and config.cm_parts > 1:
         total_elements = output.numel()
         part_size = total_elements/config.cm_parts
@@ -281,18 +280,16 @@ def confusion_matrix(config, outputs, targets, stage):
     else:
         output.float()
     
-    # print("Going into sklearn function")
+    # Compute the confusion matrix
     matrix = sklearn.metrics.confusion_matrix(target.to("cpu"), output.to("cpu"))
     duration = time.time() - start_time
     print("Matrix calculation finished in %.2f seconds." % duration)
-    # print("Confusion matrix:\n", matrix)
     
     tn = matrix[0][0]
     fn = matrix[1][0]
     tp = matrix[1][1]
     fp = matrix[0][1]
     
-    # print("Returning confusion matrix")
     return tn, fn, fp, tp
 
 """Returns the values of the confusion matrix of true negative, false negative, true positive and false positive values

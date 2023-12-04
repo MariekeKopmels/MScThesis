@@ -26,53 +26,53 @@ loss_dictionary = {
 # Default parameters
 # Size of dataset: Train=44783, Test=1157
 default_config = SimpleNamespace(
-    machine = "TS2",
-    device = torch.device("cuda"),
-    log = True,
-    num_workers = 2,
-    dims = 224,
-    num_epochs = 10,
-    batch_size = 32, 
-    train_size = 2048, 
-    validation_size = 256,
-    test_size = 60,
-    cm_train = False,
-    cm_parts = 16,
-    lr = 0.001, 
-    momentum = 0.999, 
-    colour_space = "RGB",
-    loss_function = "WBCE_9",
-    optimizer = "RMSprop", 
-    dataset = "VisuAAL", 
-    testset = "Combined",
-    data_path = "/home/oddity/marieke/Datasets/VisuAAL",
-    testdata_path = "/home/oddity/marieke/Datasets/CombinedTestset",
-    model_path = "/home/oddity/marieke/Output/Models/",
-    architecture = "UNet"
-
-    # machine = "Mac",
-    # device = torch.device("mps"),
+    # machine = "TS2",
+    # device = torch.device("cuda"),
     # log = True,
-    # num_workers = 4,
+    # num_workers = 2,
     # dims = 224,
-    # num_epochs = 5,
-    # batch_size = 8, 
-    # train_size = 128, 
-    # validation_size = 16,
-    # test_size = 64,
+    # num_epochs = 10,
+    # batch_size = 16, 
+    # train_size = 2048, 
+    # validation_size = 256,
+    # test_size = 60,
     # cm_train = False,
-    # cm_parts = 1,
-    # lr = 0.0001, 
-    # momentum = 0.99, 
+    # cm_parts = 16,
+    # lr = 0.001, 
+    # momentum = 0.999, 
     # colour_space = "RGB",
     # loss_function = "WBCE_9",
-    # optimizer = "Adam", 
-    # dataset = "AugmentationPratheepan", 
+    # optimizer = "RMSprop", 
+    # dataset = "VisuAAL", 
     # testset = "Combined",
-    # data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/VisuAAL",
-    # testdata_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/VisuAAL",
-    # model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/",
+    # data_path = "/home/oddity/marieke/Datasets/VisuAAL",
+    # testdata_path = "/home/oddity/marieke/Datasets/CombinedTestset",
+    # model_path = "/home/oddity/marieke/Output/Models/",
     # architecture = "UNet"
+
+    machine = "Mac",
+    device = torch.device("mps"),
+    log = True,
+    num_workers = 4,
+    dims = 224,
+    num_epochs = 5,
+    batch_size = 8, 
+    train_size = 64, 
+    validation_size = 16,
+    test_size = 32,
+    cm_train = True,
+    cm_parts = 1,
+    lr = 0.0001, 
+    momentum = 0.99, 
+    colour_space = "RGB",
+    loss_function = "WBCE_9",
+    optimizer = "Adam", 
+    dataset = "AugmentationPratheepan", 
+    testset = "Combined",
+    data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/VisuAAL",
+    testdata_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/CombinedTestset",
+    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/",
+    architecture = "UNet"
 )
 
 def parse_args():
@@ -136,30 +136,32 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
         model.train()
         epoch_loss = 0.0
         batch = 0
-        # epoch_tn, epoch_fn, epoch_fp, epoch_tp = 0, 0, 0, 0
         epoch_outputs = torch.empty((0, config.dims, config.dims)).to(config.device)
         epoch_targets = torch.empty((0, config.dims, config.dims)).to(config.device)
         for images, targets in train_loader:  
             batch += 1
             print(f"-------------------------Starting Batch {batch}/{int(config.train_size/config.batch_size)} batches-------------------------", end="\r")
-            # batch_loss, batch_tn, batch_fn, batch_fp, batch_tp = train_batch(config, images, targets, model, optimizer, loss_function)
             batch_loss, batch_outputs = train_batch(config, images, targets, model, optimizer, loss_function)
             epoch_loss += batch_loss.item()
             
-            epoch_outputs = torch.cat((epoch_outputs, batch_outputs), dim=0)
-            epoch_targets = torch.cat((epoch_targets, targets.to(config.device)), dim=0)
+            if config.cm_train:
+                epoch_outputs = torch.cat((epoch_outputs, batch_outputs), dim=0)
+                epoch_targets = torch.cat((epoch_targets, targets.to(config.device)), dim=0)
             
         print(f"-------------------------Finished training batches-------------------------") 
         
         # Keep track of training epoch stats, or skip for sake of efficiency
         if config.cm_train:
             epoch_tn, epoch_fn, epoch_fp, epoch_tp = DataFunctions.confusion_matrix(config, epoch_outputs, epoch_targets, "train")
-            mean_loss = epoch_loss/config.train_size #TODO: alter if cut off non complete batches (drop_last=True in dataloader)
+            # drop_last=True in the dataloader, so we compute the amount of batches first
+            num_batches = train_loader.dataset // config.batch_size
+            mean_loss = epoch_loss / (num_batches * config.batch_size)
             LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
         
+        # Save the model
         LogFunctions.save_model(config, model, epoch+1)
         
-        # Test the performance with validation
+        # Test the performance with validation data
         test_performance(config, model, validation_loader, loss_function, "validation")
         
 
@@ -167,16 +169,15 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
 """
 def train_batch(config, images, targets, model, optimizer, loss_function):
     
+    # Model inference
     images, targets = images.to(config.device), targets.to(config.device)
-    # images = images.float()
-    # targets = targets.float()
     outputs = model(images)
     
+    # Compute loss, update model
     loss = loss_function(outputs, targets)
     loss.backward()
     optimizer.step()
     
-    # tn, fn, fp, tp = DataFunctions.confusion_matrix(outputs, targets, "train")
     return loss, outputs
 
 def test_performance(config, model, data_loader, loss_function, stage):
@@ -186,7 +187,6 @@ def test_performance(config, model, data_loader, loss_function, stage):
     # Test the performance of the model on the data in the passed data loader, either test or validation data
     with torch.no_grad():
         total_loss = 0.0
-        # total_tn, total_fn, total_fp, total_tp = 0, 0, 0, 0
         batch = 0
         test_outputs = torch.empty((0, config.dims, config.dims)).to(config.device)
         test_targets = torch.empty((0, config.dims, config.dims)).to(config.device)
@@ -197,31 +197,27 @@ def test_performance(config, model, data_loader, loss_function, stage):
             # Store example for printing while on CPU
             example_image = np.array(images[0].permute(1,2,0))
             
+            # Model inference 
             images, targets = images.to(config.device), targets.to(config.device)
-            # images = images.float()
-            # targets = targets.float()
             batch_outputs = model(images)
             
             # Log example to WandB
             LogFunctions.log_example(config, example_image, targets[0], batch_outputs[0], stage)
             
-            # Update metrics
+            # Compute batch loss
             batch_loss = loss_function(batch_outputs, targets).item()
             
             test_outputs = torch.cat((test_outputs, batch_outputs), dim=0)
             test_targets = torch.cat((test_targets, targets.to(config.device)), dim=0)
             
             total_loss += batch_loss
-            # batch_tn, batch_fn, batch_fp, batch_tp = DataFunctions.confusion_matrix(outputs, targets, stage)
-            # total_tn += batch_tn
-            # total_fn += batch_fn
-            # total_fp += batch_fp
-            # total_tp += batch_tp
-            # LogFunctions.log_metrics(config, batch_loss/config.batch_size, batch_tn, batch_fn, batch_fp, batch_tp, "batch")
-
+            
         print(f"-------------------------Finished {stage} batches-------------------------")
+        # Compute and log metrics
         epoch_tn, epoch_fn, epoch_fp, epoch_tp = DataFunctions.confusion_matrix(config, test_outputs, test_targets, stage)
-        mean_loss = total_loss/len(data_loader.dataset)
+        # drop_last=True in the dataloader, so we compute the amount of batches first
+        num_batches = data_loader.dataset // config.batch_size
+        mean_loss = total_loss / (num_batches * config.batch_size)
         LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, stage)
         
 
@@ -229,7 +225,7 @@ def test_performance(config, model, data_loader, loss_function, stage):
 """
 def model_pipeline(hyperparameters):
     # Start wandb
-    with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
+    with wandb.init(mode="disabled", project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # Set hyperparameters
         config = wandb.config
         run_name = f"Machine:{config.machine}_Dataset:{config.dataset}_train_size:{config.train_size}_num_epochs:{config.num_epochs}"
