@@ -26,53 +26,53 @@ loss_dictionary = {
 # Default parameters
 # Size of dataset: Train=44783, Test=1157
 default_config = SimpleNamespace(
-    # machine = "TS2",
-    # device = torch.device("cuda"),
-    # log = True,
-    # num_workers = 2,
-    # dims = 224,
-    # num_epochs = 10,
-    # batch_size = 16, 
-    # train_size = 2048, 
-    # validation_size = 256,
-    # test_size = 60,
-    # cm_train = False,
-    # cm_parts = 16,
-    # lr = 0.001, 
-    # momentum = 0.999, 
-    # colour_space = "RGB",
-    # loss_function = "WBCE_9",
-    # optimizer = "RMSprop", 
-    # dataset = "VisuAAL", 
-    # testset = "Combined",
-    # data_path = "/home/oddity/marieke/Datasets/VisuAAL",
-    # testdata_path = "/home/oddity/marieke/Datasets/CombinedTestset",
-    # model_path = "/home/oddity/marieke/Output/Models/",
-    # architecture = "UNet"
-
-    machine = "Mac",
-    device = torch.device("mps"),
+    machine = "TS2",
+    device = torch.device("cuda"),
     log = True,
-    num_workers = 4,
+    num_workers = 2,
     dims = 224,
-    num_epochs = 5,
-    batch_size = 8, 
-    train_size = 64, 
-    validation_size = 16,
-    test_size = 32,
-    cm_train = True,
-    cm_parts = 1,
-    lr = 0.0001, 
-    momentum = 0.99, 
+    num_epochs = 10,
+    batch_size = 16, 
+    train_size = 2048, 
+    validation_size = 256,
+    test_size = 60,
+    cm_train = False,
+    cm_parts = 16,
+    lr = 0.001, 
+    momentum = 0.999, 
     colour_space = "RGB",
     loss_function = "WBCE_9",
-    optimizer = "Adam", 
-    dataset = "AugmentationPratheepan", 
+    optimizer = "RMSprop", 
+    dataset = "VisuAAL", 
     testset = "Combined",
-    data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/VisuAAL",
-    testdata_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/CombinedTestset",
-    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/",
+    data_path = "/home/oddity/marieke/Datasets/VisuAAL",
+    testdata_path = "/home/oddity/marieke/Datasets/CombinedTestset",
+    model_path = "/home/oddity/marieke/Output/Models/",
     architecture = "UNet"
+
+    # machine = "Mac",
+    # device = torch.device("mps"),
+    # log = True,
+    # num_workers = 4,
+    # dims = 224,
+    # num_epochs = 5,
+    # batch_size = 8, 
+    # train_size = 64, 
+    # validation_size = 16,
+    # test_size = 32,
+    # cm_train = False,
+    # cm_parts = 1,
+    # lr = 0.0001, 
+    # momentum = 0.99, 
+    # colour_space = "RGB",
+    # loss_function = "WBCE_9",
+    # optimizer = "Adam", 
+    # dataset = "AugmentationPratheepan", 
+    # testset = "Combined",
+    # data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/VisuAAL",
+    # testdata_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/CombinedTestset",
+    # model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/",
+    # architecture = "UNet"
 )
 
 def parse_args():
@@ -115,7 +115,9 @@ def get_optimizer(config, model):
 """
 def make(config):
     # Fetch data
+    start_time = time.time()
     train_loader, validation_loader, test_loader = DataFunctions.load_image_data(config)
+    print(f"Loading of data done in %.2d seconds", )
     
     # Make the model
     model = MyModels.UNET(config).to(config.device)
@@ -154,7 +156,7 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
         if config.cm_train:
             epoch_tn, epoch_fn, epoch_fp, epoch_tp = DataFunctions.confusion_matrix(config, epoch_outputs, epoch_targets, "train")
             # drop_last=True in the dataloader, so we compute the amount of batches first
-            num_batches = train_loader.dataset // config.batch_size
+            num_batches = len(train_loader.dataset) // config.batch_size
             mean_loss = epoch_loss / (num_batches * config.batch_size)
             LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
         
@@ -216,7 +218,7 @@ def test_performance(config, model, data_loader, loss_function, stage):
         # Compute and log metrics
         epoch_tn, epoch_fn, epoch_fp, epoch_tp = DataFunctions.confusion_matrix(config, test_outputs, test_targets, stage)
         # drop_last=True in the dataloader, so we compute the amount of batches first
-        num_batches = data_loader.dataset // config.batch_size
+        num_batches = len(data_loader.dataset) // config.batch_size
         mean_loss = total_loss / (num_batches * config.batch_size)
         LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, stage)
         
@@ -225,7 +227,7 @@ def test_performance(config, model, data_loader, loss_function, stage):
 """
 def model_pipeline(hyperparameters):
     # Start wandb
-    with wandb.init(mode="disabled", project="skin_segmentation", config=hyperparameters): #mode="disabled", 
+    with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # Set hyperparameters
         config = wandb.config
         run_name = f"Machine:{config.machine}_Dataset:{config.dataset}_train_size:{config.train_size}_num_epochs:{config.num_epochs}"
