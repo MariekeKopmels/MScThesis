@@ -370,3 +370,19 @@ def save_image(config, image, path, filename, bw=False, gt=False):
             image = image.transpose(1,2,0)
             cv2.imwrite(filename, image)
     
+
+""" Stores the image and ground truth with the same filename, but in a different folder.
+"""
+def save_augmentation(config, i, image, gt, augmentation):
+    # Determine the filename
+    filename = f"image_{i}_{augmentation}.jpg"
+    
+    # Store the image
+    path = config.augmented_image_path
+    save_image(config, image, path, filename)
+    
+    # Store the ground truth
+    path = config.augmented_gt_path
+    save_image(config, gt, path, filename, gt=True)
+    
+    return

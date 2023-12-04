@@ -55,13 +55,16 @@ def parse_args():
 
 def flip(config, i, image, gt):
     augmented_image = torch.flip(image, [-2])
-    save_path = config.augmented_image_path
-    save_name = f"image_{i}_upsidedown.jpg"
-    DataFunctions.save_image(config, augmented_image, save_path, save_name)
     augmented_gt = torch.flip(gt, [0])
-    save_path = config.augmented_gt_path
-    save_name = f"image_{i}_upsidedown.jpg"
-    DataFunctions.save_image(config, augmented_gt, save_path, save_name, gt=True)
+    
+    DataFunctions.save_augmentation(config, i, augmented_image, augmented_gt, "upsidedown")
+    # save_path = config.augmented_image_path
+    # save_name = f"image_{i}_upsidedown.jpg"
+    # DataFunctions.save_image(config, augmented_image, save_path, save_name)
+    
+    # save_path = config.augmented_gt_path
+    # save_name = f"image_{i}_upsidedown.jpg"
+    # DataFunctions.save_image(config, augmented_gt, save_path, save_name, gt=True)
     return
     
 def rotate(config, i, image, gt):
@@ -69,44 +72,56 @@ def rotate(config, i, image, gt):
     # rotater = transforms.tworandom(transforms.RandomRotation(degrees=(0, 180)))
     # augmented_image = rotater(image)
     augmented_image = torch.flip(image, [2])
-    save_path = config.augmented_image_path
-    save_name = f"image_{i}_mirrored.jpg"
-    DataFunctions.save_image(config, augmented_image, save_path, save_name)
     augmented_gt = torch.flip(gt, [1])
     # augmented_gt = rotater(gt)
-    save_path = config.augmented_gt_path
-    save_name = f"image_{i}_mirrored.jpg"
-    DataFunctions.save_image(config, augmented_gt, save_path, save_name, gt=True)
+    
+    DataFunctions.save_augmentation(config, i, augmented_image, augmented_gt, "mirrored")
+    # save_path = config.augmented_image_path
+    # save_name = f"image_{i}_mirrored.jpg"
+    # DataFunctions.save_image(config, augmented_image, save_path, save_name)
+    
+    # save_path = config.augmented_gt_path
+    # save_name = f"image_{i}_mirrored.jpg"
+    # DataFunctions.save_image(config, augmented_gt, save_path, save_name, gt=True)
+    
     return
 
+""" Stores the original images and ground truths, compute and store the augmentations
+"""
 def create_augmentations(config, images, gts):
     # TODO: Kijken of dit efficienter kan (per batch of images)
     for i, (image, gt) in enumerate(zip(images, gts)):
         # copy original image and gt to new folder
-        save_path = config.augmented_image_path
-        save_name = f"image_{i}.jpg"
-        DataFunctions.save_image(config, image, save_path, save_name)
-        save_path = config.augmented_gt_path
-        save_name = f"image_{i}.jpg"
-        DataFunctions.save_image(config, image, save_path, save_name)
-        # Do the actual augmentations
+        # save_path = config.augmented_image_path
+        # save_name = f"image_{i}.jpg"
+        # DataFunctions.save_image(config, image, save_path, save_name)
+        # save_path = config.augmented_gt_path
+        # save_name = f"image_{i}.jpg"
+        # DataFunctions.save_image(config, image, save_path, save_name, gt=True)
+        DataFunctions.save_augmentation(config, i, image, gt, "original")
+        
+        # Compute the augmentations
         if config.flip:
             flip(config, i, image, gt)
         if config.rotate:
             rotate(config, i, image, gt)
     return
+    
 
+""" Complete pipeline of loading images, creating augmentations and storing those augmentations.
+"""
 def preprocessing_pipeline(config):
+
+    # Load input data
     image_list = os.listdir(config.image_path)
     image_list = [image for image in image_list if not image.startswith(".")]
     image_list.sort()
-
     images, gts = DataFunctions.load_input_images(config, config.image_path, config.gt_path, "augmentation")
     print(f"Dims of images: {images.shape} and gts: {gts.shape}")    
-    
     images = images.to(config.device)
     gts = gts.to(config.device)
     
+    # Create and store augmentations
     create_augmentations(config, images, gts)
     
     return
