@@ -3,11 +3,10 @@ from types import SimpleNamespace
 
 import torch 
 import os
+import shutil
+
 import DataFunctions
-import cv2
-
-import torchvision.transforms as transforms
-
+import AugmentationFunctions
 
 default_config = SimpleNamespace(
     # machine = "TS2",
@@ -33,11 +32,18 @@ default_config = SimpleNamespace(
     dataset = "VisuAAL",
     colour_space = "RGB",
     
-    flip = True, 
+    mirror = True,
     rotate = True,
+    sheerX = True, 
+    sheerY = True,
+    brightness = True,
     
     image_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Pratheepan/TrainImages",
     gt_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Pratheepan/TrainGroundTruth",
+    
+    augmented_folder = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets",
+    augmented_foldername = "AugmentedPratheepan",
+    
     augmented_image_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/AugmentedPratheepan/TrainImages",
     augmented_gt_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/AugmentedPratheepan/TrainGroundTruth",
 )
@@ -54,56 +60,44 @@ def parse_args():
     vars(default_config).update(vars(args))
     return
 
-def flip(config, i, image, gt):
-    augmented_image = torch.flip(image, [-2])
-    augmented_gt = torch.flip(gt, [0])
-    
-    DataFunctions.save_augmentation(config, i, augmented_image, augmented_gt, "upsidedown")
-    return
-    
-def rotate(config, i, image, gt):
-    # TODO: aanpassen, zodat flip en rotate van dezelfde package komen en ook meer dan 180* en mirrored kunnen.
-    # rotater = transforms.tworandom(transforms.RandomRotation(degrees=(0, 180)))
-    # augmented_image = rotater(image)
-    augmented_image = torch.flip(image, [2])
-    augmented_gt = torch.flip(gt, [1])
-    
-    # augmented_image = cv2.flip(image, 0)
-    # augmented_gt = cv2.flip(gt, 0)
-    # augmented_gt = rotater(gt)
-    
-    DataFunctions.save_augmentation(config, i, augmented_image, augmented_gt, "mirrored")
-    
-    return
 
 """ Stores the original images and ground truths, compute and store the augmentations
 """
 def create_augmentations(config, images, gts):
     # TODO: Kijken of dit efficienter kan (per batch of images)
     for i, (image, gt) in enumerate(zip(images, gts)):
-        
         DataFunctions.save_augmentation(config, i, image, gt, "original")
         
         # Compute the augmentations
-        if config.flip:
-            flip(config, i, image, gt)
-        if config.rotate:
-            rotate(config, i, image, gt)
+        if config.mirror:
+            AugmentationFunctions.mirror(config, i, image, gt)
+        if config.sheerX:
+            AugmentationFunctions.sheerX(config, i, image, gt)
+        if config.sheerY:
+            AugmentationFunctions.sheerY(config, i, image, gt)
+        if config.brightness:
+            AugmentationFunctions.brightness(config, i, image, gt)
     return
     
 
 """ Complete pipeline of loading images, creating augmentations and storing those augmentations.
 """
 def preprocessing_pipeline(config):
+    # Clear out previous images
+    os.chdir(config.augmented_folder)
+    shutil.rmtree(config.augmented_foldername)
 
     # Load input data
     image_list = os.listdir(config.image_path)
     image_list = [image for image in image_list if not image.startswith(".")]
     image_list.sort()
     images, gts = DataFunctions.load_input_images(config, config.image_path, config.gt_path, "augmentation")
-    print(f"Dims of images: {images.shape} and gts: {gts.shape}")    
-    images = images.to(config.device)
-    gts = gts.to(config.device)
+
+    # Process images and gts as numpy arrays of shape (batch_size, height, width, channels) 
+    # and (height, width) respectively.
+    images = images.numpy()
+    images = images.transpose(0,2,3,1)
+    gts = gts.numpy()
     
     # Create and store augmentations
     create_augmentations(config, images, gts)

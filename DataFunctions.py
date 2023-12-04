@@ -368,8 +368,12 @@ def save_image(config, image, path, filename, bw=False, gt=False):
         else:
             cv2.imwrite(filename, image.numpy().transpose(1,2,0))
     else:   
-        image = image.transpose(1,2,0)
-        cv2.imwrite(filename, image)
+        if gt: 
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+            cv2.imwrite(filename, image*255)
+        else:
+            cv2.imwrite(filename, image)
+    return
     
 
 """ Stores the image and ground truth with the same filename, but in a different folder.
