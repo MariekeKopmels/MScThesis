@@ -26,13 +26,14 @@ default_config = SimpleNamespace(
     machine = "Mac",
     device = torch.device("mps"),
     num_workers = 1,
+    log = True,
     dims = 224,
-    max_video_length = 500,
+    max_video_length = 300,
     batch_size = 32, 
     dataset = "VisuAAL",
     colour_space = "RGB",
     architecture = "UNet",
-    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/final.pt",    
+    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/GoodModelTest.pt",    
     video_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch/DemoInputVideos", 
     grinch_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch/DemoGrinchVideos"
 )

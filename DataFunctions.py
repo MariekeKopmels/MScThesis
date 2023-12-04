@@ -84,7 +84,7 @@ def split_video_to_images(config):
         video_path = config.video_path + "/" + video
         print("video_path: ", video_path)
         os.chdir(config.video_path)
-        os.mkdir(f"video_{video_no}")
+        os.makedirs(f"video_{video_no}", exist_ok=True)
         os.chdir(f"{config.video_path}/video_{video_no}")
         
         video_capture = cv2.VideoCapture(video_path)
@@ -240,7 +240,7 @@ def to_grinches(config, images, outputs, video):
     mask = outputs == 1
     
     os.chdir(config.grinch_path)
-    os.mkdir(video)
+    os.makedirs(video, exist_ok=True)
     
     # print(f"Grinches dims: {np.shape(grinches)}, mask dims: {np.shape(mask)}, outputs dims: {np.shape(outputs)}")
     for i in range(len(mask)):
@@ -250,7 +250,7 @@ def to_grinches(config, images, outputs, video):
         save_path = config.grinch_path + "/" + video
         save_name = "grinchframe_" + str(i).zfill(5) + ".jpg"
         if config.log:
-            save_image(config, grinches[i], save_path, save_name)
+            save_image(config, grinches[i].transpose(1,2,0), save_path, save_name)
     return torch.from_numpy(grinches)
     
     

@@ -3,6 +3,7 @@ import cv2
 import random
 
 import DataFunctions
+from ultralytics.data import mosaic as ultralytics_mosaic
 
 def mirror(config, i, image, gt):
     # Double transpose necessary. Else, image is upside down instead of mirrored. No other flip code works.
@@ -43,3 +44,8 @@ def brightness(config, i, image, gt):
 def blend(img1, img2, ratio):
     bound = 225.0
     return (ratio * img1 + (1.0 - ratio) * img2).clip(0, bound).astype(img1.dtype)
+
+# def mosaic(config, images):
+#     augmented_images = ultralytics_mosaic(images, imgsz=config.dims)
+#     for image in augmented_images
+    
