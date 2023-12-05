@@ -9,9 +9,10 @@ import time
 """ Loads the requeste images, returns them in a Torch tensor.
 """
 def load_images(config, dir_list, dir_path, gts=False):
-    images = torch.empty(len(dir_list), 3, config.dims, config.dims, dtype=torch.float32)
     if gts: 
         images = torch.empty(len(dir_list), config.dims, config.dims, dtype=torch.float32)
+    else:
+        images = torch.empty(len(dir_list), 3, config.dims, config.dims, dtype=torch.float32)
 
     for i, file_name in enumerate(dir_list):
         # Read the images
@@ -143,7 +144,8 @@ def load_image_data(config):
     print("Loading training data...")
     train_images, train_gts = load_input_images(config, base_path + "/TrainImages", base_path + "/TrainGroundTruth", stage = "train")
     print("Loading validation data...")
-    validation_images, validation_gts = load_input_images(config, base_path + "/TestImages", base_path + "/TestGroundTruth", stage = "validation")
+    # validation_images, validation_gts = load_input_images(config, base_path + "/TestImages", base_path + "/TestGroundTruth", stage = "validation")
+    validation_images, validation_gts = load_input_images(config, base_path + "/TrainImages", base_path + "/TrainGroundTruth", stage = "validation")
     base_path = config.testdata_path
     print("Loading testing data...")
     test_images, test_gts = load_input_images(config, base_path + "/TestImages", base_path + "/TestGroundTruth", stage = "test")
@@ -283,7 +285,7 @@ def confusion_matrix(config, outputs, targets, stage):
     # Compute the confusion matrix
     matrix = sklearn.metrics.confusion_matrix(target.to("cpu"), output.to("cpu"))
     duration = time.time() - start_time
-    print("Matrix calculation finished in %.2f seconds." % duration)
+    # print("Matrix calculation finished in %.2f seconds." % duration)
     
     tn = matrix[0][0]
     fn = matrix[1][0]
@@ -355,15 +357,15 @@ def metrics(tn, fn, fp, tp, pixels=False):
 def save_image(config, image, path, filename, bw=False, gt=False):
     os.makedirs(path, exist_ok=True)
     os.chdir(path)
-
+    # print(f"type(image): {type(image)}, shape: {image.shape}")
     # cv2.imwrite takes input in form height, width, channels
     if type(image) == torch.Tensor:
-        print("Shape: ", image.shape)
+        # print("Shape: ", image.shape)
         # image = image.permute(1,2,0)
         image = image.to("cpu")
         if gt:
             image = cv2.cvtColor(image.numpy(), cv2.COLOR_GRAY2BGR)
-            print("New Shape: ", np.shape(image))
+            # print("New Shape: ", np.shape(image))
             cv2.imwrite(filename, image*255)
         else:
             cv2.imwrite(filename, image.numpy().transpose(1,2,0))
@@ -391,3 +393,24 @@ def save_augmentation(config, i, image, gt, augmentation):
     save_image(config, gt, path, filename, gt=True)
     
     return
+
+
+""" Copies images from a folder into a new folder.
+"""
+def move_images(config, start_index, origin_path, destination_path, image_list=[], gts=False):  
+    if image_list == []:
+        os.makedirs(origin_path, exist_ok=True)
+        image_list = os.listdir(origin_path)
+        image_list = [image for image in image_list if not image.startswith(".")]
+        image_list.sort()
+    
+    images = load_images(config, image_list, origin_path, gts=gts)
+
+    index = start_index
+    for image in images:
+        if config.log:
+            save_name = "image_" + str(index).zfill(6) + ".jpg"
+            save_image(config, image, destination_path, save_name, gt=gts)
+            index += 1
+            
+    return index

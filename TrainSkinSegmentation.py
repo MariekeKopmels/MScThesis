@@ -24,55 +24,58 @@ loss_dictionary = {
 }
 
 # Default parameters
-# Size of dataset: Train=44783, Test=1157
+# Size of VisuAAL dataset: Train=44783, Test=1157
+# Size of Augmented Pratheepan dataset: Train=300
 default_config = SimpleNamespace(
-    machine = "TS2",
-    device = torch.device("cuda"),
+    # machine = "TS2",
+    # device = torch.device("cuda"),
+    # log = True,
+    # num_workers = 2,
+    # dims = 224,
+    # num_epochs = 10,
+    # batch_size = 16, 
+    # train_size = 168, 
+    # validation_size = 32,
+    # test_size = 60,
+    # cm_train = False,
+    # cm_parts = 16,
+    # lr = 0.0001, 
+    # momentum = 0.999, 
+    # pretrained = True,
+    # colour_space = "RGB",
+    # loss_function = "WBCE_9",
+    # optimizer = "RMSprop", 
+    # dataset = "VisuAAL", 
+    # testset = "Combined",
+    # data_path = "/home/oddity/marieke/Datasets/VisuAAL",
+    # testdata_path = "/home/oddity/marieke/Datasets/CombinedTestset",
+    # model_path = "/home/oddity/marieke/Output/Models/",
+    # architecture = "UNet"
+
+    machine = "Mac",
+    device = torch.device("mps"),
     log = True,
-    num_workers = 2,
+    num_workers = 1,
     dims = 224,
     num_epochs = 10,
-    batch_size = 16, 
-    train_size = 2048, 
-    validation_size = 256,
+    batch_size = 8, 
+    train_size = 184, 
+    validation_size = 16,
     test_size = 60,
     cm_train = False,
-    cm_parts = 16,
-    lr = 0.001, 
-    momentum = 0.999, 
+    cm_parts = 1,
+    lr = 0.0001, 
+    momentum = 0.99, 
+    pretrained = True,
     colour_space = "RGB",
     loss_function = "WBCE_9",
     optimizer = "RMSprop", 
-    dataset = "VisuAAL", 
+    dataset = "AugmentationPratheepan", 
     testset = "Combined",
-    data_path = "/home/oddity/marieke/Datasets/VisuAAL",
-    testdata_path = "/home/oddity/marieke/Datasets/CombinedTestset",
-    model_path = "/home/oddity/marieke/Output/Models/",
+    data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/AugmentedPratheepan",
+    testdata_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/CombinedTestset",
+    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/",
     architecture = "UNet"
-
-    # machine = "Mac",
-    # device = torch.device("mps"),
-    # log = True,
-    # num_workers = 4,
-    # dims = 224,
-    # num_epochs = 5,
-    # batch_size = 8, 
-    # train_size = 64, 
-    # validation_size = 16,
-    # test_size = 32,
-    # cm_train = False,
-    # cm_parts = 1,
-    # lr = 0.0001, 
-    # momentum = 0.99, 
-    # colour_space = "RGB",
-    # loss_function = "WBCE_9",
-    # optimizer = "Adam", 
-    # dataset = "AugmentationPratheepan", 
-    # testset = "Combined",
-    # data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/VisuAAL",
-    # testdata_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/CombinedTestset",
-    # model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/",
-    # architecture = "UNet"
 )
 
 def parse_args():
@@ -105,7 +108,7 @@ def get_optimizer(config, model):
     elif config.optimizer == "Adam":
         return optim.Adam(model.parameters(), lr=config.lr)
     elif config.optimizer == "RMSprop":
-        return optim.RMSprop(model.parameters(),lr=config.lr)
+        return optim.RMSprop(model.parameters(),lr=config.lr) #TODO: Toevoegen: momentum=config.momentum)
     else:
         warnings.warn("No matching optimizer found! Used default SGD")
         print(f"Current config.optimizer = {config.optimizer}")
@@ -117,10 +120,15 @@ def make(config):
     # Fetch data
     start_time = time.time()
     train_loader, validation_loader, test_loader = DataFunctions.load_image_data(config)
-    print(f"Loading of data done in %.2d seconds", )
+    end_time = time.time() - start_time
+    print(f"Loading of data done in %.2d seconds" % end_time)
     
     # Make the model
-    model = MyModels.UNET(config).to(config.device)
+    if config.pretrained:
+        path = config.model_path + "pretrained.pt"
+        model = torch.load(path).to(config.device)
+    else: 
+        model = MyModels.UNET(config).to(config.device)
 
     # Define loss function and optimizer
     loss_function = loss_dictionary[config.loss_function].to(config.device)
@@ -149,7 +157,7 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
             if config.cm_train:
                 epoch_outputs = torch.cat((epoch_outputs, batch_outputs), dim=0)
                 epoch_targets = torch.cat((epoch_targets, targets.to(config.device)), dim=0)
-            
+
         print(f"-------------------------Finished training batches-------------------------") 
         
         # Keep track of training epoch stats, or skip for sake of efficiency
@@ -164,6 +172,7 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
         LogFunctions.save_model(config, model, epoch+1)
         
         # Test the performance with validation data
+        # TODO: implement early stopping
         test_performance(config, model, validation_loader, loss_function, "validation")
         
 
@@ -230,7 +239,7 @@ def model_pipeline(hyperparameters):
     with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # Set hyperparameters
         config = wandb.config
-        run_name = f"Machine:{config.machine}_Dataset:{config.dataset}_train_size:{config.train_size}_num_epochs:{config.num_epochs}"
+        run_name = f"VisuAAL_pretrained_AugmentedPratheepan_finetuned"
         wandb.run.name = run_name
 
         # TODO: Aanzetten en testen
