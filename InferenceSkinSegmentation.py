@@ -5,7 +5,6 @@ import DataFunctions
 import torch
 import numpy as np
 import os
-import cv2
 import wandb
 
 default_config = SimpleNamespace(

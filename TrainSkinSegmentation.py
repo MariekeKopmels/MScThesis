@@ -26,56 +26,60 @@ loss_dictionary = {
 # Default parameters
 # Size of VisuAAL dataset: Train=44783, Test=1157
 # Size of Augmented Pratheepan dataset: Train=300
+# Size of LargeCombined Validation=384, Test=768
 default_config = SimpleNamespace(
-    # machine = "TS2",
-    # device = torch.device("cuda"),
+    machine = "TS2",
+    device = torch.device("cuda"),
+    log = True,
+    num_workers = 2,
+    dims = 224,
+    num_epochs = 10,
+    batch_size = 16, 
+    train_size = 44783,
+    # train_size = 32, 
+    validation_size = 384,
+    # validation_size = 32,
+    test_size = 768,
+    # test_size = 16,
+    cm_train = False,
+    cm_parts = 16,
+    lr = 0.0001, 
+    momentum = 0.999, 
+    pretrained = False,
+    colour_space = "RGB",
+    loss_function = "WBCE_9",
+    optimizer = "RMSprop", 
+    dataset = "VisuAAL", 
+    testset = "LargeCombined",
+    data_path = "/home/oddity/marieke/Datasets/VisuAAL",
+    testdata_path = "/home/oddity/marieke/Datasets/LargeCombinedDataset",
+    model_path = "/home/oddity/marieke/Output/Models/",
+    architecture = "UNet"
+
+    # machine = "Mac",
+    # device = torch.device("mps"),
     # log = True,
-    # num_workers = 2,
+    # num_workers = 1,
     # dims = 224,
     # num_epochs = 10,
-    # batch_size = 16, 
-    # train_size = 168, 
-    # validation_size = 32,
+    # batch_size = 8, 
+    # train_size = 184, 
+    # validation_size = 16,
     # test_size = 60,
     # cm_train = False,
-    # cm_parts = 16,
+    # cm_parts = 1,
     # lr = 0.0001, 
-    # momentum = 0.999, 
+    # momentum = 0.99, 
     # pretrained = True,
     # colour_space = "RGB",
     # loss_function = "WBCE_9",
     # optimizer = "RMSprop", 
-    # dataset = "VisuAAL", 
+    # dataset = "AugmentationPratheepan", 
     # testset = "Combined",
-    # data_path = "/home/oddity/marieke/Datasets/VisuAAL",
-    # testdata_path = "/home/oddity/marieke/Datasets/CombinedTestset",
-    # model_path = "/home/oddity/marieke/Output/Models/",
+    # data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/AugmentedPratheepan",
+    # testdata_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/CombinedTestset",
+    # model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/",
     # architecture = "UNet"
-
-    machine = "Mac",
-    device = torch.device("mps"),
-    log = True,
-    num_workers = 1,
-    dims = 224,
-    num_epochs = 10,
-    batch_size = 8, 
-    train_size = 184, 
-    validation_size = 16,
-    test_size = 60,
-    cm_train = False,
-    cm_parts = 1,
-    lr = 0.0001, 
-    momentum = 0.99, 
-    pretrained = True,
-    colour_space = "RGB",
-    loss_function = "WBCE_9",
-    optimizer = "RMSprop", 
-    dataset = "AugmentationPratheepan", 
-    testset = "Combined",
-    data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/AugmentedPratheepan",
-    testdata_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/CombinedTestset",
-    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/",
-    architecture = "UNet"
 )
 
 def parse_args():
@@ -239,7 +243,7 @@ def model_pipeline(hyperparameters):
     with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # Set hyperparameters
         config = wandb.config
-        run_name = f"VisuAAL_pretrained_AugmentedPratheepan_finetuned"
+        run_name = f"VisuAAL_trained_LargeCombined_val_and_tested"
         wandb.run.name = run_name
 
         # TODO: Aanzetten en testen

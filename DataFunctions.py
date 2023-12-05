@@ -142,13 +142,13 @@ def merge_images_to_video(config):
 def load_image_data(config):
     base_path = config.data_path
     print("Loading training data...")
-    train_images, train_gts = load_input_images(config, base_path + "/TrainImages", base_path + "/TrainGroundTruth", stage = "train")
+    train_images, train_gts = load_input_images(config, base_path + "/TrainImages", base_path + "/TrainGroundTruths", stage = "train")
     print("Loading validation data...")
-    # validation_images, validation_gts = load_input_images(config, base_path + "/TestImages", base_path + "/TestGroundTruth", stage = "validation")
-    validation_images, validation_gts = load_input_images(config, base_path + "/TrainImages", base_path + "/TrainGroundTruth", stage = "validation")
     base_path = config.testdata_path
+    # validation_images, validation_gts = load_input_images(config, base_path + "/TestImages", base_path + "/TestGroundTruth", stage = "validation")
+    validation_images, validation_gts = load_input_images(config, base_path + "/ValidationImages", base_path + "/ValidationGroundTruths", stage = "validation")
     print("Loading testing data...")
-    test_images, test_gts = load_input_images(config, base_path + "/TestImages", base_path + "/TestGroundTruth", stage = "test")
+    test_images, test_gts = load_input_images(config, base_path + "/TestImages", base_path + "/TestGroundTruths", stage = "test")
 
     # Combine images and ground truths in TensorDataset format
     train = torch.utils.data.TensorDataset(train_images, train_gts)
