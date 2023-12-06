@@ -30,13 +30,13 @@ def save_model(config, model, epoch, final=False):
     print("Saving model")
     if config.log:
         os.chdir(config.model_path)
-        folder = f"Dataset:{config.dataset}_Val_Testset:{config.testset}"
+        folder = f"Dataset:{config.dataset}_Testset:{config.testset}_Pretrained:{config.pretrained}"
         # TODO: remove temp if models need to be saved permanently
         # folder = "temp"
         os.makedirs(folder, exist_ok=True)
-        path = config.model_path + f"{folder}/epoch_{epoch}.pt"
+        path = config.model_path + f"/{folder}/epoch_{epoch}.pt"
         if final:
-            path = config.model_path + f"{folder}/final.pt"
+            path = config.model_path + f"/{folder}/final.pt"
         # TODO: Checken of dit idd de manier is om het model op te slaan en niet met model.state_dict()
         # Oddity doet het anders(met statedict): https://github.com/oddity-ai/oddity-ml/blob/master/backend/pytorch/utils/persistence.py   
         wandb.unwatch()

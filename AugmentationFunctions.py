@@ -1,9 +1,7 @@
 import numpy as np
 import cv2
 import random
-
 import DataFunctions
-from ultralytics.data import mosaic as ultralytics_mosaic
 
 def mirror(config, i, image, gt):
     # Double transpose necessary. Else, image is upside down instead of mirrored. No other flip code works.

@@ -26,16 +26,20 @@ loss_dictionary = {
 # Default parameters
 # Size of VisuAAL dataset: Train=44783, Test=1157
 # Size of Augmented Pratheepan dataset: Train=300
-# Size of LargeCombined Validation=384, Test=768
+# Size of LargeCombined Train=6528, Validation=384, Test=768
+# Size of LargeCombinedAugmented Train=32640
+
 default_config = SimpleNamespace(
     machine = "TS2",
     device = torch.device("cuda"),
     log = True,
     num_workers = 2,
     dims = 224,
-    num_epochs = 10,
+    num_epochs = 5,
     batch_size = 16, 
-    train_size = 44783,
+    # train_size = 44783,
+    # train_size = 6528,
+    train_size = 32640,
     # train_size = 32, 
     validation_size = 384,
     # validation_size = 32,
@@ -45,15 +49,17 @@ default_config = SimpleNamespace(
     cm_parts = 16,
     lr = 0.0001, 
     momentum = 0.999, 
-    pretrained = False,
+    pretrained = True,
     colour_space = "RGB",
     loss_function = "WBCE_9",
     optimizer = "RMSprop", 
-    dataset = "VisuAAL", 
+    # dataset = "VisuAAL", 
+    dataset = "LargeCombinedAugmented",
     testset = "LargeCombined",
-    data_path = "/home/oddity/marieke/Datasets/VisuAAL",
+    # data_path = "/home/oddity/marieke/Datasets/VisuAAL",
+    data_path = "/home/oddity/marieke/Datasets/LargeCombinedAugmentedDataset",
     testdata_path = "/home/oddity/marieke/Datasets/LargeCombinedDataset",
-    model_path = "/home/oddity/marieke/Output/Models/",
+    model_path = "/home/oddity/marieke/Output/Models",
     architecture = "UNet"
 
     # machine = "Mac",
@@ -129,7 +135,7 @@ def make(config):
     
     # Make the model
     if config.pretrained:
-        path = config.model_path + "pretrained.pt"
+        path = config.model_path + "/Dataset:VisuAAL_Val_Testset:LargeCombined/final.pt"
         model = torch.load(path).to(config.device)
     else: 
         model = MyModels.UNET(config).to(config.device)
@@ -144,7 +150,11 @@ def make(config):
 """ Trains the passed model, tests it performance after each epoch on the validation set. Prints and logs the results to WandB.
 """
 def train(config, model, train_loader, validation_loader, loss_function, optimizer):
-    print(f"-------------------------Start Training-------------------------")
+    if config.pretrained: 
+        print("-------------------------Loaded a pretrained model, producing validation baseline-------------------------")
+        test_performance(config, model, validation_loader, loss_function, "validation")
+        
+    print("-------------------------Start Training-------------------------")
     for epoch in range(config.num_epochs):
         print(f"-------------------------Starting Training Epoch {epoch+1}/{config.num_epochs} epochs-------------------------")
         model.train()
@@ -243,7 +253,7 @@ def model_pipeline(hyperparameters):
     with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # Set hyperparameters
         config = wandb.config
-        run_name = f"VisuAAL_trained_LargeCombined_val_and_tested"
+        run_name = f"VisuAAL_pretrained_LargeCombinedAugmented_train_LargeCombined_val_and_tested"
         wandb.run.name = run_name
 
         # TODO: Aanzetten en testen
@@ -255,6 +265,11 @@ def model_pipeline(hyperparameters):
             wandb.watch(model, log="all", log_freq=1)
         else: 
             wandb.watch(model, log=None, log_freq=1)
+            
+        # Test the performance on the test set before training (in case of a pretrained model)
+        if config.pretrained: 
+            print("-------------------------Loaded a pretrained model, producing test baseline-------------------------")
+            test_performance(config, model, test_loader, loss_function, "test")
 
         # Train the model, incl. validation
         train(config, model, train_loader, validation_loader, loss_function, optimizer)

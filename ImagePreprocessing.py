@@ -38,14 +38,14 @@ default_config = SimpleNamespace(
     sheerY = True,
     brightness = True,
     
-    image_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Pratheepan/TrainImages",
-    gt_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Pratheepan/TrainGroundTruth",
+    image_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/LargeCombinedDataset/TrainImages",
+    gt_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/LargeCombinedDataset/TrainGroundTruths",
     
     augmented_folder = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets",
-    augmented_foldername = "AugmentedPratheepan",
+    augmented_foldername = "LargeCombinedAugmentedDataset",
     
-    augmented_image_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/AugmentedPratheepan/TrainImages",
-    augmented_gt_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/AugmentedPratheepan/TrainGroundTruth",
+    augmented_image_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/LargeCombinedAugmentedDataset/TrainImages",
+    augmented_gt_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/LargeCombinedAugmentedDataset/TrainGroundTruths",
 )
 
 def parse_args():
@@ -77,6 +77,8 @@ def create_augmentations(config, images, gts):
             AugmentationFunctions.sheerY(config, i, image, gt)
         if config.brightness:
             AugmentationFunctions.brightness(config, i, image, gt)
+        # TODO: implement rotation augmentation?
+        # TODO: implement mosaic augmentation?
     return
     
 
