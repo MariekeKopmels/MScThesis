@@ -53,7 +53,7 @@ class decoder_block(nn.Module):
 class UNET(nn.Module):
     def __init__(self, config):
         super().__init__()
-        
+        self.batch_size = config.batch_size
         self.dims = config.dims
         """ Encoder """
         self.e1 = encoder_block(3, 64)
@@ -69,13 +69,13 @@ class UNET(nn.Module):
         self.d4 = decoder_block(128, 64)
         """ Classifier """
         self.outputs = nn.Conv2d(64, 1, kernel_size=1, padding=0)
-        self.sigmoid = nn.Sigmoid()
+        # TODO: eruit gehaald omdat WBCE loss zelf ook een sigmoid performd en het anders dubbel is.
+        # self.sigmoid = nn.Sigmoid()
 
         
-    def forward(self, inputs):
-        # For the last few items, the batch size may be smaller than BATCH_SIZE
+    def forward(self, inputs):      
+        # TODO: Deze eruithalen als het pretrained model ook self.batch_size heeft
         batch_size = len(inputs)
-        
         """ Encoder """
         s1, p1 = self.e1(inputs)
         s2, p2 = self.e2(p1)
@@ -90,9 +90,11 @@ class UNET(nn.Module):
         d4 = self.d4(d3, s1)
         """ Classifier """
         x = self.outputs(d4)
-        x = self.sigmoid(x)
+        # x = self.sigmoid(x)
         
-        """ Reformatting"""
+        """ Reformatting """
+        # TODO: met nieuw pretrained model heeft UNet een self.batch_size
+        # outputs = x.clone().reshape(self.batch_size, self.dims, self.dims)
         outputs = x.clone().reshape(batch_size, self.dims, self.dims)
         
         return outputs

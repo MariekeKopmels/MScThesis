@@ -57,12 +57,12 @@ def load_input_images(config, image_dir_path, gt_dir_path, stage):
     if stage == "train":
         dir_list = dir_list[:config.train_size]
     elif stage == "validation":
-        #TODO: terugzetten als ik weer 1 dataset gebruik
+        #TODO: terugzetten als ik weer 1 dataset voor train en validation gebruik (K-fold)
         # end = config.test_size + config.validation_size
-        end = config.validation_size
-        if end > len(dir_list):
-            print(f"in stage validation, should be of size {config.validation_size} but is of size {len(dir_list)}")
-            raise Exception(f"Test ({config.test_size}) and validation ({config.validation_size}) are larger than the test set of size 1157 (for VisuAAL).")
+        # end = config.validation_size
+        # if end > len(dir_list):
+        #     print(f"in stage validation, should be of size {config.validation_size} but is of size {len(dir_list)}")
+            # raise Exception(f"Test ({config.test_size}) and validation ({config.validation_size}) are larger than the test set of size 1157 (for VisuAAL).")
         #TODO: terugzetten als ik weer 1 dataset gebruik
         # dir_list = dir_list[config.test_size:end]
         dir_list = dir_list[:config.validation_size]
@@ -218,6 +218,14 @@ def load_pixel_data(config, train, test, YCrCb = False):
     test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False)
     
     return train_loader, test_loader
+
+def normalize_images(config, images):
+    # Imagenet normilization 
+    mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(config.device)
+    std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(config.device)
+    images = ((images/255) - mean) / std
+    
+    return images
 
 ''' Returns the grinch version of the image, based on the given output of the model
 '''

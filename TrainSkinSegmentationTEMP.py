@@ -14,15 +14,16 @@ from torch import optim
 import numpy as np
 import warnings
 
+from torch.cuda import amp
+
 # Options for loss function
 # TODO: eruit halen, gewoon eentje kiezen 
-
 loss_dictionary = {
-    # "IoU": LossFunctions.IoULoss(),
-    # "Focal": LossFunctions.FocalLoss(),
-    # "WBCE": nn.BCEWithLogitsLoss(),
+    "IoU": LossFunctions.IoULoss(),
+    "Focal": LossFunctions.FocalLoss(),
+    "WBCE": nn.BCEWithLogitsLoss(),
     "WBCE_9": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([9])),
-    # "BCE": nn.BCELoss(),
+    "BCE": nn.BCELoss(),
 }
 
 # Default parameters
@@ -31,42 +32,39 @@ loss_dictionary = {
 # Size of LargeCombined Train=6528, Validation=384, Test=768
 # Size of LargeCombinedAugmented Train=32640
 
-# TODO: aanzetten, met trainen met LargeCombi (zonder augment en zonder pretrainen)
-
 default_config = SimpleNamespace(
     machine = "TS2",
     device = torch.device("cuda"),
     log = True,
-    num_workers = 4,
+    num_workers = 2,
     dims = 224,
     num_epochs = 10,
     batch_size = 16, 
-    train_size = 44783,       #VisuAAL
-    # train_size = 6528,        #LargeCombined
-    # train_size = 32640,       #LargeCombinedAugmented
-    # train_size = 32,          #Small test
-    validation_size = 128,    #VisuAAL
-    # validation_size = 384,    #LargeCombined
-    # validation_size = 32,     #Small test
-    test_size = 1024,         #VisuAAL
-    # test_size = 768,          #LargeCombined
-    # test_size = 16,           #Small test
+    # train_size = 44783,
+    # train_size = 6528,
+    train_size = 32640,
+    # train_size = 32, 
+    validation_size = 384,
+    # validation_size = 32,
+    test_size = 768,
+    # test_size = 16,
     cm_train = False,
     cm_parts = 16,
     lr = 0.0001, 
-    # momentum = 0.999, 
+    momentum = 0.999, 
     pretrained = False,
     colour_space = "RGB",
     loss_function = "WBCE_9",
-    optimizer = "Adam", 
-    dataset = "VisuAAL", 
-    # dataset = "LargeCombinedAugmented",
+    optimizer = "RMSprop", 
+    # dataset = "VisuAAL", 
+    dataset = "LargeCombinedAugmented",
     testset = "LargeCombined",
-    data_path = "/home/oddity/marieke/Datasets/VisuAAL",
-    # data_path = "/home/oddity/marieke/Datasets/LargeCombinedAugmentedDataset",
+    # data_path = "/home/oddity/marieke/Datasets/VisuAAL",
+    data_path = "/home/oddity/marieke/Datasets/LargeCombinedAugmentedDataset",
     testdata_path = "/home/oddity/marieke/Datasets/LargeCombinedDataset",
     model_path = "/home/oddity/marieke/Output/Models",
-    architecture = "UNet"
+    architecture = "UNet",
+    amp = True
 
     # machine = "Mac",
     # device = torch.device("mps"),
@@ -75,22 +73,22 @@ default_config = SimpleNamespace(
     # dims = 224,
     # num_epochs = 10,
     # batch_size = 8, 
-    # train_size = 16, 
+    # train_size = 184, 
     # validation_size = 16,
-    # test_size = 16,
+    # test_size = 60,
     # cm_train = False,
     # cm_parts = 1,
     # lr = 0.0001, 
-    # # momentum = 0.99, 
+    # momentum = 0.99, 
     # pretrained = True,
     # colour_space = "RGB",
     # loss_function = "WBCE_9",
-    # optimizer = "Adam", 
-    # dataset = "LargeCombinedAugmented", 
-    # testset = "LargeCombined",
-    # data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/LargeCombinedAugmentedDataset",
-    # testdata_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/LargeCombinedDataset",
-    # model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models",
+    # optimizer = "RMSprop", 
+    # dataset = "AugmentationPratheepan", 
+    # testset = "Combined",
+    # data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/AugmentedPratheepan",
+    # testdata_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/CombinedTestset",
+    # model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/",
     # architecture = "UNet"
 )
 
@@ -105,6 +103,7 @@ def parse_args():
     argparser.add_argument('--validation_size', type=int, default=default_config.validation_size, help='validation size')
     argparser.add_argument('--test_size', type=int, default=default_config.test_size, help='test size')
     argparser.add_argument('--lr', type=float, default=default_config.lr, help='learning rate')
+    argparser.add_argument('--momentum', type=float, default=default_config.momentum, help='momentum')
     argparser.add_argument('--colour_space', type=str, default=default_config.colour_space, help='colour space')
     argparser.add_argument('--loss_function', type=str, default=default_config.loss_function, help='loss function')
     argparser.add_argument('--optimizer', type=str, default=default_config.optimizer, help='optimizer')
@@ -119,15 +118,15 @@ def parse_args():
 """
 def get_optimizer(config, model):
     if config.optimizer == "SGD":
-        return optim.SGD(model.parameters(), lr=config.lr, momentum=0.999)
+        return optim.SGD(model.parameters(), lr=config.lr, momentum=config.momentum)
     elif config.optimizer == "Adam":
         return optim.Adam(model.parameters(), lr=config.lr)
-    # elif config.optimizer == "RMSprop":
-    #     return optim.RMSprop(model.parameters(),lr=config.lr, momentum=config.momentum) 
+    elif config.optimizer == "RMSprop":
+        return optim.RMSprop(model.parameters(),lr=config.lr) #TODO: Toevoegen: momentum=config.momentum)
     else:
-        warnings.warn("No matching optimizer found! Used default Adam")
+        warnings.warn("No matching optimizer found! Used default SGD")
         print(f"Current config.optimizer = {config.optimizer}")
-        return optim.Adam(model.parameters(), lr=config.lr)
+        return optim.SGD(model.parameters(), lr=config.lr, momentum=config.momentum)
     
 """ Returns dataloaders, model, loss function and optimizer.
 """
@@ -140,8 +139,7 @@ def make(config):
     
     # Make the model
     if config.pretrained:
-        # path = config.model_path + "/Dataset:VisuAAL_Val_Testset:LargeCombined/final.pt"
-        path = config.model_path + "/pretrained.pt"
+        path = config.model_path + "/Dataset:VisuAAL_Val_Testset:LargeCombined/final.pt"
         model = torch.load(path).to(config.device)
     else: 
         model = MyModels.UNET(config).to(config.device)
@@ -156,6 +154,9 @@ def make(config):
 """ Trains the passed model, tests it performance after each epoch on the validation set. Prints and logs the results to WandB.
 """
 def train(config, model, train_loader, validation_loader, loss_function, optimizer):
+
+    scaler = amp.GradScaler(enabled=config.amp)
+
     if config.pretrained: 
         print("-------------------------Loaded a pretrained model, producing validation baseline-------------------------")
         test_performance(config, model, validation_loader, loss_function, "validation")
@@ -171,7 +172,7 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
         for images, targets in train_loader:  
             batch += 1
             print(f"-------------------------Starting Batch {batch}/{int(config.train_size/config.batch_size)} batches-------------------------", end="\r")
-            batch_loss, batch_outputs = train_batch(config, images, targets, model, optimizer, loss_function)
+            batch_loss, batch_outputs = train_batch(config, images, targets, model, optimizer, loss_function, scaler)
             epoch_loss += batch_loss.item()
             
             if config.cm_train:
@@ -198,19 +199,20 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
 
 """ Performs training for one batch of datapoints. Returns the true/false positive/negative metrics. 
 """
-def train_batch(config, images, targets, model, optimizer, loss_function):
+def train_batch(config, images, targets, model, optimizer, loss_function, scaler):
     
-    # Model inference
-    images, targets = images.to(config.device), targets.to(config.device)
-    normalized_images = DataFunctions.normalize_images(config, images)
-    outputs = model(normalized_images)
-    
-    # Compute loss, update model
-    # TODO: Add optimizer.zero_grad()?
-    optimizer.zero_grad(set_to_none=True)
-    loss = loss_function(outputs, targets)
-    loss.backward()
-    optimizer.step()
+    with amp.autocast(enabled=config.amp):
+        # Model inference
+        images, targets = images.to(config.device), targets.to(config.device)
+        outputs = model(images)
+        # Compute loss, update model
+        loss = loss_function(outputs, targets)
+
+        # Compute loss, update model
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+        optimizer.zero_grad(set_to_none=True)
     
     return loss, outputs
 
@@ -233,8 +235,7 @@ def test_performance(config, model, data_loader, loss_function, stage):
             
             # Model inference 
             images, targets = images.to(config.device), targets.to(config.device)
-            normalized_images = DataFunctions.normalize_images(config, images)
-            batch_outputs = model(normalized_images)
+            batch_outputs = model(images)
             
             # Log example to WandB
             LogFunctions.log_example(config, example_image, targets[0], batch_outputs[0], stage)
@@ -263,7 +264,7 @@ def model_pipeline(hyperparameters):
     with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # Set hyperparameters
         config = wandb.config
-        run_name = f"Pretrained:{config.pretrained}_Dataset:{config.dataset}_Testset:{config.testset}"
+        run_name = f"VisuAAL_pretrained_LargeCombinedAugmented_train_LargeCombined_val_and_tested_AMP"
         wandb.run.name = run_name
 
         # TODO: Aanzetten en testen

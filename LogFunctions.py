@@ -30,7 +30,7 @@ def save_model(config, model, epoch, final=False):
     print("Saving model")
     if config.log:
         os.chdir(config.model_path)
-        folder = f"Dataset:{config.dataset}_Testset:{config.testset}_Pretrained:{config.pretrained}"
+        folder = f"Pretrained:{config.pretrained}_Dataset:{config.dataset}"
         # TODO: remove temp if models need to be saved permanently
         # folder = "temp"
         os.makedirs(folder, exist_ok=True)
