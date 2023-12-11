@@ -165,7 +165,7 @@ def make(config):
 """
 def early_stopping(config, epoch, patience_counter, val_IoU_scores):
     early_stop = False
-    print(f"at epoch {epoch}, val_IoU_scores: {val_IoU_scores}, patience_counter: {patience_counter}")
+    # print(f"at epoch {epoch}, val_IoU_scores: {val_IoU_scores}, patience_counter: {patience_counter}")
     if epoch > 0:
         if val_IoU_scores[epoch] <= val_IoU_scores[epoch-1]*(1+config.min_improvement):
             patience_counter += 1
@@ -342,10 +342,10 @@ def model_pipeline(hyperparameters):
         # Store the final model
         LogFunctions.save_model(config, model, 0, final=True)
 
-    return model
+    return
 
 if __name__ == '__main__':
     start_time = time.time()
     parse_args()
-    model = model_pipeline(default_config)
+    model_pipeline(default_config)
     print(f"Runtime = {time.time() - start_time}")

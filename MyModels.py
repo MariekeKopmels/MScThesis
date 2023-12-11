@@ -50,13 +50,14 @@ class decoder_block(nn.Module):
 """ Definition of a UNet model, with 4 encoder and decoder blocks. 
         Output contains 1 channel with values between 0 (background) and 1 (skin).
 """
+# TODO: cleanup: verdelen in nn.Sequential blokken encoeder, bottleneck en decoder
 class UNET(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.batch_size = config.batch_size
         self.dims = config.dims
         """ Encoder """
-        self.e1 = encoder_block(3, 64)
+        self.e1 = encoder_block(config.num_channels, 64)
         self.e2 = encoder_block(64, 128)
         self.e3 = encoder_block(128, 256)
         self.e4 = encoder_block(256, 512)
@@ -69,8 +70,6 @@ class UNET(nn.Module):
         self.d4 = decoder_block(128, 64)
         """ Classifier """
         self.outputs = nn.Conv2d(64, 1, kernel_size=1, padding=0)
-        # TODO: eruit gehaald omdat WBCE loss zelf ook een sigmoid performd en het anders dubbel is.
-        # self.sigmoid = nn.Sigmoid()
 
         
     def forward(self, inputs):      
@@ -90,7 +89,6 @@ class UNET(nn.Module):
         d4 = self.d4(d3, s1)
         """ Classifier """
         x = self.outputs(d4)
-        # x = self.sigmoid(x)
         
         """ Reformatting """
         # TODO: met nieuw pretrained model heeft UNet een self.batch_size
@@ -112,6 +110,23 @@ class SkinClassifier(nn.Module):
         x = self.sigmoid(x)
         return x
     
+    
+# class MultiTaskModel(nn.module):
+#     def __init__(self, config, i3d_layers):
+#         super(MultiTaskModel, self).__init__()
+        
+        
+#         self.shared_layers = nn.Sequential(
+#             nn.Linear(config.input_size, 128),
+#             nn.ReLU(),
+#             nn.Linear(128,64), 
+#             nn.ReLU()
+#         )
+#         self.violence_layers = nn.Sequential(
+            
+#         )
+        
+        
     
         
 # class NN(nn.Module):
