@@ -4,7 +4,6 @@ from types import SimpleNamespace
 
 import time
 import MyModels
-import LossFunctions
 import LogFunctions
 import DataFunctions
 import torch
@@ -14,7 +13,7 @@ from torch import optim
 import numpy as np
 import warnings
 
-# from torch.cuda import amp
+from torch.cuda import amp
 
 # Options for loss function
 # TODO: eruit halen, gewoon eentje kiezen 
@@ -32,71 +31,73 @@ loss_dictionary = {
 # Size of LargeCombined Train=6528, Validation=384, Test=768
 # Size of LargeCombinedAugmented Train=32640
 default_config = SimpleNamespace(
-    # machine = "TS2",
-    # device = torch.device("cuda"),
-    # log = True,
-    # num_workers = 4,
-    # dims = 224,
-    # num_epochs = 10,
-    # batch_size = 16, 
-    # train_size = 44783,       #VisuAAL
-    # # train_size = 6528,        #LargeCombined
-    # # train_size = 32640,       #LargeCombinedAugmented
-    # # train_size = 32,          #Smaller part
-    # validation_size = 128,    #VisuAAL
-    # # validation_size = 384,    #LargeCombined
-    # # validation_size = 32,     #Smaller part
-    # test_size = 1024,         #VisuAAL
-    # # test_size = 768,          #LargeCombined
-    # cm_train = False,
-    # cm_parts = 16,
-    # lr = 0.0001, 
-    # # momentum = 0.999, 
-    # pretrained = False,
-    # automatic_mixed_precision = True,
-    # colour_space = "BGR",
-    # loss_function = "WBCE_9",
-    # optimizer = "Adam", 
-    # dataset = "VisuAAL", 
-    # # dataset = "LargeCombinedAugmented",
-    # testset = "LargeCombined",
-    # data_path = "/home/oddity/marieke/Datasets/VisuAAL",
-    # # data_path = "/home/oddity/marieke/Datasets/LargeCombinedAugmentedDataset",
-    # testdata_path = "/home/oddity/marieke/Datasets/LargeCombinedDataset",
-    # model_path = "/home/oddity/marieke/Output/Models",
-    # architecture = "UNet"
-
-    machine = "Mac",
-    device = torch.device("mps"),
+    machine = "TS2",
+    device = torch.device("cuda"),
     log = True,
-    num_workers = 1,
+    num_workers = 4,
     dims = 224,
-    num_epochs = 5,
-    batch_size = 8, 
-    # train_size = 44783,       #VisuAAL
+    num_epochs = 20,
+    batch_size = 16, 
+    train_size = 44783,       #VisuAAL
     # train_size = 6528,        #LargeCombined
     # train_size = 32640,       #LargeCombinedAugmented
-    train_size = 100,          #Small test
-    # validation_size = 128,    #VisuAAL
+    # train_size = 128,          #Smaller part
+    validation_size = 1157,    #VisuAAL
     # validation_size = 384,    #LargeCombined
-    validation_size = 32,     #Small test
-    # test_size = 1024,         #VisuAAL
+    # validation_size = 32,     #Smaller part
     test_size = 768,          #LargeCombined
     cm_train = False,
-    cm_parts = 1,
+    cm_parts = 16,
     lr = 0.00001, 
-    # momentum = 0.99, 
     pretrained = False,
-    # automatic_mixed_precision = False, Not possible on mps or cpu
-    colour_space = "HSV",
+    automatic_mixed_precision = False,
+    patience = 2,               #The number of epochs the model is allowed not to improve
+    min_improvement = 0.05,     #Minimal improvement needed for early stopping
+    colour_space = "BGR",
     loss_function = "WBCE_9",
-    optimizer = "Adam", 
-    dataset = "LargeCombinedAugmented", 
+    optimizer = "AdamW", 
+    dataset = "VisuAAL", 
+    # dataset = "LargeCombinedAugmented",
     testset = "LargeCombined",
-    data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/LargeCombinedAugmentedDataset",
-    testdata_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/LargeCombinedDataset",
-    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models",
+    data_path = "/home/oddity/marieke/Datasets/VisuAAL",
+    # data_path = "/home/oddity/marieke/Datasets/LargeCombinedAugmentedDataset",
+    testdata_path = "/home/oddity/marieke/Datasets/LargeCombinedDataset",
+    model_path = "/home/oddity/marieke/Output/Models",
     architecture = "UNet"
+
+    # machine = "Mac",
+    # device = torch.device("mps"),
+    # log = True,
+    # num_workers = 1,
+    # dims = 224,
+    # num_epochs = 5,
+    # batch_size = 16, 
+    # # train_size = 44783,               #VisuAAL
+    # # train_size = 6528,                #LargeCombined
+    # # train_size = 32640,               #LargeCombinedAugmented
+    # train_size = 100,                 #Small test
+    # # validation_size = 128,            #VisuAAL
+    # # validation_size = 384,            #LargeCombined
+    # validation_size = 32,             #Small test
+    # # test_size = 1024,                 #VisuAAL
+    # test_size = 768,                  #LargeCombined
+    # cm_train = False,
+    # cm_parts = 1,
+    # lr = 0.00001, 
+    # # momentum = 0.99, 
+    # pretrained = False,
+    # automatic_mixed_precision = False, #Not possible on mps or cpu
+    # patience = 3,               #The number of epochs the model is allowed not to improve
+    # min_improvement = 0.05,     #Minimal improvement needed for early stopping
+    # colour_space = "BGR",
+    # loss_function = "WBCE_9",
+    # optimizer = "AdamW", 
+    # dataset = "LargeCombinedAugmented", 
+    # testset = "LargeCombined",
+    # data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/LargeCombinedAugmentedDataset",
+    # testdata_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/LargeCombinedDataset",
+    # model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models",
+    # architecture = "UNet"
 )
 
 def parse_args():
@@ -143,7 +144,7 @@ def make(config):
     start_time = time.time()
     train_loader, validation_loader, test_loader = DataFunctions.load_image_data(config)
     end_time = time.time() - start_time
-    print(f"Loading of data done in %.2d seconds" % end_time)        
+    print(f"Loading of data done in %.2d seconds" % end_time)
     
     # Make the model
     if config.pretrained:
@@ -159,12 +160,33 @@ def make(config):
     
     return model, train_loader, validation_loader, test_loader, loss_function, optimizer
 
+""" Decides wether or not the validation score of the model improves enough. 
+    If not, it will retrun early_stop=True which will stop the training process.
+"""
+def early_stopping(config, epoch, patience_counter, val_IoU_scores):
+    early_stop = False
+    print(f"at epoch {epoch}, val_IoU_scores: {val_IoU_scores}, patience_counter: {patience_counter}")
+    if epoch > 0:
+        if val_IoU_scores[epoch] <= val_IoU_scores[epoch-1]*(1+config.min_improvement):
+            patience_counter += 1
+            if patience_counter > config.patience:
+                print(f"Not enough improvement, should be at least {config.min_improvement*100}% better than the last epoch, training stopped early.")
+                early_stop = True
+        else: 
+            patience_counter = 0
+
+    return early_stop, patience_counter
 
 """ Trains the passed model, tests it performance after each epoch on the validation set. Prints and logs the results to WandB.
 """
 def train(config, model, train_loader, validation_loader, loss_function, optimizer):
-    # if config.machine == "TS2" and config.automatic_mixed_precision:
-    #     scaler = amp.GradScaler(enabled=config.automatic_mixed_precision)
+    if config.machine == "TS2" and config.automatic_mixed_precision:
+        scaler = amp.GradScaler(enabled=config.automatic_mixed_precision)
+    else:
+        scaler = None
+        
+    val_IoU_scores = np.zeros(config.num_epochs)
+    patience_counter = 0
         
     if config.pretrained: 
         print("-------------------------Loaded a pretrained model, producing validation baseline-------------------------")
@@ -181,7 +203,8 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
         for images, targets in train_loader:  
             batch += 1
             print(f"-------------------------Starting Batch {batch}/{int(config.train_size/config.batch_size)} batches-------------------------", end="\r")
-            batch_loss, batch_outputs = train_batch(config, images, targets, model, optimizer, loss_function)
+            # batch_loss, batch_outputs = train_batch(config, images, targets, model, optimizer, loss_function)
+            batch_loss, batch_outputs = train_batch(config, scaler, images, targets, model, optimizer, loss_function)
             epoch_loss += batch_loss.item()
             
             if config.cm_train:
@@ -196,31 +219,49 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
             # drop_last=True in the dataloader, so we compute the amount of batches first
             num_batches = len(train_loader.dataset) // config.batch_size
             mean_loss = epoch_loss / (num_batches * config.batch_size)
-            LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
+            _ = LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
         
         # Save the model
         LogFunctions.save_model(config, model, epoch+1)
         
         # Test the performance with validation data
-        # TODO: implement early stopping
-        test_performance(config, model, validation_loader, loss_function, "validation")
+        val_IoU_scores[epoch] = test_performance(config, model, validation_loader, loss_function, "validation")
         
-
+        # Early stopping
+        early_stop, patience_counter = early_stopping(config, epoch, patience_counter, val_IoU_scores)
+        if early_stop:
+            break
+        
 """ Performs training for one batch of datapoints. Returns the true/false positive/negative metrics. 
 """
-def train_batch(config, images, targets, model, optimizer, loss_function):
-    
-    # Model inference
-    images, targets = images.to(config.device), targets.to(config.device)
-    normalized_images = DataFunctions.normalize_images(config, images)
-    outputs = model(normalized_images)
-    
-    # Compute loss, update model
-    optimizer.zero_grad(set_to_none=True)
-    loss = loss_function(outputs, targets)
-    loss.backward()
-    optimizer.step()
-    
+def train_batch(config, scaler, images, targets, model, optimizer, loss_function):
+# def train_batch(config, images, targets, model, optimizer, loss_function):
+    if config.automatic_mixed_precision:
+        with amp.autocast(enabled=config.automatic_mixed_precision):
+            # Model inference
+            images, targets = images.to(config.device), targets.to(config.device)
+            normalized_images = DataFunctions.normalize_images(config, images)
+            outputs = model(normalized_images)
+            
+            # Compute loss, update model
+            loss = loss_function(outputs, targets)
+            optimizer.zero_grad(set_to_none=True)
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+        # print("Should not enable automatic mixed precision, not implemented.")
+    else:
+        # Model inference
+        images, targets = images.to(config.device), targets.to(config.device)
+        normalized_images = DataFunctions.normalize_images(config, images)
+        outputs = model(normalized_images)
+        
+        # Compute loss, update model
+        optimizer.zero_grad(set_to_none=True)
+        loss = loss_function(outputs, targets)
+        loss.backward()
+        optimizer.step()
+        
     return loss, outputs
 
 def test_performance(config, model, data_loader, loss_function, stage):
@@ -262,7 +303,9 @@ def test_performance(config, model, data_loader, loss_function, stage):
         # drop_last=True in the dataloader, so we compute the amount of batches first
         num_batches = len(data_loader.dataset) // config.batch_size
         mean_loss = total_loss / (num_batches * config.batch_size)
-        LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, stage)
+        IoU = LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, stage)
+        
+    return IoU
         
 
 """ Runs the whole pipeline of creating, training and testing a model

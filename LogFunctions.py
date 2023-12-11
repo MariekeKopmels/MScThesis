@@ -4,12 +4,14 @@ import warnings
 import DataFunctions
 import torch
 import os
+import datetime
 
 def init_device(config):
-    if config.device == "CUDA":
+    # TODO: voor cuda maken, mac eruit slopen
+    if config.machine == "TS2":
         # device = torch.cuda.get_device_name(torch.cuda.current_device())
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
-    elif config.device == "cpu":
+    elif config.device == "mac":
         torch.set_default_tensor_type('torch.FloatTensor')
     else: 
         warnings.warn(f"Device type not found, can only deal with cpu or CUDA and is {config.device}")
@@ -24,15 +26,17 @@ def log_metrics(config, mean_loss, tn, fn, fp, tp, stage):
         if stage != "batch":
             wandb.log({f"{stage}_accuracy": accuracy, f"{stage}_fn_rate": fn_rate, f"{stage}_fp_rate": fp_rate, f"{stage}_sensitivity": sensitivity, f"{stage}_f1_score": f1_score, f"{stage}_IoU": IoU})
     
+    return IoU
+    
 """ Stores the model to the disk.
 """
 def save_model(config, model, epoch, final=False):
     print("Saving model")
     if config.log:
         os.chdir(config.model_path)
-        folder = f"Pretrained:{config.pretrained}_Dataset:{config.dataset}"
-        # TODO: remove temp if models need to be saved permanently
-        # folder = "temp"
+        date_time = datetime.datetime.now()
+        stamp = f"{date_time.day}/{date_time.month}/{date_time.year}-{date_time.hour}:{date_time.minute}"
+        folder = f"{stamp}_Pretrained:{config.pretrained}_Dataset:{config.dataset}"
         os.makedirs(folder, exist_ok=True)
         path = config.model_path + f"/{folder}/epoch_{epoch}.pt"
         if final:
@@ -57,15 +61,15 @@ def log_example(config, example, target, output, stage="UNKNOWN"):
         
         # Change cannels from YCrCb or BGR to RGB
         if config.colour_space == "YCrCb": 
-            print("Not converted YCrCb to RGB")
+            # print("Not converted YCrCb to RGB")
             example = cv2.cvtColor(example, cv2.COLOR_YCR_CB2BGR)
             grinch = cv2.cvtColor(grinch, cv2.COLOR_YCR_CB2BGR)
         elif config.colour_space == "HSV":
-            print("Converted HSV to RGB")
+            # print("Converted HSV to RGB")
             example = cv2.cvtColor(example, cv2.COLOR_HSV2BGR)
             grinch = cv2.cvtColor(grinch, cv2.COLOR_HSV2BGR)
         elif config.colour_space == "BGR":
-            print("Converted BGR to RGB")
+            # print("Converted BGR to RGB")
             example = cv2.cvtColor(example, cv2.COLOR_BGR2RGB)
             grinch = cv2.cvtColor(grinch, cv2.COLOR_BGR2RGB)
         else:
