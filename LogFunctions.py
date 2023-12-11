@@ -52,23 +52,29 @@ def save_model(config, model, epoch, final=False):
 """
 def log_example(config, example, target, output, stage="UNKNOWN"):
     if config.log:
+        bw_output = (output >= 0.5).float()
+        grinch = DataFunctions.make_grinch(config, example, bw_output)
+        
         # Change cannels from YCrCb or BGR to RGB
         if config.colour_space == "YCrCb": 
-            # print("Converted YCrCb to RGB")
-            example = cv2.cvtColor(example, cv2.COLOR_YCR_CB2RGB)
-        elif config.colour_space == "RGB":
-            # print("Converted BGR to RGB")
+            print("Not converted YCrCb to RGB")
+            example = cv2.cvtColor(example, cv2.COLOR_YCR_CB2BGR)
+            grinch = cv2.cvtColor(grinch, cv2.COLOR_YCR_CB2BGR)
+        elif config.colour_space == "HSV":
+            print("Converted HSV to RGB")
+            example = cv2.cvtColor(example, cv2.COLOR_HSV2BGR)
+            grinch = cv2.cvtColor(grinch, cv2.COLOR_HSV2BGR)
+        elif config.colour_space == "BGR":
+            print("Converted BGR to RGB")
             example = cv2.cvtColor(example, cv2.COLOR_BGR2RGB)
+            grinch = cv2.cvtColor(grinch, cv2.COLOR_BGR2RGB)
         else:
             warnings.warn("No colour space found!")
             print(f"Current config.colour_space = {config.colour_space}")
-        
+            
         wandb.log({f"Input {stage} image":[wandb.Image(example)]})
         wandb.log({f"Target {stage} output": [wandb.Image(target)]})
         wandb.log({f"Model {stage} greyscale output": [wandb.Image(output)]})
-        bw_output = (output >= 0.5).float()
         wandb.log({f"Model {stage} bw output": [wandb.Image(bw_output)]})
-        
-        grinch = DataFunctions.make_grinch(example, bw_output)
         wandb.log({f"Model {stage} grinch output": [wandb.Image(grinch)]})
         

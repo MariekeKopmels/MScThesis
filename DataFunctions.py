@@ -20,11 +20,13 @@ def load_images(config, dir_list, dir_path, gts=False):
         
         img = cv2.imread(path)
         
-        # Convert image from RGB to YCrCb if needed
+        # Convert image from BGR to YCrCb if needed
         if config.colour_space == "YCrCb":
             img = cv2.cvtColor(img, cv2.COLOR_BGR2YCR_CB)
+        elif config.colour_space == "HSV":
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     
-        # Convert Ground Truth from RGB to 1 channel (Black or White)
+        # Convert Ground Truth from BGR to 1 channel (Black or White)
         if gts: 
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             _,img = cv2.threshold(img,127,1,0)
@@ -229,14 +231,20 @@ def normalize_images(config, images):
 
 ''' Returns the grinch version of the image, based on the given output of the model
 '''
-def make_grinch(image, output):
+def make_grinch(config, image, output):
     # print(f"Input types: {type(image)}, and {type(output)}")
     if type(output) == torch.Tensor:
         output = output.to("cpu").numpy()
     # print(f"New input types: {type(image)}, and {type(output)}")
     grinch = np.copy(image)
     mask = output == 1
-    grinch[mask] = [0,255,0]
+    # TODO: Dubbel checken voor andere colour spaces dan BGR
+    if config.colour_space == "BGR":
+        grinch[mask] = [0, 255, 0]
+    elif config.colour_space == "YCrCb":
+        grinch[mask] = [149.895, 80.968, 107.032]
+    elif config.colour_space == "HSV":
+        grinch[mask] = [120, 100, 100]
     
     # print(f"Grinch type: {type(grinch)}")
     # print(f"Mask type: {type(mask)}")
@@ -256,7 +264,7 @@ def to_grinches(config, images, outputs, video):
     for i in range(len(mask)):
         # print(f"Grinches[{i}] dims: {np.shape(grinches[i])}, outputs[{i}] dims: {np.shape(outputs[i])}")
         # print(f"ptp: {np.ptp(outputs[i])}")
-        grinches[i] = make_grinch(grinches[i].transpose(1,2,0), outputs[i]).transpose(2,0,1)
+        grinches[i] = make_grinch(config, grinches[i].transpose(1,2,0), outputs[i]).transpose(2,0,1)
         save_path = config.grinch_path + "/" + video
         save_name = "grinchframe_" + str(i).zfill(5) + ".jpg"
         if config.log:
@@ -361,7 +369,7 @@ def metrics(tn, fn, fp, tp, pixels=False):
 
 """ Stores an image (in form of ndarray) to the disk.
 """
-# TODO: remove config as input
+# TODO: add other colour spaces here
 def save_image(config, image, path, filename, bw=False, gt=False):
     os.makedirs(path, exist_ok=True)
     os.chdir(path)

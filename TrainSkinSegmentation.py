@@ -14,9 +14,10 @@ from torch import optim
 import numpy as np
 import warnings
 
+# from torch.cuda import amp
+
 # Options for loss function
 # TODO: eruit halen, gewoon eentje kiezen 
-
 loss_dictionary = {
     # "IoU": LossFunctions.IoULoss(),
     # "Focal": LossFunctions.FocalLoss(),
@@ -30,68 +31,72 @@ loss_dictionary = {
 # Size of Augmented Pratheepan dataset: Train=300
 # Size of LargeCombined Train=6528, Validation=384, Test=768
 # Size of LargeCombinedAugmented Train=32640
-
-# TODO: aanzetten, met trainen met LargeCombi (zonder augment en zonder pretrainen)
-
 default_config = SimpleNamespace(
-    machine = "TS2",
-    device = torch.device("cuda"),
-    log = True,
-    num_workers = 4,
-    dims = 224,
-    num_epochs = 10,
-    batch_size = 16, 
-    train_size = 44783,       #VisuAAL
-    # train_size = 6528,        #LargeCombined
-    # train_size = 32640,       #LargeCombinedAugmented
-    # train_size = 32,          #Small test
-    validation_size = 128,    #VisuAAL
-    # validation_size = 384,    #LargeCombined
-    # validation_size = 32,     #Small test
-    test_size = 1024,         #VisuAAL
-    # test_size = 768,          #LargeCombined
-    # test_size = 16,           #Small test
-    cm_train = False,
-    cm_parts = 16,
-    lr = 0.0001, 
-    # momentum = 0.999, 
-    pretrained = False,
-    colour_space = "RGB",
-    loss_function = "WBCE_9",
-    optimizer = "Adam", 
-    dataset = "VisuAAL", 
-    # dataset = "LargeCombinedAugmented",
-    testset = "LargeCombined",
-    data_path = "/home/oddity/marieke/Datasets/VisuAAL",
-    # data_path = "/home/oddity/marieke/Datasets/LargeCombinedAugmentedDataset",
-    testdata_path = "/home/oddity/marieke/Datasets/LargeCombinedDataset",
-    model_path = "/home/oddity/marieke/Output/Models",
-    architecture = "UNet"
-
-    # machine = "Mac",
-    # device = torch.device("mps"),
+    # machine = "TS2",
+    # device = torch.device("cuda"),
     # log = True,
-    # num_workers = 1,
+    # num_workers = 4,
     # dims = 224,
     # num_epochs = 10,
-    # batch_size = 8, 
-    # train_size = 16, 
-    # validation_size = 16,
-    # test_size = 16,
+    # batch_size = 16, 
+    # train_size = 44783,       #VisuAAL
+    # # train_size = 6528,        #LargeCombined
+    # # train_size = 32640,       #LargeCombinedAugmented
+    # # train_size = 32,          #Smaller part
+    # validation_size = 128,    #VisuAAL
+    # # validation_size = 384,    #LargeCombined
+    # # validation_size = 32,     #Smaller part
+    # test_size = 1024,         #VisuAAL
+    # # test_size = 768,          #LargeCombined
     # cm_train = False,
-    # cm_parts = 1,
+    # cm_parts = 16,
     # lr = 0.0001, 
-    # # momentum = 0.99, 
-    # pretrained = True,
-    # colour_space = "RGB",
+    # # momentum = 0.999, 
+    # pretrained = False,
+    # automatic_mixed_precision = True,
+    # colour_space = "BGR",
     # loss_function = "WBCE_9",
     # optimizer = "Adam", 
-    # dataset = "LargeCombinedAugmented", 
+    # dataset = "VisuAAL", 
+    # # dataset = "LargeCombinedAugmented",
     # testset = "LargeCombined",
-    # data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/LargeCombinedAugmentedDataset",
-    # testdata_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/LargeCombinedDataset",
-    # model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models",
+    # data_path = "/home/oddity/marieke/Datasets/VisuAAL",
+    # # data_path = "/home/oddity/marieke/Datasets/LargeCombinedAugmentedDataset",
+    # testdata_path = "/home/oddity/marieke/Datasets/LargeCombinedDataset",
+    # model_path = "/home/oddity/marieke/Output/Models",
     # architecture = "UNet"
+
+    machine = "Mac",
+    device = torch.device("mps"),
+    log = True,
+    num_workers = 1,
+    dims = 224,
+    num_epochs = 5,
+    batch_size = 8, 
+    # train_size = 44783,       #VisuAAL
+    # train_size = 6528,        #LargeCombined
+    # train_size = 32640,       #LargeCombinedAugmented
+    train_size = 100,          #Small test
+    # validation_size = 128,    #VisuAAL
+    # validation_size = 384,    #LargeCombined
+    validation_size = 32,     #Small test
+    # test_size = 1024,         #VisuAAL
+    test_size = 768,          #LargeCombined
+    cm_train = False,
+    cm_parts = 1,
+    lr = 0.00001, 
+    # momentum = 0.99, 
+    pretrained = False,
+    # automatic_mixed_precision = False, Not possible on mps or cpu
+    colour_space = "HSV",
+    loss_function = "WBCE_9",
+    optimizer = "Adam", 
+    dataset = "LargeCombinedAugmented", 
+    testset = "LargeCombined",
+    data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/LargeCombinedAugmentedDataset",
+    testdata_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/LargeCombinedDataset",
+    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models",
+    architecture = "UNet"
 )
 
 def parse_args():
@@ -122,6 +127,8 @@ def get_optimizer(config, model):
         return optim.SGD(model.parameters(), lr=config.lr, momentum=0.999)
     elif config.optimizer == "Adam":
         return optim.Adam(model.parameters(), lr=config.lr)
+    elif config.optimizer == "AdamW":
+        return optim.AdamW(model.parameters(), lr=config.lr)
     # elif config.optimizer == "RMSprop":
     #     return optim.RMSprop(model.parameters(),lr=config.lr, momentum=config.momentum) 
     else:
@@ -136,7 +143,7 @@ def make(config):
     start_time = time.time()
     train_loader, validation_loader, test_loader = DataFunctions.load_image_data(config)
     end_time = time.time() - start_time
-    print(f"Loading of data done in %.2d seconds" % end_time)
+    print(f"Loading of data done in %.2d seconds" % end_time)        
     
     # Make the model
     if config.pretrained:
@@ -156,6 +163,9 @@ def make(config):
 """ Trains the passed model, tests it performance after each epoch on the validation set. Prints and logs the results to WandB.
 """
 def train(config, model, train_loader, validation_loader, loss_function, optimizer):
+    # if config.machine == "TS2" and config.automatic_mixed_precision:
+    #     scaler = amp.GradScaler(enabled=config.automatic_mixed_precision)
+        
     if config.pretrained: 
         print("-------------------------Loaded a pretrained model, producing validation baseline-------------------------")
         test_performance(config, model, validation_loader, loss_function, "validation")
@@ -206,7 +216,6 @@ def train_batch(config, images, targets, model, optimizer, loss_function):
     outputs = model(normalized_images)
     
     # Compute loss, update model
-    # TODO: Add optimizer.zero_grad()?
     optimizer.zero_grad(set_to_none=True)
     loss = loss_function(outputs, targets)
     loss.backward()
@@ -263,7 +272,7 @@ def model_pipeline(hyperparameters):
     with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # Set hyperparameters
         config = wandb.config
-        run_name = f"Pretrained:{config.pretrained}_Dataset:{config.dataset}_Testset:{config.testset}"
+        run_name = f"{config.machine}_Pretrained:{config.pretrained}_Dataset:{config.dataset}_Testset:{config.testset}"
         wandb.run.name = run_name
 
         # TODO: Aanzetten en testen
