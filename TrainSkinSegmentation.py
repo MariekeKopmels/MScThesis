@@ -64,6 +64,16 @@ default_config = SimpleNamespace(
     architecture = "UNet"
 )
 
+def init_device(config):
+    # TODO: voor cuda maken, mac eruit slopen
+    if config.machine == "TS2":
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    elif config.device == "mac":
+        torch.set_default_tensor_type('torch.FloatTensor')
+    else: 
+        warnings.warn(f"Device type not found, can only deal with cpu or CUDA and is {config.device}")
+
+
 def parse_args():
     "Overriding default arguments"
     argparser = argparse.ArgumentParser(description='Process hyper-parameters')
@@ -289,7 +299,7 @@ def model_pipeline(hyperparameters):
         wandb.run.name = run_name
 
         # TODO: Aanzetten en testen
-        # LogFunctions.init_device(config)
+        # init_device(config)
 
         # Create model, data loaders, loss function and optimizer
         model, train_loader, validation_loader, test_loader, loss_function, optimizer = make(config)

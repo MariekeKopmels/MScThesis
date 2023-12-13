@@ -7,14 +7,6 @@ import os
 import datetime
 import numpy as np
 
-def init_device(config):
-    # TODO: voor cuda maken, mac eruit slopen
-    if config.machine == "TS2":
-        torch.set_default_tensor_type('torch.cuda.FloatTensor')
-    elif config.device == "mac":
-        torch.set_default_tensor_type('torch.FloatTensor')
-    else: 
-        warnings.warn(f"Device type not found, can only deal with cpu or CUDA and is {config.device}")
 
 """ Prints intermediate results to WandB, also logs them to WandB if not in batch stage.
 """
