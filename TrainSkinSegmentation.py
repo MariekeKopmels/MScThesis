@@ -15,89 +15,53 @@ import warnings
 
 from torch.cuda import amp
 
-# Options for loss function
-# TODO: eruit halen, gewoon eentje kiezen 
-loss_dictionary = {
-    # "IoU": LossFunctions.IoULoss(),
-    # "Focal": LossFunctions.FocalLoss(),
-    # "WBCE": nn.BCEWithLogitsLoss(),
-    "WBCE_9": nn.BCEWithLogitsLoss(pos_weight=torch.tensor([9])),
-    # "BCE": nn.BCELoss(),
-}
-
 # Default parameters
 # Size of VisuAAL dataset: Train=44783, Test=1157
 # Size of Augmented Pratheepan dataset: Train=300
 # Size of LargeCombined Train=6528, Validation=384, Test=768
 # Size of LargeCombinedAugmented Train=32640
+# TODO: log eruit, cm_train eruit
 default_config = SimpleNamespace(
     machine = "TS2",
     device = torch.device("cuda"),
-    log = True,
-    num_workers = 4,
     dims = 224,
-    num_epochs = 20,
+    num_channels = 3,
+    
+    log = True,
+    pretrained = False,
+    lr = 0.00001, 
+    colour_space = "BGR",
+    optimizer = "AdamW",
+    
+    num_workers = 4,
+    num_epochs = 10,
     batch_size = 16, 
-    train_size = 44783,       #VisuAAL
+    # train_size = 44783,       #VisuAAL
     # train_size = 6528,        #LargeCombined
     # train_size = 32640,       #LargeCombinedAugmented
-    # train_size = 128,          #Smaller part
-    validation_size = 1157,    #VisuAAL
+    train_size = 16,          #Smaller part
+    # validation_size = 1157,   #VisuAAL
     # validation_size = 384,    #LargeCombined
-    # validation_size = 32,     #Smaller part
-    test_size = 768,          #LargeCombined
+    validation_size = 16,     #Smaller part
+    # test_size = 768,          #LargeCombined
+    test_size = 16,           #Smaller part
+    
     cm_train = False,
     cm_parts = 16,
-    lr = 0.00001, 
-    pretrained = False,
-    automatic_mixed_precision = False,
+    
+    automatic_mixed_precision = True,
+    
+    early_stopping = False,
     patience = 2,               #The number of epochs the model is allowed not to improve
-    min_improvement = 0.05,     #Minimal improvement needed for early stopping
-    colour_space = "BGR",
-    loss_function = "WBCE_9",
-    optimizer = "AdamW", 
-    dataset = "VisuAAL", 
-    # dataset = "LargeCombinedAugmented",
+    min_improvement = 0.05,     #Minimal improvement needed for early stopping 
+    
+    data_path = "/home/oddity/marieke/Datasets",
+    trainset = "VisuAAL", 
+    validationset = "VisuAAL", 
     testset = "LargeCombined",
-    data_path = "/home/oddity/marieke/Datasets/VisuAAL",
-    # data_path = "/home/oddity/marieke/Datasets/LargeCombinedAugmentedDataset",
-    testdata_path = "/home/oddity/marieke/Datasets/LargeCombinedDataset",
+    
     model_path = "/home/oddity/marieke/Output/Models",
     architecture = "UNet"
-
-    # machine = "Mac",
-    # device = torch.device("mps"),
-    # log = True,
-    # num_workers = 1,
-    # dims = 224,
-    # num_epochs = 5,
-    # batch_size = 16, 
-    # # train_size = 44783,               #VisuAAL
-    # # train_size = 6528,                #LargeCombined
-    # # train_size = 32640,               #LargeCombinedAugmented
-    # train_size = 100,                 #Small test
-    # # validation_size = 128,            #VisuAAL
-    # # validation_size = 384,            #LargeCombined
-    # validation_size = 32,             #Small test
-    # # test_size = 1024,                 #VisuAAL
-    # test_size = 768,                  #LargeCombined
-    # cm_train = False,
-    # cm_parts = 1,
-    # lr = 0.00001, 
-    # # momentum = 0.99, 
-    # pretrained = False,
-    # automatic_mixed_precision = False, #Not possible on mps or cpu
-    # patience = 3,               #The number of epochs the model is allowed not to improve
-    # min_improvement = 0.05,     #Minimal improvement needed for early stopping
-    # colour_space = "BGR",
-    # loss_function = "WBCE_9",
-    # optimizer = "AdamW", 
-    # dataset = "LargeCombinedAugmented", 
-    # testset = "LargeCombined",
-    # data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/LargeCombinedAugmentedDataset",
-    # testdata_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/LargeCombinedDataset",
-    # model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models",
-    # architecture = "UNet"
 )
 
 def parse_args():
@@ -107,15 +71,12 @@ def parse_args():
     argparser.add_argument('--num_workers', type=int, default=default_config.num_workers, help='number of workers in DataLoader')
     argparser.add_argument('--num_epochs', type=int, default=default_config.num_epochs, help='number of epochs')
     argparser.add_argument('--batch_size', type=int, default=default_config.batch_size, help='batch size')
-    argparser.add_argument('--train_size', type=int, default=default_config.train_size, help='trains size')
+    argparser.add_argument('--train_size', type=int, default=default_config.train_size, help='train size')
     argparser.add_argument('--validation_size', type=int, default=default_config.validation_size, help='validation size')
     argparser.add_argument('--test_size', type=int, default=default_config.test_size, help='test size')
     argparser.add_argument('--lr', type=float, default=default_config.lr, help='learning rate')
     argparser.add_argument('--colour_space', type=str, default=default_config.colour_space, help='colour space')
-    argparser.add_argument('--loss_function', type=str, default=default_config.loss_function, help='loss function')
-    argparser.add_argument('--optimizer', type=str, default=default_config.optimizer, help='optimizer')
     argparser.add_argument('--device', type=torch.device, default=default_config.device, help='device')
-    argparser.add_argument('--dataset', type=str, default=default_config.dataset, help='dataset')
     argparser.add_argument('--architecture', type=str, default=default_config.architecture, help='architecture')
     args = argparser.parse_args()
     vars(default_config).update(vars(args))
@@ -155,7 +116,7 @@ def make(config):
         model = MyModels.UNET(config).to(config.device)
 
     # Define loss function and optimizer
-    loss_function = loss_dictionary[config.loss_function].to(config.device)
+    loss_function = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([9])).to(config.device)
     optimizer = get_optimizer(config, model)
     
     return model, train_loader, validation_loader, test_loader, loss_function, optimizer
@@ -170,7 +131,7 @@ def early_stopping(config, epoch, patience_counter, val_IoU_scores):
         if val_IoU_scores[epoch] <= val_IoU_scores[epoch-1]*(1+config.min_improvement):
             patience_counter += 1
             if patience_counter > config.patience:
-                print(f"Not enough improvement, should be at least {config.min_improvement*100}% better than the last epoch, training stopped early.")
+                print(f"Not enough improvement, should be at least {config.min_improvement*100}% better than the last epoch, so training is stopped early.")
                 early_stop = True
         else: 
             patience_counter = 0
@@ -201,6 +162,9 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
         epoch_outputs = torch.empty((0, config.dims, config.dims)).to(config.device)
         epoch_targets = torch.empty((0, config.dims, config.dims)).to(config.device)
         for images, targets in train_loader:  
+            # example_image = np.array(images[0].permute(1,2,0))
+            # LogFunctions.log_tester(config, example_image)
+            
             batch += 1
             print(f"-------------------------Starting Batch {batch}/{int(config.train_size/config.batch_size)} batches-------------------------", end="\r")
             # batch_loss, batch_outputs = train_batch(config, images, targets, model, optimizer, loss_function)
@@ -228,10 +192,11 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
         val_IoU_scores[epoch] = test_performance(config, model, validation_loader, loss_function, "validation")
         
         # Early stopping
-        early_stop, patience_counter = early_stopping(config, epoch, patience_counter, val_IoU_scores)
-        if early_stop:
-            break
-        
+        if config.early_stopping:
+            early_stop, patience_counter = early_stopping(config, epoch, patience_counter, val_IoU_scores)
+            if early_stop:
+                break
+            
 """ Performs training for one batch of datapoints. Returns the true/false positive/negative metrics. 
 """
 def train_batch(config, scaler, images, targets, model, optimizer, loss_function):
@@ -264,6 +229,9 @@ def train_batch(config, scaler, images, targets, model, optimizer, loss_function
         
     return loss, outputs
 
+""" Tests the performance of the passed model on the data that is passed, either in validation or in test stage.
+    Returns the IoU, the metric that is used for early stopping.
+"""
 def test_performance(config, model, data_loader, loss_function, stage):
     print(f"-------------------------Start {stage}-------------------------")
     model.eval()
@@ -279,7 +247,7 @@ def test_performance(config, model, data_loader, loss_function, stage):
             print(f"-------------------------Starting Batch {batch}/{int(len(data_loader.dataset)/config.batch_size)} batches-------------------------", end="\r")
 
             # Store example for printing while on CPU
-            example_image = np.array(images[0].permute(1,2,0))
+            example_image = np.array(images[0].permute(1,2,0), dtype=np.uint8)
             
             # Model inference 
             images, targets = images.to(config.device), targets.to(config.device)
@@ -288,19 +256,21 @@ def test_performance(config, model, data_loader, loss_function, stage):
             
             # Log example to WandB
             LogFunctions.log_example(config, example_image, targets[0], batch_outputs[0], stage)
+            # LogFunctions.log_tester(config, example_image)
             
             # Compute batch loss
             batch_loss = loss_function(batch_outputs, targets).item()
             
+            # Store all outputs and targets
             test_outputs = torch.cat((test_outputs, batch_outputs), dim=0)
             test_targets = torch.cat((test_targets, targets.to(config.device)), dim=0)
             
             total_loss += batch_loss
             
         print(f"-------------------------Finished {stage} batches-------------------------")
+        
         # Compute and log metrics
         epoch_tn, epoch_fn, epoch_fp, epoch_tp = DataFunctions.confusion_matrix(config, test_outputs, test_targets, stage)
-        # drop_last=True in the dataloader, so we compute the amount of batches first
         num_batches = len(data_loader.dataset) // config.batch_size
         mean_loss = total_loss / (num_batches * config.batch_size)
         IoU = LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, stage)
@@ -313,9 +283,9 @@ def test_performance(config, model, data_loader, loss_function, stage):
 def model_pipeline(hyperparameters):
     # Start wandb
     with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
-        # Set hyperparameters
+        # Set hyperparameters and give the run a name
         config = wandb.config
-        run_name = f"{config.machine}_Pretrained:{config.pretrained}_Dataset:{config.dataset}_Testset:{config.testset}"
+        run_name = f"{config.machine}_LR:{config.lr}_Batchsize:{config.batch_size}_Pretrained:{config.pretrained}_Trainset:{config.trainset}_Validationset:{config.validationset}"
         wandb.run.name = run_name
 
         # TODO: Aanzetten en testen

@@ -3,8 +3,6 @@ from types import SimpleNamespace
 
 import DataFunctions
 import torch
-import numpy as np
-import os
 import wandb
 
 default_config = SimpleNamespace(
@@ -24,12 +22,19 @@ default_config = SimpleNamespace(
     num_workers = 1,
     log = True,
     dims = 224,
-    max_video_length = 300,
+    
+    train_size = 5, 
+    validation_size = 2,
+    test_size = 3,
+    
+    max_video_length = 16,
     batch_size = 32, 
-    dataset = "test",
+    
+    trainset = "DemoGrinchVideos",
+    data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch",
+    
     architecture = "I3D_Multitask",
-    # model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/GoodModelTest.pt",    
-    input_video_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch/DemoInputVideos", 
+    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/pretrained.pt",    
 )
 
 def parse_args():
@@ -41,7 +46,10 @@ def parse_args():
     return
 
 def make(config):
-    return
+    print("Creating data loaders")
+    train_loader, validation_loader, test_loader = DataFunctions.load_video_data(config)
+    
+    return train_loader, validation_loader, test_loader
     
 
 def multitask_learning_pipeline(hyperparameters):
@@ -49,10 +57,10 @@ def multitask_learning_pipeline(hyperparameters):
         config = wandb.config
         
         # Create model, data loaders, loss function and optimizer
-        # model, train_loader, validation_loader, test_loader, loss_function, optimizer = make(config)
+        train_loader, validation_loader, test_loader = make(config)
         
         # Do things
-        
+    return        
 
 if __name__ == '__main__':
     parse_args()

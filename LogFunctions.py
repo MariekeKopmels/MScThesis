@@ -5,18 +5,18 @@ import DataFunctions
 import torch
 import os
 import datetime
+import numpy as np
 
 def init_device(config):
     # TODO: voor cuda maken, mac eruit slopen
     if config.machine == "TS2":
-        # device = torch.cuda.get_device_name(torch.cuda.current_device())
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
     elif config.device == "mac":
         torch.set_default_tensor_type('torch.FloatTensor')
     else: 
         warnings.warn(f"Device type not found, can only deal with cpu or CUDA and is {config.device}")
 
-""" Prints and logs intermediate results to WandB.
+""" Prints intermediate results to WandB, also logs them to WandB if not in batch stage.
 """
 def log_metrics(config, mean_loss, tn, fn, fp, tp, stage):
     if config.log:
@@ -28,21 +28,19 @@ def log_metrics(config, mean_loss, tn, fn, fp, tp, stage):
     
     return IoU
     
-""" Stores the model to the disk.
+""" Stores the model to the disk if log=True.
 """
 def save_model(config, model, epoch, final=False):
     print("Saving model")
     if config.log:
         os.chdir(config.model_path)
         date_time = datetime.datetime.now()
-        stamp = f"{date_time.day}/{date_time.month}/{date_time.year}-{date_time.hour}:{date_time.minute}"
-        folder = f"{stamp}_Pretrained:{config.pretrained}_Dataset:{config.dataset}"
+        stamp = f"{date_time.day}-{date_time.month}-{date_time.year}"
+        folder = f"Sweep_{stamp}_LR:{config.lr}_Batchsize:{config.batch_size}_Pretrained:{config.pretrained}_Trainset:{config.trainset}_Validationset:{config.validationset}"
         os.makedirs(folder, exist_ok=True)
         path = config.model_path + f"/{folder}/epoch_{epoch}.pt"
         if final:
             path = config.model_path + f"/{folder}/final.pt"
-        # TODO: Checken of dit idd de manier is om het model op te slaan en niet met model.state_dict()
-        # Oddity doet het anders(met statedict): https://github.com/oddity-ai/oddity-ml/blob/master/backend/pytorch/utils/persistence.py   
         wandb.unwatch()
         
         # Store the model on CPU, since my laptop can't open cuda and the server can't open mps
@@ -52,22 +50,23 @@ def save_model(config, model, epoch, final=False):
         wandb.watch(model, log="all", log_freq=1)
         
 
-""" Logs test examples of input image, ground truth and model output.
+""" Logs test examples of input image, ground truth and model output to WandB.
 """
 def log_example(config, example, target, output, stage="UNKNOWN"):
     if config.log:
+        # print(f"Types: {type(example)}, {type(target)}")
         bw_output = (output >= 0.5).float()
         grinch = DataFunctions.make_grinch(config, example, bw_output)
         
         # Change cannels from YCrCb or BGR to RGB
         if config.colour_space == "YCrCb": 
             # print("Not converted YCrCb to RGB")
-            example = cv2.cvtColor(example, cv2.COLOR_YCR_CB2BGR)
-            grinch = cv2.cvtColor(grinch, cv2.COLOR_YCR_CB2BGR)
+            example = cv2.cvtColor(example, cv2.COLOR_YCR_CB2RGB)
+            grinch = cv2.cvtColor(grinch, cv2.COLOR_YCR_CB2RGB)
         elif config.colour_space == "HSV":
             # print("Converted HSV to RGB")
-            example = cv2.cvtColor(example, cv2.COLOR_HSV2BGR)
-            grinch = cv2.cvtColor(grinch, cv2.COLOR_HSV2BGR)
+            example = cv2.cvtColor(example, cv2.COLOR_HSV2RGB)
+            grinch = cv2.cvtColor(grinch, cv2.COLOR_HSV2RGB)
         elif config.colour_space == "BGR":
             # print("Converted BGR to RGB")
             example = cv2.cvtColor(example, cv2.COLOR_BGR2RGB)
@@ -81,4 +80,3 @@ def log_example(config, example, target, output, stage="UNKNOWN"):
         wandb.log({f"Model {stage} greyscale output": [wandb.Image(output)]})
         wandb.log({f"Model {stage} bw output": [wandb.Image(bw_output)]})
         wandb.log({f"Model {stage} grinch output": [wandb.Image(grinch)]})
-        

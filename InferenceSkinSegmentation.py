@@ -43,7 +43,7 @@ def parse_args():
     argparser.add_argument('--machine', type=str, default=default_config.machine, help='type of machine')
     argparser.add_argument('--num_workers', type=int, default=default_config.num_workers, help='number of workers in DataLoader')
     argparser.add_argument('--batch_size', type=int, default=default_config.batch_size, help='batch size')
-    argparser.add_argument('--dataset', type=str, default=default_config.dataset, help='dataset')
+    argparser.add_argument('--trainset', type=str, default=default_config.trainset, help='trainset')
     argparser.add_argument('--colour_space', type=str, default=default_config.colour_space, help='colour space')
     argparser.add_argument('--architecture', type=str, default=default_config.architecture, help='architecture')
     argparser.add_argument('--model_path', type=str, default=default_config.model_path, help='path to the model')

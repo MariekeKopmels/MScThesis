@@ -27,7 +27,6 @@ default_config = SimpleNamespace(
     device = torch.device("mps"),
     num_workers = 1,
     dims = 224,
-    
     batch_size = 32, 
     dataset = "VisuAAL",
     colour_space = "RGB",
@@ -54,7 +53,7 @@ def parse_args():
     argparser.add_argument('--machine', type=str, default=default_config.machine, help='type of machine')
     argparser.add_argument('--num_workers', type=int, default=default_config.num_workers, help='number of workers in DataLoader')
     argparser.add_argument('--batch_size', type=int, default=default_config.batch_size, help='batch size')
-    argparser.add_argument('--dataset', type=str, default=default_config.dataset, help='dataset')
+    argparser.add_argument('--trainset', type=str, default=default_config.trainset, help='dataset')
     argparser.add_argument('--colour_space', type=str, default=default_config.colour_space, help='colour space')
     args = argparser.parse_args()
     vars(default_config).update(vars(args))
@@ -64,7 +63,6 @@ def parse_args():
 """ Stores the original images and ground truths, compute and store the augmentations
 """
 def create_augmentations(config, images, gts):
-    # TODO: Kijken of dit efficienter kan (per batch of images)
     for i, (image, gt) in enumerate(zip(images, gts)):
         DataFunctions.save_augmentation(config, i, image, gt, "original")
         

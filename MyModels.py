@@ -3,6 +3,7 @@ import torch.nn as nn
 
 NO_PIXELS = 224
 
+# Convlutional block of U-Net
 class conv_block(nn.Module):
     def __init__(self, in_c, out_c):
         super().__init__()
@@ -22,6 +23,7 @@ class conv_block(nn.Module):
         
         return x
      
+# Encoder block of U-Net
 class encoder_block(nn.Module):
     def __init__(self, in_c, out_c):
         super().__init__()
@@ -34,6 +36,7 @@ class encoder_block(nn.Module):
         
         return x, p
 
+# Decoder block of U-Net
 class decoder_block(nn.Module):
     def __init__(self, in_c, out_c):
         super().__init__()
@@ -47,7 +50,7 @@ class decoder_block(nn.Module):
         
         return x
 
-""" Definition of a UNet model, with 4 encoder and decoder blocks. 
+""" Definition of a U-Net model, with 4 encoder and decoder blocks. 
         Output contains 1 channel with values between 0 (background) and 1 (skin).
 """
 # TODO: cleanup: verdelen in nn.Sequential blokken encoeder, bottleneck en decoder
@@ -74,7 +77,7 @@ class UNET(nn.Module):
         
     def forward(self, inputs):      
         # TODO: Deze eruithalen als het pretrained model ook self.batch_size heeft
-        batch_size = len(inputs)
+        # batch_size = len(inputs)
         """ Encoder """
         s1, p1 = self.e1(inputs)
         s2, p2 = self.e2(p1)
@@ -92,11 +95,12 @@ class UNET(nn.Module):
         
         """ Reformatting """
         # TODO: met nieuw pretrained model heeft UNet een self.batch_size
-        # outputs = x.clone().reshape(self.batch_size, self.dims, self.dims)
-        outputs = x.clone().reshape(batch_size, self.dims, self.dims)
-        
+        outputs = x.clone().reshape(self.batch_size, self.dims, self.dims)
+        # outputs = x.clone().reshape(batch_size, self.dims, self.dims)
         return outputs
     
+""" Network used for pixel skin classifier. Very basic feed forward neural network.
+"""
 class SkinClassifier(nn.Module):
     def __init__(self):
         super(SkinClassifier, self).__init__()
@@ -106,11 +110,14 @@ class SkinClassifier(nn.Module):
 
     def forward(self, x):
         x = torch.sigmoid(self.fc1(x))
-        x = self.fc2(x)  # No sigmoid activation in the final layer for binary classification
+        x = self.fc2(x)  
         x = self.sigmoid(x)
         return x
     
     
+""" Work in progress... 
+    Multi-task learning model. Predicts both violence (false, true) and skin colour (black, white, asian?).
+"""
 # class MultiTaskModel(nn.module):
 #     def __init__(self, config, i3d_layers):
 #         super(MultiTaskModel, self).__init__()
@@ -125,25 +132,8 @@ class SkinClassifier(nn.Module):
 #         self.violence_layers = nn.Sequential(
             
 #         )
-        
-        
-    
-        
-# class NN(nn.Module):
-#     def __init__(self):
-#         super(NN, self).__init__()
-#         self.fc1 = nn.Linear(3, 16)
-#         self.relu1 = nn.ReLU()
-#         self.fc2 = nn.Linear(16, 32)
-#         self.relu2 = nn.ReLU()
-#         self.fc3 = nn.Linear(32, 1)
-#         self.sigmoid = nn.Sigmoid()
+#         self.skincolour_layers = nn.Sequential(
+            
+#         )
 
-#     def forward(self, x):
-#         x = self.fc1(x)
-#         x = self.relu1(x)
-#         x = self.fc2(x)
-#         x = self.relu2(x)
-#         x = self.fc3(x)
-#         x = self.sigmoid(x)
-#         return x
+        
