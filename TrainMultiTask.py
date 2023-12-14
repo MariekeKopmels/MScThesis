@@ -2,6 +2,7 @@ import argparse
 from types import SimpleNamespace
 
 import DataFunctions
+import MyModels
 import torch
 import wandb
 
@@ -22,13 +23,15 @@ default_config = SimpleNamespace(
     num_workers = 1,
     log = True,
     dims = 224,
+    num_violence_classes = 2,           #Violence and Neutral
+    num_skincolour_classes = 6,         #White, Asian, Latino, Black, Unknown, NonSuitableVideo 
+
+    max_video_length = 16,
+    batch_size = 32, 
     
     train_size = 5, 
     validation_size = 2,
     test_size = 3,
-    
-    max_video_length = 16,
-    batch_size = 32, 
     
     trainset = "DemoGrinchVideos",
     data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch",
@@ -49,7 +52,9 @@ def make(config):
     print("Creating data loaders")
     train_loader, validation_loader, test_loader = DataFunctions.load_video_data(config)
     
-    return train_loader, validation_loader, test_loader
+    model = MyModels.MultiTaskModel(config).to(config.device)
+    
+    return model, train_loader, validation_loader, test_loader
     
 
 def multitask_learning_pipeline(hyperparameters):
@@ -65,4 +70,3 @@ def multitask_learning_pipeline(hyperparameters):
 if __name__ == '__main__':
     parse_args()
     multitask_learning_pipeline(default_config)
-    
