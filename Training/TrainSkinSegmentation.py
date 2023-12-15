@@ -191,8 +191,7 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
             _ = LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
         
         # Save the model
-        if config.log:
-            LogFunctions.save_model(config, model, epoch+1)
+        LogFunctions.save_model(config, model, epoch+1)
         
         # Test the performance with validation data
         val_IoU_scores[epoch] = test_performance(config, model, validation_loader, loss_function, "validation")
@@ -315,8 +314,7 @@ def model_pipeline(hyperparameters):
         test_performance(config, model, test_loader, loss_function, "test")
         
         # Store the final model
-        if config.log:
-            LogFunctions.save_model(config, model, 0, final=True)
+        LogFunctions.save_model(config, model, 0, final=True)
 
     return
 

@@ -51,7 +51,9 @@ class decoder_block(nn.Module):
         return x
 
 """ Definition of a U-Net model, with 4 encoder and decoder blocks. 
-        Output contains 1 channel with values between 0 (background) and 1 (skin).
+        Takes as input torch tensors of shape (batch_size, channels, height, width)
+        Output is a torch tensor of shape (batch_size, height, width) as 
+        it represents only 1 channel with values between 0 (background) and 1 (skin).
 """
 # TODO: cleanup: verdelen in nn.Sequential blokken encoeder, bottleneck en decoder
 class UNET(nn.Module):
@@ -74,7 +76,7 @@ class UNET(nn.Module):
         """ Classifier """
         self.outputs = nn.Conv2d(64, 1, kernel_size=1, padding=0)
 
-        
+    # TODO: testen of len(batch_size) works with changing batch_sizes
     def forward(self, inputs):      
         batch_size = len(inputs)
         """ Encoder """
@@ -93,7 +95,7 @@ class UNET(nn.Module):
         x = self.outputs(d4)
         
         """ Reformatting """
-        outputs = x.clone().reshape(batch_size, self.dims, self.dims)
+        outputs = x.reshape(batch_size, self.dims, self.dims)
         return outputs
     
 """ Network used for pixel skin classifier. Very basic feed forward neural network.
