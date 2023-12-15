@@ -1,8 +1,8 @@
 import argparse
 from types import SimpleNamespace
 
-import DataFunctions
-import MyModels
+import Data.DataFunctions as DataFunctions
+import Models.MyModels as MyModels
 import torch
 import wandb
 
