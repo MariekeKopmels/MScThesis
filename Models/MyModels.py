@@ -3,7 +3,7 @@ import torch.nn as nn
 
 NO_PIXELS = 224
 
-# Convlutional block of U-Net
+# Convolutional block of U-Net
 class conv_block(nn.Module):
     def __init__(self, in_c, out_c):
         super().__init__()
@@ -76,8 +76,7 @@ class UNET(nn.Module):
 
         
     def forward(self, inputs):      
-        # TODO: Deze eruithalen als het pretrained model ook self.batch_size heeft
-        # batch_size = len(inputs)
+        batch_size = len(inputs)
         """ Encoder """
         s1, p1 = self.e1(inputs)
         s2, p2 = self.e2(p1)
@@ -94,9 +93,7 @@ class UNET(nn.Module):
         x = self.outputs(d4)
         
         """ Reformatting """
-        # TODO: met nieuw pretrained model heeft UNet een self.batch_size
-        outputs = x.clone().reshape(self.batch_size, self.dims, self.dims)
-        # outputs = x.clone().reshape(batch_size, self.dims, self.dims)
+        outputs = x.clone().reshape(batch_size, self.dims, self.dims)
         return outputs
     
 """ Network used for pixel skin classifier. Very basic feed forward neural network.
@@ -113,38 +110,3 @@ class SkinClassifier(nn.Module):
         x = self.fc2(x)  
         x = self.sigmoid(x)
         return x
-    
-    
-""" Work in progress... 
-    Multi-task learning model. Predicts both violence (false, true) and skin colour (black, white, asian).
-"""
-class MultiTaskModel(nn.module):
-    def __init__(self, config, i3d_layers):
-        super(MultiTaskModel, self).__init__()
-        
-        self.shared_layers = nn.Sequential(
-            nn.Linear(config.input_size, 128),
-            nn.ReLU(),
-            nn.Linear(128,64), 
-            nn.ReLU()
-        )
-        self.violence_layers = nn.Sequential(
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Linear(32, 16),
-            nn.ReLU(),
-            nn.Linear(16, config.num_violence_classes)
-        )
-        self.skincolour_layers = nn.Sequential(
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Linear(32, 16),
-            nn.ReLU(),
-            nn.Linear(16, config.num_skincolour_classes)
-        )
-        
-    def forward(self, x):
-        
-        
-
-        

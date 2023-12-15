@@ -5,7 +5,7 @@ import torch
 import numpy as np 
 from torch.utils.data import DataLoader
 import time
-import LogFunctions
+import Logging.LogFunctions as LogFunctions
 
 """ Loads the requested images, returns them in a Torch tensor.
 """

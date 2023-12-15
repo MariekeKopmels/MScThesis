@@ -5,8 +5,8 @@ import torch
 import os
 import shutil
 
-import DataFunctions
-import AugmentationFunctions
+import Data.DataFunctions as DataFunctions
+import Data.AugmentationFunctions as AugmentationFunctions
 
 default_config = SimpleNamespace(
     # machine = "TS2",

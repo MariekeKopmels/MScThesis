@@ -1,7 +1,7 @@
 import cv2
 import wandb
 import warnings
-import DataFunctions
+import Data.DataFunctions as DataFunctions
 import torch
 import os
 import datetime
@@ -20,47 +20,45 @@ def log_metrics(config, mean_loss, tn, fn, fp, tp, stage):
     
     return IoU
     
-""" Stores the model to the disk if log=True.
+""" Stores the model to the disk.
 """
 def save_model(config, model, epoch, final=False):
     print("Saving model")
-    if config.log:
-        os.chdir(config.model_path)
-        date_time = datetime.datetime.now()
-        stamp = f"{date_time.day}-{date_time.month}-{date_time.year}"
-        folder = f"Sweep_{stamp}_LR:{config.lr}_Colour_space:{config.colour_space}_Pretrained:{config.pretrained}_Trainset:{config.trainset}_Validationset:{config.validationset}"
-        os.makedirs(folder, exist_ok=True)
-        path = config.model_path + f"/{folder}/epoch_{epoch}.pt"
-        if final:
-            path = config.model_path + f"/{folder}/final.pt"
-        wandb.unwatch()
-        
-        # Store the model on CPU, since my laptop can't open cuda and the server can't open mps
-        model = model.to("cpu")
-        torch.save(model, path)
-        model = model.to(config.device)
-        wandb.watch(model, log="all", log_freq=1)
+    if not config.log:
+        print("Warning: Saving the model even though config.log == False")
+    
+    os.chdir(config.model_path)
+    date_time = datetime.datetime.now()
+    stamp = f"{date_time.day}-{date_time.month}-{date_time.year}"
+    folder = f"Sweep_{stamp}_LR:{config.lr}_Colour_space:{config.colour_space}_Pretrained:{config.pretrained}_Trainset:{config.trainset}_Validationset:{config.validationset}"
+    os.makedirs(folder, exist_ok=True)
+    path = config.model_path + f"/{folder}/epoch_{epoch}.pt"
+    if final:
+        path = config.model_path + f"/{folder}/final.pt"
+    wandb.unwatch()
+    
+    # Store the model on CPU, since my laptop can't open cuda and the server can't open mps
+    model = model.to("cpu")
+    torch.save(model, path)
+    model = model.to(config.device)
+    wandb.watch(model, log="all", log_freq=1)
         
 
 """ Logs test examples of input image, ground truth and model output to WandB.
 """
 def log_example(config, example, target, output, stage="UNKNOWN"):
     if config.log:
-        # print(f"Types: {type(example)}, {type(target)}")
         bw_output = (output >= 0.5).float()
         grinch = DataFunctions.make_grinch(config, example, bw_output)
         
-        # Change cannels from YCrCb or BGR to RGB
+        # Change channels from YCrCb or BGR to RGB
         if config.colour_space == "YCrCb": 
-            # print("Not converted YCrCb to RGB")
             example = cv2.cvtColor(example, cv2.COLOR_YCR_CB2RGB)
             grinch = cv2.cvtColor(grinch, cv2.COLOR_YCR_CB2RGB)
         elif config.colour_space == "HSV":
-            # print("Converted HSV to RGB")
             example = cv2.cvtColor(example, cv2.COLOR_HSV2RGB)
             grinch = cv2.cvtColor(grinch, cv2.COLOR_HSV2RGB)
         elif config.colour_space == "BGR":
-            # print("Converted BGR to RGB")
             example = cv2.cvtColor(example, cv2.COLOR_BGR2RGB)
             grinch = cv2.cvtColor(grinch, cv2.COLOR_BGR2RGB)
         else:

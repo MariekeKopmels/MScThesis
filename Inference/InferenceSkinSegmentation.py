@@ -1,7 +1,7 @@
 import argparse
 from types import SimpleNamespace
 
-import DataFunctions
+import Data.DataFunctions as DataFunctions
 import torch
 import numpy as np
 import os

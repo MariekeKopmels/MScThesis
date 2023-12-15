@@ -3,9 +3,9 @@ import argparse
 from types import SimpleNamespace
 
 import time
-import MyModels
-import LogFunctions
-import DataFunctions
+import Models.MyModels as MyModels
+import Logging.LogFunctions as LogFunctions
+import Data.DataFunctions as DataFunctions
 import torch
 import wandb
 import torch.nn as nn
@@ -101,8 +101,8 @@ def get_optimizer(config, model):
         return optim.Adam(model.parameters(), lr=config.lr)
     elif config.optimizer == "AdamW":
         return optim.AdamW(model.parameters(), lr=config.lr)
-    # elif config.optimizer == "RMSprop":
-    #     return optim.RMSprop(model.parameters(),lr=config.lr, momentum=config.momentum) 
+    elif config.optimizer == "RMSprop":
+        return optim.RMSprop(model.parameters(),lr=config.lr, momentum=config.momentum) 
     else:
         warnings.warn("No matching optimizer found! Used default Adam")
         print(f"Current config.optimizer = {config.optimizer}")
@@ -119,7 +119,6 @@ def make(config):
     
     # Make the model
     if config.pretrained:
-        # path = config.model_path + "/Dataset:VisuAAL_Val_Testset:LargeCombined/final.pt"
         path = config.model_path + "/pretrained.pt"
         model = torch.load(path).to(config.device)
     else: 
@@ -136,7 +135,6 @@ def make(config):
 """
 def early_stopping(config, epoch, patience_counter, val_IoU_scores):
     early_stop = False
-    # print(f"at epoch {epoch}, val_IoU_scores: {val_IoU_scores}, patience_counter: {patience_counter}")
     if epoch > 0:
         if val_IoU_scores[epoch] <= val_IoU_scores[epoch-1]*(1+config.min_improvement):
             patience_counter += 1
@@ -172,12 +170,9 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
         epoch_outputs = torch.empty((0, config.dims, config.dims)).to(config.device)
         epoch_targets = torch.empty((0, config.dims, config.dims)).to(config.device)
         for images, targets in train_loader:  
-            # example_image = np.array(images[0].permute(1,2,0))
-            # LogFunctions.log_tester(config, example_image)
             
             batch += 1
             print(f"-------------------------Starting Batch {batch}/{int(config.train_size/config.batch_size)} batches-------------------------", end="\r")
-            # batch_loss, batch_outputs = train_batch(config, images, targets, model, optimizer, loss_function)
             batch_loss, batch_outputs = train_batch(config, scaler, images, targets, model, optimizer, loss_function)
             epoch_loss += batch_loss.item()
             
@@ -196,7 +191,8 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
             _ = LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
         
         # Save the model
-        LogFunctions.save_model(config, model, epoch+1)
+        if config.log:
+            LogFunctions.save_model(config, model, epoch+1)
         
         # Test the performance with validation data
         val_IoU_scores[epoch] = test_performance(config, model, validation_loader, loss_function, "validation")
@@ -224,7 +220,7 @@ def train_batch(config, scaler, images, targets, model, optimizer, loss_function
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
-        # print("Should not enable automatic mixed precision, not implemented.")
+
     else:
         # Model inference
         images, targets = images.to(config.device), targets.to(config.device)
@@ -266,7 +262,6 @@ def test_performance(config, model, data_loader, loss_function, stage):
             
             # Log example to WandB
             LogFunctions.log_example(config, example_image, targets[0], batch_outputs[0], stage)
-            # LogFunctions.log_tester(config, example_image)
             
             # Compute batch loss
             batch_loss = loss_function(batch_outputs, targets).item()
@@ -320,7 +315,8 @@ def model_pipeline(hyperparameters):
         test_performance(config, model, test_loader, loss_function, "test")
         
         # Store the final model
-        LogFunctions.save_model(config, model, 0, final=True)
+        if config.log:
+            LogFunctions.save_model(config, model, 0, final=True)
 
     return
 
