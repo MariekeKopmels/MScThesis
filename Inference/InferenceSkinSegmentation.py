@@ -20,7 +20,6 @@ default_config = SimpleNamespace(
     # model_path = "/home/oddity/marieke/Output/Models/LargeModel/final.pt",
     # video_path = "/home/oddity/marieke/Datasets/Demo/demovideos/",
     # grinch_path = "/home/oddity/marieke/Datasets/Demo/demogrinches/"
-
     
     machine = "Mac",
     device = torch.device("mps"),
@@ -41,7 +40,6 @@ def parse_args():
     "Overriding default arguments"
     argparser = argparse.ArgumentParser(description='Process hyper-parameters')
     argparser.add_argument('--machine', type=str, default=default_config.machine, help='type of machine')
-    argparser.add_argument('--num_workers', type=int, default=default_config.num_workers, help='number of workers in DataLoader')
     argparser.add_argument('--batch_size', type=int, default=default_config.batch_size, help='batch size')
     argparser.add_argument('--trainset', type=str, default=default_config.trainset, help='trainset')
     argparser.add_argument('--colour_space', type=str, default=default_config.colour_space, help='colour space')
@@ -90,20 +88,19 @@ def inference(config):
         print("Grinches shape: ", np.shape(grinches))
         
     return 
-    
+
 
 def inference_pipeline(hyperparameters):
-    with wandb.init(mode="disabled", project="skin_inference", config=hyperparameters):
-        config = wandb.config
-        
-        # Splits videos into images
-        DataFunctions.split_video_to_images(config)
-        
-        # put images through model
-        inference(config)
-        
-        # merge grinch images into grinch videos
-        DataFunctions.merge_images_to_video(config)
+    config = hyperparameters
+    
+    # Splits videos into images
+    DataFunctions.split_video_to_images(config)
+    
+    # put images through model
+    inference(config)
+    
+    # merge grinch images into grinch videos
+    DataFunctions.merge_images_to_video(config)
         
 
 if __name__ == '__main__':

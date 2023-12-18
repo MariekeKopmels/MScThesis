@@ -25,7 +25,6 @@ def load_images(config, dir_list, dir_path, gts=False):
         # Convert image from BGR to YCrCb or HSV if needed
         if config.colour_space == "YCrCb" and not gts:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2YCR_CB)
-            # image1 = cv2.cvtColor(old_image, cv2.COLOR_BGR2YCR_CB)
         elif config.colour_space == "HSV" and not gts:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         
@@ -36,8 +35,6 @@ def load_images(config, dir_list, dir_path, gts=False):
         
         # Resize images and ground truths to size dims*dims (usually 224*224)
         image = cv2.resize(image, (config.dims,config.dims), interpolation=cv2.INTER_CUBIC)
-        # print("type of image: ", image.dtype)
-        # LogFunctions.log_tester(config, image)
         
         # Reformat the image, add to the images tensor
         if gts:
@@ -45,11 +42,6 @@ def load_images(config, dir_list, dir_path, gts=False):
         else:
             images[i] = torch.tensor(image, dtype=torch.float32).permute(2, 0, 1)
             test = torch.tensor(image).permute(2, 0, 1)
-            
-        # if not gts:
-        #     image = torch.tensor(images[0].permute(1, 2, 0), dtype=torch.uint8)
-        #     test = torch.tensor(test.permute(1, 2, 0), dtype=torch.uint8)
-        #     LogFunctions.log_tester(config, image.numpy(), test.numpy())
             
     return images
 
@@ -78,10 +70,6 @@ def load_input_images(config, image_dir_path, gt_dir_path, stage):
     images = load_images(config, dir_list, image_dir_path)
     gts = load_images(config, dir_list, gt_dir_path, gts=True)
     
-    # example = images[0]
-    # example = example.permute(1, 2, 0)
-    # LogFunctions.log_tester(config, example.numpy())
-    
     return images, gts
 
 """ Returns train, validation and test, all being data loaders with tuples of input images and corresponding ground truths.
@@ -108,92 +96,11 @@ def load_image_data(config):
     # Put data into dataloaders
     train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True, num_workers=config.num_workers, pin_memory=True, drop_last=True)
     validation_loader = DataLoader(validation, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True, drop_last=True)
+    # TODO: Do I want to use drop_last=True for the test loader? Check if possible to remove. Now, not all test data is used. 
     test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True, drop_last=True)
     
     return train_loader, validation_loader, test_loader
 
-""" Loads the requested videos, returns them in a Torch tensor.
-"""
-def load_videos(config, dir_list, dir_path):
-    # Initialize the videos tensor
-    videos = torch.empty(len(dir_list), config.max_video_lenght, config.num_channels, config.dims, config.dims, dtype=torch.float32)
-    
-    # Read the videos one by one
-    for i, file_name in enumerate(dir_list):
-        # Open the video capture
-        path = dir_path + "/" + file_name
-        video_capture = cv2.VideoCapture(path)
-        
-        # Read the video frame by frame
-        os.chdir(dir_path)
-        frameNo = 0
-        while video_capture.isOpened():
-            frame_is_read, frame = video_capture.read()
-            if frame_is_read and frameNo<config.max_video_length:
-                # Add the frame to the videos tensor
-                videos[i][frameNo] = torch.tensor(frame, dtype=torch.float32).permute(2, 0, 1)
-                frameNo += 1
-            else: 
-                video_capture.release()
-                break
-            
-    return videos
-
-""" Returns input videos in a given directory
-        Format of return: torch tensors containin videos and corresponding ground truths.
-        Torch tensors are of shape batch_size,frame,num_channels,dims,dims for videos and XXX for ground truths.
-"""
-def load_input_videos(config, image_dir_path, gt_dir_path, stage):
-    # Load list of files in directories
-    video_list = os.listdir(image_dir_path)
-    # gt_list = os.listdir(gt_dir_path)
-    
-    # Skip hidden files in the video directory
-    dir_list = [video for video in video_list if not video.startswith(".")]
-    
-    # Include as many itmes as requested
-    #TODO: K-fold training inbouwen
-    if stage == "train":
-        dir_list = dir_list[:config.train_size]
-    elif stage == "validation":
-        dir_list = dir_list[:config.validation_size]
-    elif stage == "test":
-        dir_list = dir_list[:config.test_size]
-    
-    # Load the videos
-    videos = load_videos(config, dir_list, image_dir_path)
-    gts = 0
-    # gts = load_video_gts()
-
-    return videos, gts
-
-""" Returns train, validation and test, all being data loaders with tuples of input videos and corresponding ground truths.
-        Format of return: Data loaders of tuples containging an input tensor and a ground truth tensor
-        Video tensors are of shape (batch_size, frames, channels, height, width)
-"""
-def load_video_data(config):
-    # Load train, validation and test data
-    print("Loading training data...")
-    base_path = config.data_path + "/" + config.trainset
-    train_videos, train_gts = load_input_videos(config, base_path + "/TrainVideos", base_path + "/TrainGroundTruths", stage="train")
-    print("Loading validation data...")
-    base_path = config.data_path + "/" + config.validationset
-    validation_videos, validation_gts = load_input_videos(config, base_path + "/ValidationVideos", base_path + "/ValidationGroundTruths", stage="validation")
-    print("Loading test data...")
-    base_path = config.data_path + "/" + config.testset
-    test_videos, test_gts = load_input_videos(config, base_path + "/TestVideos", base_path + "/TestGroundTruths", stage="test")
-    
-    # Combine images and ground truths in TensorDataset format
-    train = torch.utils.data.TensorDataset(train_videos, train_gts)
-    validation = torch.utils.data.TensorDataset(validation_videos, validation_gts)
-    test = torch.utils.data.TensorDataset(test_videos, test_gts)
-    
-    # Put data into dataloaders
-    train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True, num_workers=config.num_workers, pin_memory=True, drop_last=True)
-    validation_loader = DataLoader(validation, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True, drop_last=True)
-    test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True, drop_last=True)
-    
-    return train_loader, validation_loader, test_loader
 
 """ Splits the videos in config.video_path directory into images, stores them on disk
 """
@@ -231,18 +138,18 @@ def split_video_to_images(config):
 """ Reads images from config.grinch_path directory, merges them into a video and stores the video on disk
 """
 def merge_images_to_video(config):
-    video_list = os.listdir(config.grinch_path)
-    video_list = [video for video in video_list if not video.startswith(".") and not video.endswith(".mp4")]
-    video_list.sort()
-    print("videolist: ", video_list)
-    for video in video_list:
-        os.chdir(f"{config.grinch_path}")
-        
-        image_list = os.listdir(f"{config.grinch_path}/{video}")
-        image_list = [image for image in image_list if not image.startswith(".")]
-        image_list.sort()
-        
-        if config.log: 
+    if config.log: 
+        video_list = os.listdir(config.grinch_path)
+        video_list = [video for video in video_list if not video.startswith(".") and not video.endswith(".mp4")]
+        video_list.sort()
+        print("videolist: ", video_list)
+        for video in video_list:
+            os.chdir(f"{config.grinch_path}")
+            
+            image_list = os.listdir(f"{config.grinch_path}/{video}")
+            image_list = [image for image in image_list if not image.startswith(".")]
+            image_list.sort()
+            
             video_name = "grinch_" + video + ".mp4"
             fourcc = cv2.VideoWriter_fourcc('m','p','4','v')        
             video_writer = cv2.VideoWriter(filename=video_name, fourcc=fourcc, fps=25, frameSize=(config.dims, config.dims))
@@ -299,19 +206,20 @@ def make_grinch(config, image, output):
 """ Takes baches of images in ndarrays, stores (if log=True) as well as returns the grinch versions
 """
 def to_grinches(config, images, outputs, video):
-    outputs = outputs.cpu().numpy()
-    grinches = np.copy(images.cpu().numpy())
-    mask = outputs == 1
-    
-    os.chdir(config.grinch_path)
-    os.makedirs(video, exist_ok=True)
-    
-    for i in range(len(mask)):
-        grinches[i] = make_grinch(config, grinches[i].transpose(1,2,0), outputs[i]).transpose(2,0,1)
-        save_path = config.grinch_path + "/" + video
-        save_name = "grinchframe_" + str(i).zfill(5) + ".jpg"
-        if config.log:
+    if config.log:
+        outputs = outputs.cpu().numpy()
+        grinches = images.cpu().numpy()
+        mask = outputs == 1
+        
+        os.chdir(config.grinch_path)
+        os.makedirs(video, exist_ok=True)
+        
+        for i in range(len(mask)):
+            grinches[i] = make_grinch(config, grinches[i].transpose(1,2,0), outputs[i]).transpose(2,0,1)
+            save_path = config.grinch_path + "/" + video
+            save_name = "grinchframe_" + str(i).zfill(5) + ".jpg"
             save_image(config, grinches[i].transpose(1,2,0), save_path, save_name)
+            
     return torch.from_numpy(grinches)
     
     

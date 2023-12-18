@@ -28,7 +28,7 @@ default_config = SimpleNamespace(
     num_workers = 1,
     dims = 224,
     batch_size = 32, 
-    dataset = "VisuAAL",
+    dataset = "LargeCombinedDataset",
     colour_space = "RGB",
     
     mirror = True,
@@ -51,10 +51,6 @@ def parse_args():
     "Overriding default arguments"
     argparser = argparse.ArgumentParser(description='Process hyper-parameters')
     argparser.add_argument('--machine', type=str, default=default_config.machine, help='type of machine')
-    argparser.add_argument('--num_workers', type=int, default=default_config.num_workers, help='number of workers in DataLoader')
-    argparser.add_argument('--batch_size', type=int, default=default_config.batch_size, help='batch size')
-    argparser.add_argument('--trainset', type=str, default=default_config.trainset, help='dataset')
-    argparser.add_argument('--colour_space', type=str, default=default_config.colour_space, help='colour space')
     args = argparser.parse_args()
     vars(default_config).update(vars(args))
     return
@@ -94,7 +90,7 @@ def preprocessing_pipeline(config):
     images, gts = DataFunctions.load_input_images(config, config.image_path, config.gt_path, "augmentation")
 
     # Process images and gts as numpy arrays of shape (batch_size, height, width, channels) 
-    # and (height, width) respectively.
+    # and (batch_size, height, width) respectively.
     images = images.numpy()
     images = images.transpose(0,2,3,1)
     gts = gts.numpy()
