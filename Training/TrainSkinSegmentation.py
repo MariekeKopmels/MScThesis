@@ -22,7 +22,7 @@ from torch.cuda import amp
 # Size of LargeCombinedAugmented Train=32640
 # TODO: log eruit, cm_train eruit
 default_config = SimpleNamespace(
-    machine = "TS2",
+    machine = "OS4",
     device = torch.device("cuda"),
     dims = 224,
     num_channels = 3,
@@ -35,16 +35,16 @@ default_config = SimpleNamespace(
     
     num_workers = 4,
     num_epochs = 10,
-    batch_size = 16, 
-    # train_size = 44783,       #VisuAAL
+    batch_size = 32, 
+    train_size = 44783,       #VisuAAL
     # train_size = 6528,        #LargeCombined
     # train_size = 32640,       #LargeCombinedAugmented
-    train_size = 16,          #Smaller part
-    # validation_size = 1157,   #VisuAAL
+    # train_size = 1024,          #Smaller part
+    validation_size = 1157,   #VisuAAL
     # validation_size = 384,    #LargeCombined
-    validation_size = 16,     #Smaller part
-    # test_size = 768,          #LargeCombined
-    test_size = 16,           #Smaller part
+    # validation_size = 256,     #Smaller part
+    test_size = 768,          #LargeCombinedTest
+    # test_size = 512,           #Smaller part
     
     cm_train = False,
     cm_parts = 16,
@@ -58,7 +58,7 @@ default_config = SimpleNamespace(
     data_path = "/home/oddity/marieke/Datasets",
     trainset = "VisuAAL", 
     validationset = "VisuAAL", 
-    testset = "LargeCombined",
+    testset = "LargeCombinedTest",
     
     model_path = "/home/oddity/marieke/Output/Models",
     architecture = "UNet"
@@ -66,12 +66,12 @@ default_config = SimpleNamespace(
 
 def init_device(config):
     # TODO: voor cuda maken, mac eruit slopen
-    if config.machine == "TS2":
+    if config.machine == "TS2" or config.machine == "OS4":
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
-    elif config.device == "mac":
+    elif config.machine == "mac":
         torch.set_default_tensor_type('torch.FloatTensor')
     else: 
-        warnings.warn(f"Device type not found, can only deal with cpu or CUDA and is {config.device}")
+        warnings.warn(f"Device type not found, can only deal with cpu or CUDA and is {config.machine}")
 
 
 def parse_args():
@@ -149,8 +149,12 @@ def early_stopping(config, epoch, patience_counter, val_IoU_scores):
 """ Trains the passed model, tests it performance after each epoch on the validation set. Prints and logs the results to WandB.
 """
 def train(config, model, train_loader, validation_loader, loss_function, optimizer):
-    if config.machine == "TS2" and config.automatic_mixed_precision:
-        scaler = amp.GradScaler(enabled=config.automatic_mixed_precision)
+    if config.automatic_mixed_precision:
+        if config.machine == "TS2" or config.machine == "OS4":
+            scaler = amp.GradScaler(enabled=config.automatic_mixed_precision)
+        else: 
+            config.automatic_mixed_precision = False
+            Warning("Machine not approved to use for Automatic Mixed Precision, so AMP turned off.")
     else:
         scaler = None
         
@@ -289,7 +293,7 @@ def model_pipeline(hyperparameters):
     with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # Set hyperparameters and give the run a name
         config = wandb.config
-        run_name = f"{config.machine}_LR:{config.lr}_Batchsize:{config.batch_size}_Pretrained:{config.pretrained}_Trainset:{config.trainset}_Validationset:{config.validationset}"
+        run_name = f"{config.machine}_{config.batch_size}_LR:{config.lr}_Colourspace:{config.colour_space}_Pretrained:{config.pretrained}_Trainset:{config.trainset}_Validationset:{config.validationset}"
         wandb.run.name = run_name
 
         # TODO: Aanzetten en testen

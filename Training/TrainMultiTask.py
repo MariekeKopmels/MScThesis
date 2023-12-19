@@ -7,7 +7,7 @@ import torch
 import wandb
 
 default_config = SimpleNamespace(
-    # machine = "TS2",
+    # machine = "OS4",
     # device = torch.device("cuda"),
     # num_workers = 1,
     # dims = 224,

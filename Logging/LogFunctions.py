@@ -28,9 +28,7 @@ def save_model(config, model, epoch, final=False):
         print("Warning: Saving the model even though config.log == False")
     
     os.chdir(config.model_path)
-    date_time = datetime.datetime.now()
-    stamp = f"{date_time.day}-{date_time.month}-{date_time.year}"
-    folder = f"Sweep_{stamp}_LR:{config.lr}_Colour_space:{config.colour_space}_Pretrained:{config.pretrained}_Trainset:{config.trainset}_Validationset:{config.validationset}"
+    folder = f"LR:{config.lr}_Colour_space:{config.colour_space}_Pretrained:{config.pretrained}_Trainset:{config.trainset}_Validationset:{config.validationset}"
     os.makedirs(folder, exist_ok=True)
     path = config.model_path + f"/{folder}/epoch_{epoch}.pt"
     if final:
