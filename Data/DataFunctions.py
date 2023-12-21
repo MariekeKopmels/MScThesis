@@ -226,28 +226,13 @@ def to_grinches(config, images, outputs, video):
 """Returns the values of the confusion matrix of true negative, false negative, true positive and false positive values
 """
 def confusion_matrix(config, outputs, targets, stage):
-    start_time = time.time()
-    
     # Flatten output and target
     output = torch.flatten(outputs)
     target = torch.flatten(targets)
     
-    # Binarize output of the model
+    # Binarize output of the model, convert to floats
     output = output > 0.5
-    
-    # Make output floats, split up in parts if confusion matrix parts is larger than 1
-    if stage == "train" and config.cm_parts > 1:
-        total_elements = output.numel()
-        part_size = total_elements/config.cm_parts
-        parts = torch.Tensor((0)).to(config.device)
-        for i in range(config.cm_parts):
-            start_idx = int(i * part_size)
-            end_idx = int(min((i + 1) * part_size, total_elements))
-            chunk = output[start_idx:end_idx].float()
-            parts = torch.cat((parts, chunk))
-        output = parts
-    else:
-        output.float()
+    output.float()
     
     # Compute the confusion matrix
     matrix = sklearn.metrics.confusion_matrix(target.to("cpu"), output.to("cpu"))
@@ -322,17 +307,18 @@ def save_augmentation(config, i, image, gt, augmentation):
 """ Copies images from a folder into a new folder.
 """
 def move_images(config, start_index, origin_path, destination_path, image_list=[], gts=False):  
-    if image_list == []:
-        os.makedirs(origin_path, exist_ok=True)
-        image_list = os.listdir(origin_path)
-        image_list = [image for image in image_list if not image.startswith(".")]
-        image_list.sort()
-    
-    images = load_images(config, image_list, origin_path, gts=gts)
+    if config.log:
+        if image_list == []:
+            os.makedirs(origin_path, exist_ok=True)
+            image_list = os.listdir(origin_path)
+            image_list = [image for image in image_list if not image.startswith(".")]
+            image_list.sort()
+        
+        images = load_images(config, image_list, origin_path, gts=gts)
 
-    index = start_index
-    for image in images:
-        if config.log:
+        index = start_index
+        for image in images:
+        
             save_name = "image_" + str(index).zfill(6) + ".jpg"
             save_image(config, image, destination_path, save_name, gt=gts)
             index += 1

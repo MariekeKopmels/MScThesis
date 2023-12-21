@@ -20,6 +20,7 @@ from torch.cuda import amp
 # Size of Augmented Pratheepan dataset: Train=300
 # Size of LargeCombined Train=6528, Validation=384, Test=768
 # Size of LargeCombinedAugmented Train=32640
+
 # TODO: log eruit, cm_train eruit
 default_config = SimpleNamespace(
     machine = "OS4",
@@ -78,7 +79,6 @@ def parse_args():
     "Overriding default arguments"
     argparser = argparse.ArgumentParser(description='Process hyper-parameters')
     argparser.add_argument('--log', type=str, default=default_config.log, help='turns logging on or off')
-    argparser.add_argument('--num_workers', type=int, default=default_config.num_workers, help='number of workers in DataLoader')
     argparser.add_argument('--num_epochs', type=int, default=default_config.num_epochs, help='number of epochs')
     argparser.add_argument('--batch_size', type=int, default=default_config.batch_size, help='batch size')
     argparser.add_argument('--train_size', type=int, default=default_config.train_size, help='train size')
@@ -87,7 +87,6 @@ def parse_args():
     argparser.add_argument('--lr', type=float, default=default_config.lr, help='learning rate')
     argparser.add_argument('--colour_space', type=str, default=default_config.colour_space, help='colour space')
     argparser.add_argument('--device', type=torch.device, default=default_config.device, help='device')
-    argparser.add_argument('--architecture', type=str, default=default_config.architecture, help='architecture')
     args = argparser.parse_args()
     vars(default_config).update(vars(args))
     return
@@ -105,11 +104,12 @@ def get_optimizer(config, model):
         return optim.RMSprop(model.parameters(),lr=config.lr, momentum=config.momentum) 
     else:
         warnings.warn("No matching optimizer found! Used default Adam")
-        print(f"Current config.optimizer = {config.optimizer}")
+        print(f"Current {config.optimizer=}")
         return optim.Adam(model.parameters(), lr=config.lr)
     
 """ Returns dataloaders, model, loss function and optimizer.
 """
+# TODO: group into distinct parts (i.e. splitting dataset stuff from model stuff)
 def make(config):
     # Fetch data
     start_time = time.time()
@@ -124,14 +124,17 @@ def make(config):
     else: 
         model = MyModels.UNET(config).to(config.device)
 
-    # Define loss function and optimizer
-    loss_function = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([9])).to(config.device)
+    # Define loss function and optimizer.
+    # Set weight for positive elements (skin pixels) to be 9 times larger than negative elements (background pixels)
+    # This is done to compensate for the imbalance in the skin:background pixel ratio
+    weight = 9
+    loss_function = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([weight])).to(config.device)
     optimizer = get_optimizer(config, model)
     
     return model, train_loader, validation_loader, test_loader, loss_function, optimizer
 
-""" Decides wether or not the validation score of the model improves enough. 
-    If not, it will retrun early_stop=True which will stop the training process.
+""" Decides whether or not the validation score of the model improves enough. 
+    If not, it will return early_stop=True which will stop the training process.
 """
 def early_stopping(config, epoch, patience_counter, val_IoU_scores):
     early_stop = False
@@ -160,10 +163,6 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
         
     val_IoU_scores = np.zeros(config.num_epochs)
     patience_counter = 0
-        
-    if config.pretrained: 
-        print("-------------------------Loaded a pretrained model, producing validation baseline-------------------------")
-        test_performance(config, model, validation_loader, loss_function, "validation")
         
     print("-------------------------Start Training-------------------------")
     for epoch in range(config.num_epochs):
@@ -209,7 +208,7 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
 """ Performs training for one batch of datapoints. Returns the true/false positive/negative metrics. 
 """
 def train_batch(config, scaler, images, targets, model, optimizer, loss_function):
-# def train_batch(config, images, targets, model, optimizer, loss_function):
+    # TODO: create helper function and reduce code duplication in this if/else statement
     if config.automatic_mixed_precision:
         with amp.autocast(enabled=config.automatic_mixed_precision):
             # Model inference
@@ -306,11 +305,12 @@ def model_pipeline(hyperparameters):
         else: 
             wandb.watch(model, log=None, log_freq=1)
             
-        # Test the performance on the test set before training (in case of a pretrained model)
+        # In case of a pretrained model, test the performance on the validation and test set before training to provide baseline information 
         if config.pretrained: 
-            print("-------------------------Loaded a pretrained model, producing test baseline-------------------------")
+            print("-------------------------Loaded a pretrained model, producing test and validation baselines-------------------------")
             test_performance(config, model, test_loader, loss_function, "test")
-
+            test_performance(config, model, validation_loader, loss_function, "validation")
+            
         # Train the model, incl. validation
         train(config, model, train_loader, validation_loader, loss_function, optimizer)
 

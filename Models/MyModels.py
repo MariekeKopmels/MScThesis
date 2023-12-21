@@ -93,9 +93,10 @@ class UNET(nn.Module):
         d4 = self.d4(d3, s1)
         """ Classifier """
         x = self.outputs(d4)
-        
         """ Reformatting """
+        # Reshape output to the desired shape (batch_size, height, width)
         outputs = x.reshape(batch_size, self.dims, self.dims)
+        
         return outputs
     
 """ Network used for pixel skin classifier. Very basic feed forward neural network.
