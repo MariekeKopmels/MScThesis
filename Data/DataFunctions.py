@@ -211,6 +211,7 @@ def to_grinches(config, images, outputs, video):
         grinches = images.cpu().numpy()
         mask = outputs == 1
         
+        os.makedirs(config.grinch_path, exist_ok=True)
         os.chdir(config.grinch_path)
         os.makedirs(video, exist_ok=True)
         

@@ -2,9 +2,6 @@ import cv2
 import wandb
 import warnings
 import Data.DataFunctions as DataFunctions
-import torch
-import os
-import datetime
 import numpy as np
 
 
@@ -19,28 +16,6 @@ def log_metrics(config, mean_loss, tn, fn, fp, tp, stage):
             wandb.log({f"{stage}_accuracy": accuracy, f"{stage}_fn_rate": fn_rate, f"{stage}_fp_rate": fp_rate, f"{stage}_sensitivity": sensitivity, f"{stage}_f1_score": f1_score, f"{stage}_IoU": IoU})
     
     return IoU
-    
-""" Stores the model to the disk.
-"""
-def save_model(config, model, epoch, final=False):
-    print("Saving model")
-    if not config.log:
-        print("Warning: Saving the model even though config.log == False")
-    
-    os.chdir(config.model_path)
-    folder = f"LR:{config.lr}_Colour_space:{config.colour_space}_Pretrained:{config.pretrained}_Trainset:{config.trainset}_Validationset:{config.validationset}"
-    os.makedirs(folder, exist_ok=True)
-    path = config.model_path + f"/{folder}/epoch_{epoch}.pt"
-    if final:
-        path = config.model_path + f"/{folder}/final.pt"
-    wandb.unwatch()
-    
-    # Store the model on CPU, since my laptop can't open cuda and the server can't open mps
-    model = model.to("cpu")
-    torch.save(model, path)
-    model = model.to(config.device)
-    wandb.watch(model, log="all", log_freq=1)
-        
 
 """ Logs test examples of input image, ground truth and model output to WandB.
 """
