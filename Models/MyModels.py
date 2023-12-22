@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+# Implementation of the U-Net is from https://github.com/nikhilroxtomar/Semantic-Segmentation-Architecture/blob/main/PyTorch/unet.py
+
 NO_PIXELS = 224
 
 # Convolutional block of U-Net
