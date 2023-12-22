@@ -1,0 +1,43 @@
+import numpy as np
+import cv2
+import random
+import Data.DataFunctions as DataFunctions
+
+def mirror(config, i, image, gt):
+    augmented_image = cv2.flip(image, 1)
+    augmented_gt = cv2.flip(gt, 1)
+    DataFunctions.save_augmentation(config, i, augmented_image, augmented_gt, "mirrored")
+    return
+
+def sheerX(config, i, image, gt):
+    x_shear = random.uniform(0, 0.3) * random.choice([-1, 1])
+    rows, cols, _ = np.shape(image)
+    transform_mat = np.float32([[1, x_shear, 0], [0, 1, 0]])
+    augmented_image = cv2.warpAffine(image, transform_mat, (rows, cols), borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0))
+    augmented_gt = cv2.warpAffine(gt, transform_mat, (rows, cols), borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0))
+
+    DataFunctions.save_augmentation(config, i, augmented_image, augmented_gt, "sheerX")
+    return
+
+def sheerY(config, i, image, gt):
+    y_shear = random.uniform(0, 0.3) * random.choice([-1, 1])
+    rows, cols, _ = np.shape(image)
+    transform_mat = np.float32([[1, 0, 0], [y_shear, 1, 0]])
+    augmented_image = cv2.warpAffine(image, transform_mat, (rows, cols), borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0))
+    augmented_gt = cv2.warpAffine(gt, transform_mat, (rows, cols), borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0))
+
+    DataFunctions.save_augmentation(config, i, augmented_image, augmented_gt, "sheerY")
+    return
+
+def brightness(config, i, image, gt):
+    brightness_ratio = 1 + random.uniform(0, 0.5) * random.choice([-1, 1])
+    
+    augmented_image = blend(image, np.zeros_like(image), brightness_ratio)
+    augmented_gt = gt
+    
+    DataFunctions.save_augmentation(config, i, augmented_image, augmented_gt, "brightness")
+    return
+
+def blend(img1, img2, ratio):
+    upper_pixel_bound = 255.0
+    return (ratio * img1 + (1.0 - ratio) * img2).clip(0, upper_pixel_bound).astype(img1.dtype)
