@@ -212,7 +212,9 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
             if early_stop:
                 # If stopped early, retrieve the best model for further computations
                 model = ModelFunctions.load_model(config)
-                break
+                return model
+            
+    return model
             
 """ Performs training for one batch of datapoints. Returns the true/false positive/negative metrics. 
 """
@@ -323,10 +325,10 @@ def model_pipeline(hyperparameters):
             test_performance(config, model, validation_loader, loss_function, "validation")
             
         # Train the model, incl. validation
-        train(config, model, train_loader, validation_loader, loss_function, optimizer)
+        best_model = train(config, model, train_loader, validation_loader, loss_function, optimizer)
 
-        # Test the models performance
-        test_performance(config, model, test_loader, loss_function, "test")
+        # Test the best model's performance
+        test_performance(config, best_model, test_loader, loss_function, "test")
 
     return
 
