@@ -39,14 +39,21 @@ default_config = SimpleNamespace(
     num_workers = 4,
     num_epochs = 5,
     batch_size = 32, 
+    
     # train_size = 44783,       #VisuAAL
-    # train_size = 6528,        #LargeCombined
-    # train_size = 32640,       #LargeCombinedAugmented
-    train_size = 128,         #Smaller part
     # validation_size = 1157,   #VisuAAL
-    # validation_size = 384,    #LargeCombined
-    validation_size = 32,     #Smaller part
     # test_size = 768,          #LargeCombinedTest
+    
+    # train_size = 6528,        #LargeCombined
+    # validation_size = 384,    #LargeCombined
+    # test_size = 768,          #LargeCombinedTest
+    
+    # train_size = 32640,       #LargeCombinedAugmented
+    # validation_size = 384,    #LargeCombined
+    # test_size = 768,          #LargeCombinedTest
+    
+    train_size = 128,         #Smaller part
+    validation_size = 32,     #Smaller part
     test_size = 64,           #Smaller part
     
     cm_train = False,
@@ -199,19 +206,17 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
          # Test the performance with validation data
         val_IoU_scores[epoch] = test_performance(config, model, validation_loader, loss_function, "validation")        
         
-        # Save the model
-        # Overwrite the best model if the current model outperforms all previous models
+        # Save the model of this epoch, overwrite the best model if it has a better IoU score than all previous models
+        ModelFunctions.save_model(config, model, epoch+1)
         if epoch == 0 or val_IoU_scores[epoch] > max(val_IoU_scores[:epoch]):
             ModelFunctions.save_model(config, model, epoch+1, best=True)
-        else:
-            ModelFunctions.save_model(config, model, epoch+1)
         
         # Early stopping
         if config.early_stopping:
             early_stop, patience_counter = early_stopping(config, epoch, patience_counter, val_IoU_scores)
             if early_stop:
                 # If stopped early, retrieve the best model for further computations
-                model = ModelFunctions.load_model(config)
+                model = ModelFunctions.load_model(config, model_from_current_run=True)
                 return model
             
     return model
@@ -300,8 +305,9 @@ def test_performance(config, model, data_loader, loss_function, stage):
 """
 def model_pipeline(hyperparameters):
     # Give the run a name
-    hyperparameters.run_name = f"{hyperparameters.machine}_{hyperparameters.batch_size}_LR:{hyperparameters.lr}_Colourspace:{hyperparameters.colour_space}_Pretrained:{hyperparameters.pretrained}_Trainset:{hyperparameters.trainset}_Validationset:{hyperparameters.validationset}"
-        
+    # hyperparameters.run_name = f"{hyperparameters.machine}_{hyperparameters.batch_size}_LR:{hyperparameters.lr}_Colourspace:{hyperparameters.colour_space}_Pretrained:{hyperparameters.pretrained}_Trainset:{hyperparameters.trainset}_Validationset:{hyperparameters.validationset}"
+    hyperparameters.run_name = "TEST"
+    
     # Start wandb
     with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # Set hyperparameters

@@ -31,9 +31,10 @@ def save_model(config, model, epoch, best=False):
     
     
 """ Returns a previously saved model in evaluation mode. Pretrained models are not stored in a run folder.
+    If the model needed is from the current run, model_from_current_run=True and the correct folder is accessed.
 """
-def load_model(config, model_name="best.pt", run_name=None):
-    if run_name:
+def load_model(config, model_name="best.pt", model_from_current_run=False):
+    if model_from_current_run:
         file_name = f"{config.model_path}/{config.run_name}/{model_name}"
     else:
         file_name = f"{config.model_path}/{model_name}"
