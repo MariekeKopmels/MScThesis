@@ -15,6 +15,8 @@ default_config = SimpleNamespace(
     combined_dataset_folder = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/LargeCombinedDataset",
 )
 
+# TODO: Use train/val/test splits by sklearn
+# https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html
 def check_splits(config):
     total = config.train_split + config.validation_split + config.test_split
     if config.train_split + config.validation_split > 1.0:

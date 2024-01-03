@@ -71,6 +71,7 @@ default_config = SimpleNamespace(
     testset = "LargeCombinedTest",
     
     model_path = "/home/oddity/marieke/Output/Models",
+    model_name = "pretrained.pt",
     run_name = "",
     architecture = "UNet"
 )
@@ -97,7 +98,7 @@ def parse_args():
     argparser.add_argument('--lr', type=float, default=default_config.lr, help='learning rate')
     argparser.add_argument('--weight_decay', type=float, default=default_config.weight_decay, help='weight decay for Weighted Adam optimizer')
     argparser.add_argument('--colour_space', type=str, default=default_config.colour_space, help='colour space')
-    argparser.add_argument('--device', type=torch.device, default=default_config.device, help='device')
+    argparser.add_argument('--model_name', type=str, default=default_config.model_name, help='name of the model to be loaded')    
     args = argparser.parse_args()
     vars(default_config).update(vars(args))
     return
@@ -130,7 +131,7 @@ def make(config):
     
     # Make or load the model
     if config.pretrained:
-        model = ModelFunctions.load_model(config, "pretrained.pt")
+        model = ModelFunctions.load_model(config, config.model_name)
     else: 
         model = MyModels.UNET(config).to(config.device)
 
