@@ -1,3 +1,5 @@
+# Main for training the multi-head violence and skin colour prediction mode
+
 import argparse
 from types import SimpleNamespace
 
@@ -18,7 +20,7 @@ default_config = SimpleNamespace(
     # model_path = "/home/oddity/marieke/Output/Models/LargeModel/final.pt",
     # input_video_path = "/home/oddity/marieke/Datasets/Demo/demovideos/",
     
-    machine = "Mac",
+    machine = "mac",
     device = torch.device("mps"),
     num_workers = 1,
     log = True,
