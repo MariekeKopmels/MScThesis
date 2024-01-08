@@ -102,6 +102,90 @@ def load_image_data(config):
     return train_loader, validation_loader, test_loader
 
 
+""" Loads the requested videos, returns them in a Torch tensor.
+"""
+def load_videos(config, dir_list, dir_path):
+    # Initialize the videos tensor
+    videos = torch.empty(len(dir_list), config.max_video_length, config.num_channels, config.dims, config.dims, dtype=torch.float32)
+    
+    # Read the videos one by one
+    for i, file_name in enumerate(dir_list):
+        # Open the video capture
+        path = dir_path + "/" + file_name
+        video_capture = cv2.VideoCapture(path)
+        
+        # Read the video frame by frame
+        os.chdir(dir_path)
+        frameNo = 0
+        while video_capture.isOpened():
+            frame_is_read, frame = video_capture.read()
+            if frame_is_read and frameNo<config.max_video_length:
+                # Add the frame to the videos tensor
+                videos[i][frameNo] = torch.tensor(frame, dtype=torch.float32).permute(2, 0, 1)
+                frameNo += 1
+            else: 
+                video_capture.release()
+                break
+            
+    return videos
+
+""" Returns input videos in a given directory
+        Format of return: torch tensors containing videos and corresponding ground truths.
+        Torch tensors are of shape batch_size,frame,num_channels,dims,dims for videos and XXX for ground truths.
+"""
+def load_input_videos(config, image_dir_path, gt_dir_path, stage):
+    # Load list of files in directories
+    video_list = os.listdir(image_dir_path)
+    # gt_list = os.listdir(gt_dir_path)
+    
+    # Skip hidden files in the video directory
+    dir_list = [video for video in video_list if not video.startswith(".")]
+    
+    # Include as many items as requested
+    #TODO: K-fold training inbouwen
+    if stage == "train":
+        dir_list = dir_list[:config.train_size]
+    elif stage == "validation":
+        dir_list = dir_list[:config.validation_size]
+    elif stage == "test":
+        dir_list = dir_list[:config.test_size]
+    
+    # Load the videos
+    videos = load_videos(config, dir_list, image_dir_path)
+    gts = 0
+    # gts = load_video_gts()
+
+    return videos, gts
+
+""" Returns train, validation and test, all being data loaders with tuples of input videos and corresponding ground truths.
+        Format of return: Data loaders of tuples containing an input tensor and a ground truth tensor
+        Video tensors are of shape (batch_size, frames, channels, height, width)
+"""
+#TODO: See if this (and the other video/iamge data functions can be merged.
+def load_video_data(config):
+    # Load train, validation and test data
+    print("Loading training data...")
+    base_path = config.data_path + "/" + config.trainset
+    train_videos, train_gts = load_input_videos(config, base_path + "/TrainVideos", base_path + "/TrainGroundTruths", stage="train")
+    print("Loading validation data...")
+    base_path = config.data_path + "/" + config.validationset
+    validation_videos, validation_gts = load_input_videos(config, base_path + "/ValidationVideos", base_path + "/ValidationGroundTruths", stage="validation")
+    print("Loading test data...")
+    base_path = config.data_path + "/" + config.testset
+    test_videos, test_gts = load_input_videos(config, base_path + "/TestVideos", base_path + "/TestGroundTruths", stage="test")
+    
+    # Combine images and ground truths in TensorDataset format
+    train = torch.utils.data.TensorDataset(train_videos, train_gts)
+    validation = torch.utils.data.TensorDataset(validation_videos, validation_gts)
+    test = torch.utils.data.TensorDataset(test_videos, test_gts)
+    
+    # Put data into dataloaders
+    train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True, num_workers=config.num_workers, pin_memory=True, drop_last=True)
+    validation_loader = DataLoader(validation, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True, drop_last=True)
+    test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True, drop_last=True)
+    
+    return train_loader, validation_loader, test_loader
+
 """ Splits the videos in config.video_path directory into images, stores them on disk
 """
 def split_video_to_images(config):    

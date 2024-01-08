@@ -113,3 +113,34 @@ class SkinClassifier(nn.Module):
         x = self.fc2(x)  
         x = self.sigmoid(x)
         return x
+    
+
+""" Work in progress... 
+    Multi-task learning model. Predicts both violence (false, true) and skin colour (black, white, asian).
+"""
+# class MultiTaskModel(nn.module):
+#     def __init__(self, config, i3d_layers):
+#         super(MultiTaskModel, self).__init__()
+        
+#         self.shared_layers = nn.Sequential(
+#             nn.Linear(config.input_size, 128),
+#             nn.ReLU(),
+#             nn.Linear(128,64), 
+#             nn.ReLU()
+#         )
+#         self.violence_layers = nn.Sequential(
+#             nn.Linear(64, 32),
+#             nn.ReLU(),
+#             nn.Linear(32, 16),
+#             nn.ReLU(),
+#             nn.Linear(16, config.num_violence_classes)
+#         )
+#         self.skincolour_layers = nn.Sequential(
+#             nn.Linear(64, 32),
+#             nn.ReLU(),
+#             nn.Linear(32, 16),
+#             nn.ReLU(),
+#             nn.Linear(16, config.num_skincolour_classes)
+#         )
+        
+#     def forward(self, x):

@@ -39,7 +39,7 @@ default_config = SimpleNamespace(
     data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch",
     
     architecture = "I3D_Multitask",
-    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models/pretrained.pt",    
+    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/SkinDetection/Models/pretrained.pt",    
 )
 
 def parse_args():
@@ -60,7 +60,7 @@ def make(config):
     
 
 def multitask_learning_pipeline(hyperparameters):
-    with wandb.init(mode="disabled", project="Violence_SkinColour", config=hyperparameters):
+    with wandb.init(project="multi-task-model", config=hyperparameters):
         config = wandb.config
         
         # Create model, data loaders, loss function and optimizer

@@ -289,7 +289,7 @@ def test_performance(config, model, data_loader, loss_function, stage):
 """
 def model_pipeline(hyperparameters):
     # Start wandb
-    with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
+    with wandb.init(project="multi-head", config=hyperparameters): #mode="disabled", 
         # Set hyperparameters and give the run a name
         config = wandb.config
         run_name = f"{config.machine}_{config.batch_size}_LR:{config.lr}_Colourspace:{config.colour_space}_Pretrained:{config.pretrained}_Trainset:{config.trainset}_Validationset:{config.validationset}"
