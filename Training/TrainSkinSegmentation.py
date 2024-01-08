@@ -311,6 +311,7 @@ def model_pipeline(hyperparameters):
             test_performance(config, model, test_loader, loss_function, "test")
             test_performance(config, model, validation_loader, loss_function, "validation")
             
+            
         # Train the model, incl. validation
         train(config, model, train_loader, validation_loader, loss_function, optimizer)
 
