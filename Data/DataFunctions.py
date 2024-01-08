@@ -193,13 +193,15 @@ def make_grinch(config, image, output):
         output = output.to("cpu").numpy()
     grinch = np.copy(image)
     mask = output == 1
-    # TODO: Dubbel checken of dit goed gaat voor andere colour spaces dan BGR (kan nu nog niet)
+    green_bgr = [0, 255, 0]
     if config.colour_space == "BGR":
-        grinch[mask] = [0, 255, 0]
+        grinch[mask] = green_bgr
     elif config.colour_space == "YCrCb":
-        grinch[mask] = [149.895, 80.968, 107.032]
+        green_ycrcb = cv2.cvtColor(np.uint8([[green_bgr]]), cv2.COLOR_BGR2YCrCb)[0][0]
+        grinch[mask] = green_ycrcb
     elif config.colour_space == "HSV":
-        grinch[mask] = [120, 100, 100]
+        green_hsv = cv2.cvtColor(np.uint8([[green_bgr]]), cv2.COLOR_BGR2HSV)[0][0]
+        grinch[mask] = green_hsv
     
     return grinch
 
