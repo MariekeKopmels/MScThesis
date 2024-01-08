@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+# Implementation of the U-Net is from https://github.com/nikhilroxtomar/Semantic-Segmentation-Architecture/blob/main/PyTorch/unet.py
+
 NO_PIXELS = 224
 
 # Convolutional block of U-Net
@@ -76,9 +78,7 @@ class UNET(nn.Module):
         """ Classifier """
         self.outputs = nn.Conv2d(64, 1, kernel_size=1, padding=0)
 
-    # TODO: testen of len(batch_size) works with changing batch_sizes
     def forward(self, inputs):      
-        batch_size = len(inputs)
         """ Encoder """
         s1, p1 = self.e1(inputs)
         s2, p2 = self.e2(p1)
@@ -94,8 +94,8 @@ class UNET(nn.Module):
         """ Classifier """
         x = self.outputs(d4)
         """ Reformatting """
-        # Reshape output to the desired shape (batch_size, height, width)
-        outputs = x.reshape(batch_size, self.dims, self.dims)
+        # Squeeze output to get the desired shape (batch_size, height, width)
+        outputs = torch.squeeze(x)
         
         return outputs
     

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import time
 import Models.MyModels as MyModels
 import Logging.LogFunctions as LogFunctions
+import Models.ModelFunctions as ModelFunctions
 import Data.DataFunctions as DataFunctions
 import torch
 import wandb
@@ -33,19 +34,27 @@ default_config = SimpleNamespace(
     lr = 0.00001, 
     colour_space = "BGR",
     optimizer = "AdamW",
+    weight_decay = 0.01,
     
     num_workers = 4,
-    num_epochs = 10,
+    num_epochs = 5,
     batch_size = 32, 
-    train_size = 44783,       #VisuAAL
+    
+    # train_size = 44783,       #VisuAAL
+    # validation_size = 1157,   #VisuAAL
+    # test_size = 768,          #LargeCombinedTest
+    
     # train_size = 6528,        #LargeCombined
-    # train_size = 32640,       #LargeCombinedAugmented
-    # train_size = 1024,          #Smaller part
-    validation_size = 1157,   #VisuAAL
     # validation_size = 384,    #LargeCombined
-    # validation_size = 256,     #Smaller part
-    test_size = 768,          #LargeCombinedTest
-    # test_size = 512,           #Smaller part
+    # test_size = 768,          #LargeCombinedTest
+    
+    # train_size = 32640,       #LargeCombinedAugmented
+    # validation_size = 384,    #LargeCombined
+    # test_size = 768,          #LargeCombinedTest
+    
+    train_size = 128,         #Smaller part
+    validation_size = 32,     #Smaller part
+    test_size = 64,           #Smaller part
     
     cm_train = False,
     cm_parts = 16,
@@ -62,6 +71,8 @@ default_config = SimpleNamespace(
     testset = "LargeCombinedTest",
     
     model_path = "/home/oddity/marieke/Output/Models",
+    model_name = "pretrained.pt",
+    run_name = "",
     architecture = "UNet"
 )
 
@@ -85,8 +96,9 @@ def parse_args():
     argparser.add_argument('--validation_size', type=int, default=default_config.validation_size, help='validation size')
     argparser.add_argument('--test_size', type=int, default=default_config.test_size, help='test size')
     argparser.add_argument('--lr', type=float, default=default_config.lr, help='learning rate')
+    argparser.add_argument('--weight_decay', type=float, default=default_config.weight_decay, help='weight decay for Weighted Adam optimizer')
     argparser.add_argument('--colour_space', type=str, default=default_config.colour_space, help='colour space')
-    argparser.add_argument('--device', type=torch.device, default=default_config.device, help='device')
+    argparser.add_argument('--model_name', type=str, default=default_config.model_name, help='name of the model to be loaded')    
     args = argparser.parse_args()
     vars(default_config).update(vars(args))
     return
@@ -99,7 +111,7 @@ def get_optimizer(config, model):
     elif config.optimizer == "Adam":
         return optim.Adam(model.parameters(), lr=config.lr)
     elif config.optimizer == "AdamW":
-        return optim.AdamW(model.parameters(), lr=config.lr)
+        return optim.AdamW(model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
     elif config.optimizer == "RMSprop":
         return optim.RMSprop(model.parameters(),lr=config.lr, momentum=config.momentum) 
     else:
@@ -117,10 +129,9 @@ def make(config):
     end_time = time.time() - start_time
     print(f"Loading of data done in %.2d seconds" % end_time)
     
-    # Make the model
+    # Make or load the model
     if config.pretrained:
-        path = config.model_path + "/pretrained.pt"
-        model = torch.load(path).to(config.device)
+        model = ModelFunctions.load_model(config, config.model_name)
     else: 
         model = MyModels.UNET(config).to(config.device)
 
@@ -193,17 +204,24 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
             mean_loss = epoch_loss / (num_batches * config.batch_size)
             _ = LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
         
-        # Save the model
-        LogFunctions.save_model(config, model, epoch+1)
+         # Test the performance with validation data
+        val_IoU_scores[epoch] = test_performance(config, model, validation_loader, loss_function, "validation")        
         
-        # Test the performance with validation data
-        val_IoU_scores[epoch] = test_performance(config, model, validation_loader, loss_function, "validation")
+        # Save the model of this epoch, overwrite the best model if it has a better IoU score than all previous model
+        if epoch == 0 or val_IoU_scores[epoch] > max(val_IoU_scores[:epoch]):
+            ModelFunctions.save_model(config, model, epoch+1, best=True)
+        else:
+            ModelFunctions.save_model(config, model, epoch+1)
         
         # Early stopping
         if config.early_stopping:
             early_stop, patience_counter = early_stopping(config, epoch, patience_counter, val_IoU_scores)
             if early_stop:
-                break
+                # If stopped early, retrieve the best model for further computations
+                model = ModelFunctions.load_model(config, model_from_current_run=True)
+                return model
+            
+    return model
             
 """ Performs training for one batch of datapoints. Returns the true/false positive/negative metrics. 
 """
@@ -288,12 +306,15 @@ def test_performance(config, model, data_loader, loss_function, stage):
 """ Runs the whole pipeline of creating, training and testing a model
 """
 def model_pipeline(hyperparameters):
+    # Give the run a name
+    # hyperparameters.run_name = f"{hyperparameters.machine}_{hyperparameters.batch_size}_LR:{hyperparameters.lr}_Colourspace:{hyperparameters.colour_space}_Pretrained:{hyperparameters.pretrained}_Trainset:{hyperparameters.trainset}_Validationset:{hyperparameters.validationset}"
+    hyperparameters.run_name = "TEST"
+    
     # Start wandb
     with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
-        # Set hyperparameters and give the run a name
+        # Set hyperparameters
         config = wandb.config
-        run_name = f"{config.machine}_{config.batch_size}_LR:{config.lr}_Colourspace:{config.colour_space}_Pretrained:{config.pretrained}_Trainset:{config.trainset}_Validationset:{config.validationset}"
-        wandb.run.name = run_name
+        wandb.run.name = config.run_name
 
         # TODO: Aanzetten en testen
         # init_device(config)
@@ -312,13 +333,10 @@ def model_pipeline(hyperparameters):
             test_performance(config, model, validation_loader, loss_function, "validation")
             
         # Train the model, incl. validation
-        train(config, model, train_loader, validation_loader, loss_function, optimizer)
+        best_model = train(config, model, train_loader, validation_loader, loss_function, optimizer)
 
-        # Test the models performance
-        test_performance(config, model, test_loader, loss_function, "test")
-        
-        # Store the final model
-        LogFunctions.save_model(config, model, 0, final=True)
+        # Test the best model's performance
+        test_performance(config, best_model, test_loader, loss_function, "test")
 
     return
 
