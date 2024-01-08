@@ -123,7 +123,7 @@ class MultiTaskModel(nn.Module):
         super(MultiTaskModel, self).__init__()
         
         self.shared_layers = nn.Sequential(
-            nn.Linear(config.input_size, 128),
+            nn.Linear(config.num_channels, 128),
             nn.ReLU(),
             nn.Linear(128,64), 
             nn.ReLU()
@@ -143,4 +143,8 @@ class MultiTaskModel(nn.Module):
             nn.Linear(16, config.num_skincolour_classes)
         )
         
-    # def forward(self, x):
+    def forward(self, x):
+        shared_features = self.shared_layers(x)
+        violence_output = self.violence_layers(shared_features)
+        skincolour_output = self.skincolour_layers(shared_features)
+        return violence_output, skincolour_output

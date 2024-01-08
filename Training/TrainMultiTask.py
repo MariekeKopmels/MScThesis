@@ -49,11 +49,25 @@ default_config = SimpleNamespace(
 def parse_args():
     "Overriding default arguments"
     argparser = argparse.ArgumentParser(description='Process hyper-parameters')
-    argparser.add_argument('--machine', type=str, default=default_config.machine, help='type of machine')
+    argparser.add_argument('--config', type=str, default='Config/mac.config', help='path to the configuration file.')
     args = argparser.parse_args()
-    vars(default_config).update(vars(args))
-    return
+    return args
 
+
+def load_config(config_path):
+    config = {}
+    with open(config_path, 'r') as config_file:
+        for line in config_file:
+            key, value = line.strip().split('=')
+            if value.isdecimal():
+                config[key.strip()] = float(value)
+            elif value.isdigit():
+                config[key.strip()] = int(value)
+            else:
+                config[key.strip()] = value
+    return SimpleNamespace(**config)
+    
+    
 def make(config):
     print("Creating data loaders")
     train_loader, validation_loader, test_loader = DataFunctions.load_video_data(config)
@@ -74,5 +88,6 @@ def multitask_learning_pipeline(hyperparameters):
     return        
 
 if __name__ == '__main__':
-    parse_args()
-    multitask_learning_pipeline(default_config)
+    args = parse_args()
+    config = load_config(args.config)
+    multitask_learning_pipeline(config)
