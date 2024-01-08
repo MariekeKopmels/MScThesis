@@ -207,10 +207,11 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
          # Test the performance with validation data
         val_IoU_scores[epoch] = test_performance(config, model, validation_loader, loss_function, "validation")        
         
-        # Save the model of this epoch, overwrite the best model if it has a better IoU score than all previous models
-        ModelFunctions.save_model(config, model, epoch+1)
+        # Save the model of this epoch, overwrite the best model if it has a better IoU score than all previous model
         if epoch == 0 or val_IoU_scores[epoch] > max(val_IoU_scores[:epoch]):
             ModelFunctions.save_model(config, model, epoch+1, best=True)
+        else:
+            ModelFunctions.save_model(config, model, epoch+1)
         
         # Early stopping
         if config.early_stopping:
