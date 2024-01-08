@@ -171,21 +171,12 @@ def load_video_gts(config, dir_path):
         Format of return: torch tensors containing videos and corresponding ground truths.
         Torch tensors are of shape batch_size,frame,num_channels,dims,dims for videos and XXX for ground truths.
 """
-def load_input_videos(config, image_dir_path, gt_dir_path, stage):
+def load_input_videos(config, image_dir_path, gt_dir_path):
     # Load list of files in directories
     video_list = os.listdir(image_dir_path)
     
     # Skip hidden files in the video directory
     dir_list = [video for video in video_list if not video.startswith(".")]
-    
-    # Include as many items as requested
-    #TODO: K-fold training inbouwen
-    if stage == "train":
-        dir_list = dir_list[:config.train_size]
-    elif stage == "validation":
-        dir_list = dir_list[:config.validation_size]
-    elif stage == "test":
-        dir_list = dir_list[:config.test_size]
     
     # Load the videos
     videos = load_videos(config, dir_list, image_dir_path)
@@ -193,34 +184,31 @@ def load_input_videos(config, image_dir_path, gt_dir_path, stage):
 
     return videos, gts
 
-""" Returns train, validation and test, all being data loaders with tuples of input videos and corresponding ground truths.
+""" Returns train and test, being data loaders with tuples of input videos and corresponding ground truths.
         Format of return: Data loaders of tuples containing an input tensor and a ground truth tensor
         Video tensors are of shape (batch_size, frames, channels, height, width)
+        Ground truth tensors are of shape (batch_size, 2) where each row defines the Violence and SkinColour class of that row's sample
 """
 #TODO: See if this (and the other video/iamge data functions can be merged.
 def load_video_data(config):
-    # Load train, validation and test data
+    # Load train and test data
     print("Loading training data...")
     base_path = config.data_path + "/" + config.trainset
-    train_videos, train_gts = load_input_videos(config, base_path + "/TrainVideos", base_path + "/TrainGroundTruths.json", stage="train")
-    print("Loading validation data...")
-    base_path = config.data_path + "/" + config.validationset
-    validation_videos, validation_gts = load_input_videos(config, base_path + "/ValidationVideos", base_path + "/ValidationGroundTruths.json", stage="validation")
+    train_videos, train_gts = load_input_videos(config, base_path + "/TrainVideos", base_path + "/TrainGroundTruths.json")
     print("Loading test data...")
     base_path = config.data_path + "/" + config.testset
-    test_videos, test_gts = load_input_videos(config, base_path + "/TestVideos", base_path + "/TestGroundTruths.json", stage="test")
+    test_videos, test_gts = load_input_videos(config, base_path + "/TestVideos", base_path + "/TestGroundTruths.json")
 
     # Combine images and ground truths in TensorDataset format
     train = torch.utils.data.TensorDataset(train_videos, train_gts)
-    validation = torch.utils.data.TensorDataset(validation_videos, validation_gts)
     test = torch.utils.data.TensorDataset(test_videos, test_gts)
     
     # Put data into dataloaders
     train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True, num_workers=config.num_workers, pin_memory=True, drop_last=True)
-    validation_loader = DataLoader(validation, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True, drop_last=True)
     test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True, drop_last=True)
     
-    return train_loader, validation_loader, test_loader
+    # Return dataloaders
+    return train_loader, test_loader
 
 """ Splits the videos in config.video_path directory into images, stores them on disk
 """
@@ -292,7 +280,7 @@ def normalize_images(config, images):
     if channel1.max() > 255.0 or channel2.max() > 255.0 or channel3.max() > 255.0:
         print(f"WARNING: there is a value larger than 255! Should not happen. Colour_space:{config.colour_space}")
     
-    # Imagenet normilization voor BGR (dus idd omgedraaid tov RGB)
+    # TODO: Imagenet normilization voor BGR (dus idd omgedraaid tov RGB)
     if config.colour_space == "BGR":
         # mean = torch.tensor([0.406, 0.456, 0.485]).view(1, 3, 1, 1).to(config.device)
         # std = torch.tensor([0.225, 0.224, 0.229]).view(1, 3, 1, 1).to(config.device)

@@ -59,9 +59,7 @@ def load_config(config_path):
     with open(config_path, 'r') as config_file:
         for line in config_file:
             key, value = line.strip().split('=')
-            if value.isdecimal():
-                config[key.strip()] = float(value)
-            elif value.isdigit():
+            if value.isdigit():
                 config[key.strip()] = int(value)
             else:
                 config[key.strip()] = value
@@ -70,19 +68,18 @@ def load_config(config_path):
     
 def make(config):
     print("Creating data loaders")
-    train_loader, validation_loader, test_loader = DataFunctions.load_video_data(config)
+    train_loader, test_loader = DataFunctions.load_video_data(config)
     
     model = MyModels.MultiTaskModel(config).to(config.device)
     
-    return model, train_loader, validation_loader, test_loader
-    
+    return model, train_loader, test_loader
 
 def multitask_learning_pipeline(hyperparameters):
     with wandb.init(mode="disabled", project="multi-task-model", config=hyperparameters):
         config = wandb.config
         
         # Create model, data loaders, loss function and optimizer
-        model, train_loader, validation_loader, test_loader = make(config)
+        model, train_loader, test_loader = make(config)
         
         # Do things
     return        
