@@ -12,6 +12,7 @@ default_config = SimpleNamespace(
     # machine = "OS4",
     # device = torch.device("cuda"),
     # num_workers = 1,
+    # num_channels = 3,
     # dims = 224,
     # max_video_length = 100,
     # batch_size = 32, 
@@ -23,6 +24,7 @@ default_config = SimpleNamespace(
     machine = "mac",
     device = torch.device("mps"),
     num_workers = 1,
+    num_channels = 3,
     log = True,
     dims = 224,
     num_violence_classes = 2,           #Violence and Neutral
@@ -36,6 +38,8 @@ default_config = SimpleNamespace(
     test_size = 3,
     
     trainset = "DemoGrinchVideos",
+    validationset = "DemoGrinchVideos",
+    testset = "DemoGrinchVideos",
     data_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch",
     
     architecture = "I3D_Multitask",
@@ -60,11 +64,11 @@ def make(config):
     
 
 def multitask_learning_pipeline(hyperparameters):
-    with wandb.init(project="multi-task-model", config=hyperparameters):
+    with wandb.init(mode="disabled", project="multi-task-model", config=hyperparameters):
         config = wandb.config
         
         # Create model, data loaders, loss function and optimizer
-        train_loader, validation_loader, test_loader = make(config)
+        model, train_loader, validation_loader, test_loader = make(config)
         
         # Do things
     return        

@@ -2,6 +2,7 @@ import os
 import cv2
 import sklearn.metrics
 import torch 
+import json
 import numpy as np 
 from torch.utils.data import DataLoader
 import time
@@ -129,6 +130,43 @@ def load_videos(config, dir_list, dir_path):
             
     return videos
 
+""" Function to map the violence and shoe colour labels to a numeric value
+    For the violence labels it is defined as: 
+    Violence = 1, Neutral = 0
+    and for shoe colour it is defined as:
+    White = 0, Pink = 1, Green = 2, Black = 3, Unknown = 9
+"""
+def map_to_numeric(label):
+    # Define a mapping from label strings to numeric values
+    label_mapping = {
+        # Violence
+        "Neutral": 0,
+        "Violence": 1,
+        # Shoe colour
+        "White": 0,
+        "Pink": 1,
+        "Green": 2,
+        "Black": 3,
+        "Unknown": 9
+    }
+    return label_mapping.get(label, -1)  # Return -1 if label is not found in mapping
+
+
+""" Loads the ground truths of videos in torch tensor format
+"""
+def load_video_gts(config, dir_path):
+    with open(dir_path, "r") as json_file:
+        gts_json = json.load(json_file)
+        
+    gts = []
+    for _, labels in gts_json.items():
+        row = []
+        row.append(map_to_numeric(labels["Violence"]["Class"]))
+        row.append(map_to_numeric(labels["ShoeColour"]["Class"]))
+        gts.append(row)
+        
+    return torch.tensor(gts)
+
 """ Returns input videos in a given directory
         Format of return: torch tensors containing videos and corresponding ground truths.
         Torch tensors are of shape batch_size,frame,num_channels,dims,dims for videos and XXX for ground truths.
@@ -136,7 +174,6 @@ def load_videos(config, dir_list, dir_path):
 def load_input_videos(config, image_dir_path, gt_dir_path, stage):
     # Load list of files in directories
     video_list = os.listdir(image_dir_path)
-    # gt_list = os.listdir(gt_dir_path)
     
     # Skip hidden files in the video directory
     dir_list = [video for video in video_list if not video.startswith(".")]
@@ -152,8 +189,7 @@ def load_input_videos(config, image_dir_path, gt_dir_path, stage):
     
     # Load the videos
     videos = load_videos(config, dir_list, image_dir_path)
-    gts = 0
-    # gts = load_video_gts()
+    gts = load_video_gts(config, gt_dir_path)
 
     return videos, gts
 
@@ -166,14 +202,14 @@ def load_video_data(config):
     # Load train, validation and test data
     print("Loading training data...")
     base_path = config.data_path + "/" + config.trainset
-    train_videos, train_gts = load_input_videos(config, base_path + "/TrainVideos", base_path + "/TrainGroundTruths", stage="train")
+    train_videos, train_gts = load_input_videos(config, base_path + "/TrainVideos", base_path + "/TrainGroundTruths.json", stage="train")
     print("Loading validation data...")
     base_path = config.data_path + "/" + config.validationset
-    validation_videos, validation_gts = load_input_videos(config, base_path + "/ValidationVideos", base_path + "/ValidationGroundTruths", stage="validation")
+    validation_videos, validation_gts = load_input_videos(config, base_path + "/ValidationVideos", base_path + "/ValidationGroundTruths.json", stage="validation")
     print("Loading test data...")
     base_path = config.data_path + "/" + config.testset
-    test_videos, test_gts = load_input_videos(config, base_path + "/TestVideos", base_path + "/TestGroundTruths", stage="test")
-    
+    test_videos, test_gts = load_input_videos(config, base_path + "/TestVideos", base_path + "/TestGroundTruths.json", stage="test")
+
     # Combine images and ground truths in TensorDataset format
     train = torch.utils.data.TensorDataset(train_videos, train_gts)
     validation = torch.utils.data.TensorDataset(validation_videos, validation_gts)
