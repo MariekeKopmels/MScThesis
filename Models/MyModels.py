@@ -56,6 +56,9 @@ class decoder_block(nn.Module):
         Takes as input torch tensors of shape (batch_size, channels, height, width)
         Output is a torch tensor of shape (batch_size, height, width) as 
         it represents only 1 channel with values between 0 (background) and 1 (skin).
+        
+        WARNING: outputs are not in the range [0,1], as no activation layer is present.
+        If desired, put output through a sigmoid layer.
 """
 # TODO: cleanup: verdelen in nn.Sequential blokken encoeder, bottleneck en decoder
 class UNET(nn.Module):
