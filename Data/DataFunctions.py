@@ -41,7 +41,6 @@ def load_images(config, dir_list, dir_path, gts=False):
             images[i] = torch.tensor(image, dtype=torch.float32).unsqueeze(0)
         else:
             images[i] = torch.tensor(image, dtype=torch.float32).permute(2, 0, 1)
-            test = torch.tensor(image).permute(2, 0, 1)
             
     return images
 
@@ -61,8 +60,6 @@ def load_input_images(config, image_dir_path, gt_dir_path, stage):
     #TODO: Hier aanpassen K-fold training ingebouwd wordt
     if stage == "train":
         dir_list = dir_list[:config.train_size]
-    elif stage == "validation":
-        dir_list = dir_list[:config.validation_size]
     elif stage == "test":
         dir_list = dir_list[:config.test_size]
     
@@ -72,34 +69,38 @@ def load_input_images(config, image_dir_path, gt_dir_path, stage):
     
     return images, gts
 
-""" Returns train, validation and test, all being data loaders with tuples of input images and corresponding ground truths.
+""" Returns train and test, all being data loaders with tuples of input images and corresponding ground truths.
         Format of return: Data loaders of tuples containging an input image tensor and a ground truth image tensor
         Image tensors are of shape (batch_size, channels, height, width)
 """
 def load_image_data(config):
-    # Load train, validation and test data
+    # Load train and test data
     print("Loading training data...")
     base_path = config.data_path + "/" + config.trainset
     train_images, train_gts = load_input_images(config, base_path + "/TrainImages", base_path + "/TrainGroundTruths", stage = "train")
-    print("Loading validation data...")
-    base_path = config.data_path + "/" + config.validationset
-    validation_images, validation_gts = load_input_images(config, base_path + "/ValidationImages", base_path + "/ValidationGroundTruths", stage = "validation")
     print("Loading testing data...")
     base_path = config.data_path + "/" + config.testset
     test_images, test_gts = load_input_images(config, base_path + "/TestImages", base_path + "/TestGroundTruths", stage = "test")
 
     # Combine images and ground truths in TensorDataset format
     train = torch.utils.data.TensorDataset(train_images, train_gts)
-    validation = torch.utils.data.TensorDataset(validation_images, validation_gts)
     test = torch.utils.data.TensorDataset(test_images, test_gts)
 
     # Put data into dataloaders
     train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True, num_workers=config.num_workers, pin_memory=True, drop_last=True)
-    validation_loader = DataLoader(validation, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True, drop_last=True)
-    # TODO: Do I want to use drop_last=True for the test loader? Check if possible to remove. Now, not all test data is used. 
-    test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True, drop_last=True)
+    test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True, drop_last=False)
     
-    return train_loader, validation_loader, test_loader
+    return train_loader, test_loader
+
+
+""" Splits the data in the passed data loader into a train and validation loader.
+"""
+def split_dataset(config, data_loader):
+    train_data, validation_data = random_split(data_loader.dataset, [config.split, 1-config.split])
+    train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, drop_last=True) 
+    validation_loader = DataLoader(validation_data, batch_size=config.batch_size, shuffle=True, drop_last=True) 
+    
+    return train_loader, validation_loader
 
 
 """ Splits the videos in config.video_path directory into images, stores them on disk
