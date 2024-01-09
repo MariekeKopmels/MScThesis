@@ -3,7 +3,7 @@ import cv2
 import sklearn.metrics
 import torch 
 import numpy as np 
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 import time
 import Logging.LogFunctions as LogFunctions
 
@@ -98,7 +98,7 @@ def load_image_data(config):
 def split_dataset(config, data_loader):
     train_data, validation_data = random_split(data_loader.dataset, [config.split, 1-config.split])
     train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, drop_last=True) 
-    validation_loader = DataLoader(validation_data, batch_size=config.batch_size, shuffle=True, drop_last=True) 
+    validation_loader = DataLoader(validation_data, batch_size=config.batch_size, shuffle=True, drop_last=False) 
     
     return train_loader, validation_loader
 

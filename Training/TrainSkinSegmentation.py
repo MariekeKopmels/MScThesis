@@ -198,7 +198,7 @@ def train(config, model, data_loader, loss_function, optimizer):
         # Keep track of training epoch stats, or skip for sake of efficiency
         if config.cm_train:
             epoch_tn, epoch_fn, epoch_fp, epoch_tp = DataFunctions.confusion_matrix(config, epoch_outputs, epoch_targets, "train")
-            # drop_last=True in the dataloader, so we compute the amount of batches first
+            # drop_last=True in the train dataloader, so we compute the amount of batches first
             num_batches = len(train_loader.dataset) // config.batch_size
             mean_loss = epoch_loss / (num_batches * config.batch_size)
             _ = LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
@@ -295,8 +295,8 @@ def test_performance(config, model, data_loader, loss_function, stage):
         
         # Compute and log metrics
         epoch_tn, epoch_fn, epoch_fp, epoch_tp = DataFunctions.confusion_matrix(config, test_outputs, test_targets, stage)
-        num_batches = len(data_loader.dataset) // config.batch_size
-        mean_loss = total_loss / (num_batches * config.batch_size)
+        # Drop_last=False for both the validation and test dataloader, so the size of the dataset is used to compute the mean
+        mean_loss = total_loss / len(data_loader.dataset)
         IoU = LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, stage)
         
     return IoU
