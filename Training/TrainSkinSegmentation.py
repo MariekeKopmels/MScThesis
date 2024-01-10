@@ -170,11 +170,12 @@ def train(config, model, data_loader, loss_function, optimizer):
         
     val_IoU_scores = np.zeros(config.num_epochs)
     patience_counter = 0
+    
+    # Split the data into a train and validation part
+    train_loader, validation_loader = DataFunctions.split_dataset(config, data_loader)
         
     print("-------------------------Start Training-------------------------")
     for epoch in range(config.num_epochs):
-        # Split the data into a train and validation part
-        train_loader, validation_loader = DataFunctions.split_dataset(config, data_loader)
                 
         print(f"-------------------------Starting Training Epoch {epoch+1}/{config.num_epochs} epochs-------------------------")
         model.train()
