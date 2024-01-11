@@ -79,7 +79,9 @@ class UNET(nn.Module):
         self.d3 = decoder_block(256, 128)
         self.d4 = decoder_block(128, 64)
         """ Classifier """
-        self.outputs = nn.Conv2d(64, 1, kernel_size=1, padding=0)
+        self.classifier = nn.Conv2d(64, 1, kernel_size=1, padding=0)
+        """ Sigmoid activation layer """
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, inputs):      
         """ Encoder """
@@ -95,12 +97,13 @@ class UNET(nn.Module):
         d3 = self.d3(d2, s2)
         d4 = self.d4(d3, s1)
         """ Classifier """
-        x = self.outputs(d4)
+        x = self.classifier(d4)
         """ Reformatting """
         # Squeeze output to get the desired shape (batch_size, height, width)
-        outputs = torch.squeeze(x)
+        raw_outputs = torch.squeeze(x)
+        outputs = self.sigmoid(raw_outputs)
         
-        return outputs
+        return raw_outputs, outputs
     
 """ Network used for pixel skin classifier. Very basic feed forward neural network.
 """
