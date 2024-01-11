@@ -37,8 +37,8 @@ default_config = SimpleNamespace(
     weight_decay = 0.01,
     
     num_workers = 4,
-    num_epochs = 5,
-    batch_size = 32, 
+    num_epochs = 10,
+    batch_size = 16, 
     
     # train_size = 44783,       #VisuAAL
     # validation_size = 1157,   #VisuAAL
@@ -52,7 +52,7 @@ default_config = SimpleNamespace(
     # validation_size = 384,    #LargeCombined
     # test_size = 768,          #LargeCombinedTest
     
-    train_size = 128,         #Smaller part
+    train_size = 64,         #Smaller part
     validation_size = 32,     #Smaller part
     test_size = 64,           #Smaller part
     
@@ -232,10 +232,10 @@ def train_batch(config, scaler, images, targets, model, optimizer, loss_function
             # Model inference
             images, targets = images.to(config.device), targets.to(config.device)
             normalized_images = DataFunctions.normalize_images(config, images)
-            outputs = model(normalized_images)
-            
+            raw_outputs, outputs = model(normalized_images)
+                        
             # Compute loss, update model
-            loss = loss_function(outputs, targets)
+            loss = loss_function(raw_outputs, targets)
             optimizer.zero_grad(set_to_none=True)
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -245,11 +245,11 @@ def train_batch(config, scaler, images, targets, model, optimizer, loss_function
         # Model inference
         images, targets = images.to(config.device), targets.to(config.device)
         normalized_images = DataFunctions.normalize_images(config, images)
-        outputs = model(normalized_images)
+        raw_outputs, outputs = model(normalized_images)
         
         # Compute loss, update model
         optimizer.zero_grad(set_to_none=True)
-        loss = loss_function(outputs, targets)
+        loss = loss_function(raw_outputs, targets)
         loss.backward()
         optimizer.step()
         
@@ -261,7 +261,6 @@ def train_batch(config, scaler, images, targets, model, optimizer, loss_function
 def test_performance(config, model, data_loader, loss_function, stage):
     print(f"-------------------------Start {stage}-------------------------")
     model.eval()
-        
     # Test the performance of the model on the data in the passed data loader, either test or validation data
     with torch.no_grad():
         total_loss = 0.0
@@ -278,13 +277,13 @@ def test_performance(config, model, data_loader, loss_function, stage):
             # Model inference 
             images, targets = images.to(config.device), targets.to(config.device)
             normalized_images = DataFunctions.normalize_images(config, images)
-            batch_outputs = model(normalized_images)
+            raw_batch_outputs, batch_outputs = model(normalized_images)
             
             # Log example to WandB
             LogFunctions.log_example(config, example_image, targets[0], batch_outputs[0], stage)
             
             # Compute batch loss
-            batch_loss = loss_function(batch_outputs, targets).item()
+            batch_loss = loss_function(raw_batch_outputs, targets).item()
             
             # Store all outputs and targets
             test_outputs = torch.cat((test_outputs, batch_outputs), dim=0)
@@ -311,7 +310,7 @@ def model_pipeline(hyperparameters):
     hyperparameters.run_name = f"{hyperparameters.machine}_{hyperparameters.colour_space}"
     
     # Start wandb
-    with wandb.init(project="skin_segmentation", config=hyperparameters): #mode="disabled", 
+    with wandb.init(mode="online", project="skin_segmentation", config=hyperparameters): #mode="disabled", 
         # Set hyperparameters
         config = wandb.config
         wandb.run.name = config.run_name

@@ -54,8 +54,12 @@ class decoder_block(nn.Module):
 
 """ Definition of a U-Net model, with 4 encoder and decoder blocks. 
         Takes as input torch tensors of shape (batch_size, channels, height, width)
-        Output is a torch tensor of shape (batch_size, height, width) as 
-        it represents only 1 channel with values between 0 (background) and 1 (skin).
+        Outputs are the raw and sigmoid outputs of the model in the shape of 
+        torch tensors of shape (batch_size, height, width) 
+        (One channels as it represents only 1 classification)
+        
+        The raw output contains unprocessed float outputs whereas the regular outputs
+        are in the range [0,1].
 """
 # TODO: cleanup: verdelen in nn.Sequential blokken encoeder, bottleneck en decoder
 class UNET(nn.Module):
@@ -76,7 +80,9 @@ class UNET(nn.Module):
         self.d3 = decoder_block(256, 128)
         self.d4 = decoder_block(128, 64)
         """ Classifier """
-        self.outputs = nn.Conv2d(64, 1, kernel_size=1, padding=0)
+        self.classifier = nn.Conv2d(64, 1, kernel_size=1, padding=0)
+        """ Sigmoid activation layer """
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, inputs):      
         """ Encoder """
@@ -92,12 +98,13 @@ class UNET(nn.Module):
         d3 = self.d3(d2, s2)
         d4 = self.d4(d3, s1)
         """ Classifier """
-        x = self.outputs(d4)
+        x = self.classifier(d4)
         """ Reformatting """
         # Squeeze output to get the desired shape (batch_size, height, width)
-        outputs = torch.squeeze(x)
+        raw_outputs = torch.squeeze(x)
+        outputs = self.sigmoid(raw_outputs)
         
-        return outputs
+        return raw_outputs, outputs
     
 """ Network used for pixel skin classifier. Very basic feed forward neural network.
 """

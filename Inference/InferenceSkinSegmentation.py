@@ -6,6 +6,7 @@ import Models.ModelFunctions as ModelFunctions
 import torch
 import numpy as np
 import os
+import torch.nn as nn
 
 default_config = SimpleNamespace(
     machine = "OS4",
@@ -52,6 +53,7 @@ def parse_args():
 
 def inference(config):
     model = ModelFunctions.load_model(config)
+    sigmoid = nn.Sigmoid()
     
     video_dir = os.listdir(config.video_path)
     video_dir = [folder for folder in video_dir if not folder.startswith(".") and not folder.endswith(".mp4")]
@@ -76,7 +78,8 @@ def inference(config):
         with torch.no_grad():
             print(f"Calculating masks of {video}")
             images.to(config.device)
-            masks = model(images)
+            raw_masks = model(images)
+            masks = sigmoid(raw_masks)
             print("Making masks black&white")
             masks = (masks >= 0.5).float()
             
