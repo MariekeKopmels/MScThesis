@@ -87,7 +87,7 @@ def load_image_data(config):
     test = torch.utils.data.TensorDataset(test_images, test_gts)
 
     # Put data into dataloaders
-    train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True, num_workers=config.num_workers, pin_memory=True, drop_last=True)
+    train_loader = DataLoader(train, batch_size=config.batch_size, shuffle=True, num_workers=config.num_workers, pin_memory=True, drop_last=False)
     test_loader = DataLoader(test, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True, drop_last=False)
     
     return train_loader, test_loader
@@ -98,7 +98,7 @@ def load_image_data(config):
 def split_dataset(config, data_loader):
     generator = torch.Generator().manual_seed(42)
     train_data, validation_data = random_split(data_loader.dataset, [config.split, 1-config.split], generator)
-    train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, drop_last=True) 
+    train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, drop_last=False) 
     validation_loader = DataLoader(validation_data, batch_size=config.batch_size, shuffle=True, drop_last=False) 
     
     return train_loader, validation_loader

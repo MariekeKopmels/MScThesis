@@ -199,9 +199,8 @@ def train(config, model, data_loader, loss_function, optimizer):
         # Keep track of training epoch stats, or skip for sake of efficiency
         if config.cm_train:
             epoch_tn, epoch_fn, epoch_fp, epoch_tp = DataFunctions.confusion_matrix(config, epoch_outputs, epoch_targets, "train")
-            # drop_last=True in the train dataloader, so we compute the amount of batches first
-            num_batches = len(train_loader.dataset) // config.batch_size
-            mean_loss = epoch_loss / (num_batches * config.batch_size)
+            # drop_last=False in the train dataloader, so we compute the amount of batches first
+            mean_loss = epoch_loss / len(data_loader.dataset)
             _ = LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
         
          # Test the performance with validation data
