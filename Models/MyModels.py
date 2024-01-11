@@ -54,11 +54,12 @@ class decoder_block(nn.Module):
 
 """ Definition of a U-Net model, with 4 encoder and decoder blocks. 
         Takes as input torch tensors of shape (batch_size, channels, height, width)
-        Output is a torch tensor of shape (batch_size, height, width) as 
-        it represents only 1 channel with values between 0 (background) and 1 (skin).
+        Outputs are the raw and sigmoid outputs of the model in the shape of 
+        torch tensors of shape (batch_size, height, width) 
+        (One channels as it represents only 1 classification)
         
-        WARNING: outputs are not in the range [0,1], as no activation layer is present.
-        If desired, put output through a sigmoid layer.
+        The raw output contains unprocessed float outputs whereas the regular outputs
+        are in the range [0,1].
 """
 # TODO: cleanup: verdelen in nn.Sequential blokken encoeder, bottleneck en decoder
 class UNET(nn.Module):
