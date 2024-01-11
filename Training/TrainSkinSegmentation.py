@@ -319,6 +319,7 @@ def model_pipeline(hyperparameters):
         # init_device(config)
 
         # Create model, data loaders, loss function and optimizer
+        # Note that de data in the train loader is split into a train and validation dataset during training
         model, train_loader, test_loader, loss_function, optimizer = make(config)
         if config.log:
             wandb.watch(model, log="all", log_freq=1)
