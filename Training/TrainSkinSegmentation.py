@@ -37,23 +37,20 @@ default_config = SimpleNamespace(
     weight_decay = 0.01,
     
     num_workers = 4,
-    num_epochs = 10,
-    batch_size = 16, 
+    num_epochs = 5,
+    batch_size = 32, 
+    split = 0.8,
     
     # train_size = 44783,       #VisuAAL
-    # validation_size = 1157,   #VisuAAL
     # test_size = 768,          #LargeCombinedTest
     
     # train_size = 6528,        #LargeCombined
-    # validation_size = 384,    #LargeCombined
     # test_size = 768,          #LargeCombinedTest
     
     # train_size = 32640,       #LargeCombinedAugmented
-    # validation_size = 384,    #LargeCombined
     # test_size = 768,          #LargeCombinedTest
     
-    train_size = 64,         #Smaller part
-    validation_size = 32,     #Smaller part
+    train_size = 128,         #Smaller part
     test_size = 64,           #Smaller part
     
     cm_train = False,
@@ -67,7 +64,6 @@ default_config = SimpleNamespace(
     
     data_path = "/home/oddity/marieke/Datasets",
     trainset = "VisuAAL", 
-    validationset = "VisuAAL", 
     testset = "LargeCombinedTest",
     
     model_path = "/home/oddity/marieke/Output/Models",
@@ -93,7 +89,7 @@ def parse_args():
     argparser.add_argument('--num_epochs', type=int, default=default_config.num_epochs, help='number of epochs')
     argparser.add_argument('--batch_size', type=int, default=default_config.batch_size, help='batch size')
     argparser.add_argument('--train_size', type=int, default=default_config.train_size, help='train size')
-    argparser.add_argument('--validation_size', type=int, default=default_config.validation_size, help='validation size')
+    argparser.add_argument('--split', type=float, default=default_config.split, help='split used for train/validation, defines the size of the train set')
     argparser.add_argument('--test_size', type=int, default=default_config.test_size, help='test size')
     argparser.add_argument('--lr', type=float, default=default_config.lr, help='learning rate')
     argparser.add_argument('--weight_decay', type=float, default=default_config.weight_decay, help='weight decay for Weighted Adam optimizer')
@@ -125,7 +121,7 @@ def get_optimizer(config, model):
 def make(config):
     # Fetch data
     start_time = time.time()
-    train_loader, validation_loader, test_loader = DataFunctions.load_image_data(config)
+    train_loader, test_loader = DataFunctions.load_image_data(config)
     end_time = time.time() - start_time
     print(f"Loading of data done in %.2d seconds" % end_time)
     
@@ -142,7 +138,7 @@ def make(config):
     loss_function = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([weight])).to(config.device)
     optimizer = get_optimizer(config, model)
     
-    return model, train_loader, validation_loader, test_loader, loss_function, optimizer
+    return model, train_loader, test_loader, loss_function, optimizer
 
 """ Decides whether or not the validation score of the model improves enough. 
     If not, it will return early_stop=True which will stop the training process.
@@ -162,7 +158,7 @@ def early_stopping(config, epoch, patience_counter, val_IoU_scores):
 
 """ Trains the passed model, tests it performance after each epoch on the validation set. Prints and logs the results to WandB.
 """
-def train(config, model, train_loader, validation_loader, loss_function, optimizer):
+def train(config, model, data_loader, loss_function, optimizer):
     if config.automatic_mixed_precision:
         if config.machine == "TS2" or config.machine == "OS4":
             scaler = amp.GradScaler(enabled=config.automatic_mixed_precision)
@@ -174,16 +170,20 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
         
     val_IoU_scores = np.zeros(config.num_epochs)
     patience_counter = 0
+    
+    # Split the data into a train and validation part
+    train_loader, validation_loader = DataFunctions.split_dataset(config, data_loader)
         
     print("-------------------------Start Training-------------------------")
     for epoch in range(config.num_epochs):
+                
         print(f"-------------------------Starting Training Epoch {epoch+1}/{config.num_epochs} epochs-------------------------")
         model.train()
         epoch_loss = 0.0
         batch = 0
         epoch_outputs = torch.empty((0, config.dims, config.dims)).to(config.device)
         epoch_targets = torch.empty((0, config.dims, config.dims)).to(config.device)
-        for images, targets in train_loader:  
+        for images, targets in train_loader:
             
             batch += 1
             print(f"-------------------------Starting Batch {batch}/{int(config.train_size/config.batch_size)} batches-------------------------", end="\r")
@@ -199,9 +199,8 @@ def train(config, model, train_loader, validation_loader, loss_function, optimiz
         # Keep track of training epoch stats, or skip for sake of efficiency
         if config.cm_train:
             epoch_tn, epoch_fn, epoch_fp, epoch_tp = DataFunctions.confusion_matrix(config, epoch_outputs, epoch_targets, "train")
-            # drop_last=True in the dataloader, so we compute the amount of batches first
-            num_batches = len(train_loader.dataset) // config.batch_size
-            mean_loss = epoch_loss / (num_batches * config.batch_size)
+            # drop_last=False in the train dataloader, so we compute the amount of batches first
+            mean_loss = epoch_loss / len(data_loader.dataset)
             _ = LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
         
          # Test the performance with validation data
@@ -233,7 +232,7 @@ def train_batch(config, scaler, images, targets, model, optimizer, loss_function
             images, targets = images.to(config.device), targets.to(config.device)
             normalized_images = DataFunctions.normalize_images(config, images)
             raw_outputs, outputs = model(normalized_images)
-                        
+            
             # Compute loss, update model
             loss = loss_function(raw_outputs, targets)
             optimizer.zero_grad(set_to_none=True)
@@ -270,10 +269,10 @@ def test_performance(config, model, data_loader, loss_function, stage):
         for images, targets in data_loader:
             batch += 1
             print(f"-------------------------Starting Batch {batch}/{int(len(data_loader.dataset)/config.batch_size)} batches-------------------------", end="\r")
-
+            
             # Store example for printing while on CPU
             example_image = np.array(images[0].permute(1,2,0), dtype=np.uint8)
-            
+
             # Model inference 
             images, targets = images.to(config.device), targets.to(config.device)
             normalized_images = DataFunctions.normalize_images(config, images)
@@ -295,8 +294,8 @@ def test_performance(config, model, data_loader, loss_function, stage):
         
         # Compute and log metrics
         epoch_tn, epoch_fn, epoch_fp, epoch_tp = DataFunctions.confusion_matrix(config, test_outputs, test_targets, stage)
-        num_batches = len(data_loader.dataset) // config.batch_size
-        mean_loss = total_loss / (num_batches * config.batch_size)
+        # Drop_last=False for both the validation and test dataloader, so the size of the dataset is used to compute the mean
+        mean_loss = total_loss / len(data_loader.dataset)
         IoU = LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, stage)
         
     return IoU
@@ -310,7 +309,7 @@ def model_pipeline(hyperparameters):
     hyperparameters.run_name = f"{hyperparameters.machine}_{hyperparameters.colour_space}"
     
     # Start wandb
-    with wandb.init(mode="online", project="skin_segmentation", config=hyperparameters): #mode="disabled", 
+    with wandb.init(mode="online", project="skin_segmentation", config=hyperparameters): 
         # Set hyperparameters
         config = wandb.config
         wandb.run.name = config.run_name
@@ -319,20 +318,20 @@ def model_pipeline(hyperparameters):
         # init_device(config)
 
         # Create model, data loaders, loss function and optimizer
-        model, train_loader, validation_loader, test_loader, loss_function, optimizer = make(config)
+        # Note that de data in the train loader is split into a train and validation dataset during training
+        model, train_loader, test_loader, loss_function, optimizer = make(config)
         if config.log:
             wandb.watch(model, log="all", log_freq=1)
         else: 
             wandb.watch(model, log=None, log_freq=1)
             
-        # In case of a pretrained model, test the performance on the validation and test set before training to provide baseline information 
+        # In case of a pretrained model, test the performance on the test set before training to provide baseline information 
         if config.pretrained: 
-            print("-------------------------Loaded a pretrained model, producing test and validation baselines-------------------------")
+            print("-------------------------Loaded a pretrained model, producing a test baseline-------------------------")
             test_performance(config, model, test_loader, loss_function, "test")
-            test_performance(config, model, validation_loader, loss_function, "validation")
             
         # Train the model, incl. validation
-        best_model = train(config, model, train_loader, validation_loader, loss_function, optimizer)
+        best_model = train(config, model, train_loader, loss_function, optimizer)
 
         # Test the best model's performance
         test_performance(config, best_model, test_loader, loss_function, "test")
