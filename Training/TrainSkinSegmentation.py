@@ -23,7 +23,7 @@ from torch.cuda import amp
 # Size of LargeCombinedAugmented Train=32640
 
 default_config = SimpleNamespace(
-    machine = "OS4",
+    machine = "OTS5",
     device = torch.device("cuda"),
     dims = 224,
     num_channels = 3,
@@ -68,11 +68,8 @@ default_config = SimpleNamespace(
 )
 
 def init_device(config):
-    # TODO: voor cuda maken, mac eruit slopen
-    if config.machine == "TS2" or config.machine == "OS4":
+    if config.machine == "TS2" or config.machine == "OS4" or config.machine == "OTS5":
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
-    elif config.machine == "mac":
-        torch.set_default_tensor_type('torch.FloatTensor')
     else: 
         warnings.warn(f"Device type not found, can only deal with cpu or CUDA and is {config.machine}")
 
@@ -154,11 +151,10 @@ def early_stopping(config, epoch, patience_counter, val_IoU_scores):
 """
 def train(config, model, data_loader, loss_function, optimizer):
     if config.automatic_mixed_precision:
-        if config.machine == "TS2" or config.machine == "OS4":
+        if config.machine == "TS2" or config.machine == "OS4" or config.machine == "OTS5":
             scaler = amp.GradScaler(enabled=config.automatic_mixed_precision)
         else: 
-            config.automatic_mixed_precision = False
-            Warning("Machine not approved to use for Automatic Mixed Precision, so AMP turned off.")
+            Warning("Machine not approved to use for Automatic Mixed Precision, AMP should be turned off.")
     else:
         scaler = None
         

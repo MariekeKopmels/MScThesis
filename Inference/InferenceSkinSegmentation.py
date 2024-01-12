@@ -9,7 +9,7 @@ import os
 import torch.nn as nn
 
 default_config = SimpleNamespace(
-    machine = "OS4",
+    machine = "OTS5",
     device = torch.device("cuda"),
     num_workers = 1,
     dims = 224,
