@@ -272,7 +272,7 @@ def test_performance(config, model, data_loader, loss_function, stage):
             
             # Store example for printing while on CPU
             example_image = np.array(images[0].permute(1,2,0), dtype=np.uint8)
-            
+
             # Model inference 
             images, targets = images.to(config.device), targets.to(config.device)
             normalized_images = DataFunctions.normalize_images(config, images)
