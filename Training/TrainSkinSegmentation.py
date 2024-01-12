@@ -67,12 +67,6 @@ default_config = SimpleNamespace(
     architecture = "UNet"
 )
 
-def init_device(config):
-    if config.machine == "TS2" or config.machine == "OS4" or config.machine == "OTS5":
-        torch.set_default_tensor_type('torch.cuda.FloatTensor')
-    else: 
-        warnings.warn(f"Device type not found, can only deal with cpu or CUDA and is {config.machine}")
-
 
 def parse_args():
     "Overriding default arguments"
@@ -80,8 +74,8 @@ def parse_args():
     argparser.add_argument('--num_epochs', type=int, default=default_config.num_epochs, help='number of epochs')
     argparser.add_argument('--batch_size', type=int, default=default_config.batch_size, help='batch size')
     argparser.add_argument('--train_size', type=int, default=default_config.train_size, help='train size')
-    argparser.add_argument('--split', type=float, default=default_config.split, help='split used for train/validation, defines the size of the train set')
     argparser.add_argument('--test_size', type=int, default=default_config.test_size, help='test size')
+    argparser.add_argument('--split', type=float, default=default_config.split, help='split used for train/validation, defines the size of the train set')
     argparser.add_argument('--lr', type=float, default=default_config.lr, help='learning rate')
     argparser.add_argument('--weight_decay', type=float, default=default_config.weight_decay, help='weight decay for Weighted Adam optimizer')
     argparser.add_argument('--colour_space', type=str, default=default_config.colour_space, help='colour space')
@@ -108,7 +102,6 @@ def get_optimizer(config, model):
     
 """ Returns dataloaders, model, loss function and optimizer.
 """
-# TODO: group into distinct parts (i.e. splitting dataset stuff from model stuff)
 def make(config):
     # Fetch data
     start_time = time.time()
@@ -116,7 +109,7 @@ def make(config):
     end_time = time.time() - start_time
     print(f"Loading of data done in %.2d seconds" % end_time)
     
-    # Make or load the model
+    # Create or load the model
     if config.pretrained:
         model = ModelFunctions.load_model(config, config.model_name)
     else: 
@@ -202,22 +195,7 @@ def train(config, model, data_loader, loss_function, optimizer):
 """ Performs training for one batch of datapoints. Returns the true/false positive/negative metrics. 
 """
 def train_batch(config, scaler, images, targets, model, optimizer, loss_function):
-    # TODO: create helper function and reduce code duplication in this if/else statement
-    if config.automatic_mixed_precision:
-        with amp.autocast(enabled=config.automatic_mixed_precision):
-            # Model inference
-            images, targets = images.to(config.device), targets.to(config.device)
-            normalized_images = DataFunctions.normalize_images(config, images)
-            raw_outputs, outputs = model(normalized_images)
-            
-            # Compute loss, update model
-            loss = loss_function(raw_outputs, targets)
-            optimizer.zero_grad(set_to_none=True)
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
-
-    else:
+    with amp.autocast(enabled=config.automatic_mixed_precision):
         # Model inference
         images, targets = images.to(config.device), targets.to(config.device)
         normalized_images = DataFunctions.normalize_images(config, images)
@@ -226,8 +204,13 @@ def train_batch(config, scaler, images, targets, model, optimizer, loss_function
         # Compute loss, update model
         optimizer.zero_grad(set_to_none=True)
         loss = loss_function(raw_outputs, targets)
-        loss.backward()
-        optimizer.step()
+        if config.automatic_mixed_precision:
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            loss.backward()
+            optimizer.step()
         
     return loss, outputs
 
@@ -290,9 +273,6 @@ def model_pipeline(hyperparameters):
         # Set hyperparameters
         config = wandb.config
         wandb.run.name = config.run_name
-
-        # TODO: Aanzetten en testen
-        # init_device(config)
 
         # Create model, data loaders, loss function and optimizer
         # Note that the data in the train loader is split into a train and validation dataset during training

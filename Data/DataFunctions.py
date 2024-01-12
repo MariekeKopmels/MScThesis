@@ -57,7 +57,6 @@ def load_input_images(config, image_dir_path, gt_dir_path, stage):
     dir_list = [file for file in image_list if file in gt_list and not file.startswith(".")]
         
     # Include as many items as requested
-    #TODO: Hier aanpassen K-fold training ingebouwd wordt
     if stage == "train":
         dir_list = dir_list[:config.train_size]
     elif stage == "test":
@@ -96,7 +95,8 @@ def load_image_data(config):
 """ Splits the data in the passed data loader into a train and validation loader.
 """
 def split_dataset(config, data_loader):
-    generator = torch.Generator().manual_seed(42)
+    print(f"{config.device = }")
+    generator = torch.Generator(device=config.device).manual_seed(42)
     train_data, validation_data = random_split(data_loader.dataset, [config.split, 1-config.split], generator)
     train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, drop_last=False) 
     validation_loader = DataLoader(validation_data, batch_size=config.batch_size, shuffle=True, drop_last=False) 
@@ -163,27 +163,16 @@ def merge_images_to_video(config):
             video_writer.release()
     return
 
-""" Normalizes the passed images according to the ImageNet normalization mean and standard deviation.
-    TODO: Checken of ImageNet normalization idd het beste is, of dat ik beter zelf naar [0,1] kan normalizen.
-    TODO: Normalizen kan nog een stuk netter door zelf een mean en std uit te rekenen, ipv gewoon door 255 delen.
-    Let op, als ik ze zelf ga normalizen moet ik dezelfde methode bij zowel pretrainen als bij finetunen gebruiken. 
+""" Normalizes values in the passed images by dividing by the max value of 255, irrespective of the colour space.
+    Therefore, the original images have values in the range [0,255] whereas the normalized
+    Images are in range [0,255].
 """
 def normalize_images(config, images):
     channel1, channel2, channel3 = images[:, 0, :, :], images[:, 1, :, :], images[:, 2, :, :]
     if channel1.max() > 255.0 or channel2.max() > 255.0 or channel3.max() > 255.0:
         print(f"WARNING: there is a value larger than 255! Should not happen. Colour_space:{config.colour_space}")
     
-    # Imagenet normilization voor BGR (dus idd omgedraaid tov RGB)
-    if config.colour_space == "BGR":
-        # mean = torch.tensor([0.406, 0.456, 0.485]).view(1, 3, 1, 1).to(config.device)
-        # std = torch.tensor([0.225, 0.224, 0.229]).view(1, 3, 1, 1).to(config.device)
-        # normalized_images = ((images/255) - mean) / std
-        normalized_images = images/255.0
-    elif config.colour_space == "YCrCb" or config.colour_space == "HSV": 
-        normalized_images = images/255.0
-    else:
-        print(f"Unknown colour space {config.colour_space}. Images are not normalized.")
-        normalized_images = images
+    normalized_images = images/255.0
     
     return normalized_images
 
@@ -269,7 +258,6 @@ def metrics(tn, fn, fp, tp):
 
 """ Stores an image (in form of ndarray or tensor) to the disk.
 """
-# TODO: Add other colour spaces here
 def save_image(config, image, path, filename, bw=False, gt=False):
     os.makedirs(path, exist_ok=True)
     os.chdir(path)

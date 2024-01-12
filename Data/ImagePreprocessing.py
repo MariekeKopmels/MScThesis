@@ -71,8 +71,6 @@ def create_augmentations(config, images, gts):
             AugmentationFunctions.sheerY(config, i, image, gt)
         if config.brightness:
             AugmentationFunctions.brightness(config, i, image, gt)
-        # TODO: implement rotation augmentation?
-        # TODO: implement mosaic augmentation?
     return
     
 
