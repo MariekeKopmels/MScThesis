@@ -232,7 +232,7 @@ def train_batch(config, scaler, images, targets, model, optimizer, loss_function
             images, targets = images.to(config.device), targets.to(config.device)
             normalized_images = DataFunctions.normalize_images(config, images)
             raw_outputs, outputs = model(normalized_images)
-                        
+            
             # Compute loss, update model
             loss = loss_function(raw_outputs, targets)
             optimizer.zero_grad(set_to_none=True)
