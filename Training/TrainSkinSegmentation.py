@@ -22,14 +22,13 @@ from torch.cuda import amp
 # Size of LargeCombined Train=6528, Validation=384, Test=768
 # Size of LargeCombinedAugmented Train=32640
 
-# TODO: log eruit, cm_train eruit
+# TODO: cm_train eruit
 default_config = SimpleNamespace(
     machine = "OS4",
     device = torch.device("cuda"),
     dims = 224,
     num_channels = 3,
     
-    log = True,
     pretrained = False,
     lr = 0.00001, 
     colour_space = "BGR",
@@ -85,7 +84,6 @@ def init_device(config):
 def parse_args():
     "Overriding default arguments"
     argparser = argparse.ArgumentParser(description='Process hyper-parameters')
-    argparser.add_argument('--log', type=str, default=default_config.log, help='turns logging on or off')
     argparser.add_argument('--num_epochs', type=int, default=default_config.num_epochs, help='number of epochs')
     argparser.add_argument('--batch_size', type=int, default=default_config.batch_size, help='batch size')
     argparser.add_argument('--train_size', type=int, default=default_config.train_size, help='train size')
@@ -318,12 +316,9 @@ def model_pipeline(hyperparameters):
         # init_device(config)
 
         # Create model, data loaders, loss function and optimizer
-        # Note that de data in the train loader is split into a train and validation dataset during training
+        # Note that the data in the train loader is split into a train and validation dataset during training
         model, train_loader, test_loader, loss_function, optimizer = make(config)
-        if config.log:
-            wandb.watch(model, log="all", log_freq=1)
-        else: 
-            wandb.watch(model, log=None, log_freq=1)
+        wandb.watch(model, log="all", log_freq=1)
             
         # In case of a pretrained model, test the performance on the test set before training to provide baseline information 
         if config.pretrained: 

@@ -7,7 +7,6 @@ import random
 default_config = SimpleNamespace(
     dims = 224,  
     colour_space = "RGB",
-    log = True,
     train_split = 0.85,
     validation_split = 0.05,
     test_split = 0.1,

@@ -140,28 +140,27 @@ def split_video_to_images(config):
 """ Reads images from config.grinch_path directory, merges them into a video and stores the video on disk
 """
 def merge_images_to_video(config):
-    if config.log: 
-        video_list = os.listdir(config.grinch_path)
-        video_list = [video for video in video_list if not video.startswith(".") and not video.endswith(".mp4")]
-        video_list.sort()
-        print("videolist: ", video_list)
-        for video in video_list:
-            os.chdir(f"{config.grinch_path}")
-            
-            image_list = os.listdir(f"{config.grinch_path}/{video}")
-            image_list = [image for image in image_list if not image.startswith(".")]
-            image_list.sort()
-            
-            video_name = "grinch_" + video + ".mp4"
-            fourcc = cv2.VideoWriter_fourcc('m','p','4','v')        
-            video_writer = cv2.VideoWriter(filename=video_name, fourcc=fourcc, fps=25, frameSize=(config.dims, config.dims))
-            
-            os.chdir(f"{config.grinch_path}/{video}")
-            while video_writer.isOpened():
-                for i in image_list:
-                    image = cv2.imread(i)
-                    video_writer.write(image)
-                video_writer.release()
+    video_list = os.listdir(config.grinch_path)
+    video_list = [video for video in video_list if not video.startswith(".") and not video.endswith(".mp4")]
+    video_list.sort()
+    print("videolist: ", video_list)
+    for video in video_list:
+        os.chdir(f"{config.grinch_path}")
+        
+        image_list = os.listdir(f"{config.grinch_path}/{video}")
+        image_list = [image for image in image_list if not image.startswith(".")]
+        image_list.sort()
+        
+        video_name = "grinch_" + video + ".mp4"
+        fourcc = cv2.VideoWriter_fourcc('m','p','4','v')        
+        video_writer = cv2.VideoWriter(filename=video_name, fourcc=fourcc, fps=25, frameSize=(config.dims, config.dims))
+        
+        os.chdir(f"{config.grinch_path}/{video}")
+        while video_writer.isOpened():
+            for i in image_list:
+                image = cv2.imread(i)
+                video_writer.write(image)
+            video_writer.release()
     return
 
 """ Normalizes the passed images according to the ImageNet normalization mean and standard deviation.
@@ -207,23 +206,22 @@ def make_grinch(config, image, output):
     
     return grinch
 
-""" Takes baches of images in ndarrays, stores (if log=True) as well as returns the grinch versions
+""" Takes baches of images in ndarrays, stores as well as returns the grinch versions
 """
 def to_grinches(config, images, outputs, video):
-    if config.log:
-        outputs = outputs.cpu().numpy()
-        grinches = images.cpu().numpy()
-        mask = outputs == 1
-        
-        os.makedirs(config.grinch_path, exist_ok=True)
-        os.chdir(config.grinch_path)
-        os.makedirs(video, exist_ok=True)
-        
-        for i in range(len(mask)):
-            grinches[i] = make_grinch(config, grinches[i].transpose(1,2,0), outputs[i]).transpose(2,0,1)
-            save_path = config.grinch_path + "/" + video
-            save_name = "grinchframe_" + str(i).zfill(5) + ".jpg"
-            save_image(config, grinches[i].transpose(1,2,0), save_path, save_name)
+    outputs = outputs.cpu().numpy()
+    grinches = images.cpu().numpy()
+    mask = outputs == 1
+    
+    os.makedirs(config.grinch_path, exist_ok=True)
+    os.chdir(config.grinch_path)
+    os.makedirs(video, exist_ok=True)
+    
+    for i in range(len(mask)):
+        grinches[i] = make_grinch(config, grinches[i].transpose(1,2,0), outputs[i]).transpose(2,0,1)
+        save_path = config.grinch_path + "/" + video
+        save_name = "grinchframe_" + str(i).zfill(5) + ".jpg"
+        save_image(config, grinches[i].transpose(1,2,0), save_path, save_name)
             
     return torch.from_numpy(grinches)
     
@@ -312,20 +310,19 @@ def save_augmentation(config, i, image, gt, augmentation):
 """ Copies images from a folder into a new folder.
 """
 def move_images(config, start_index, origin_path, destination_path, image_list=[], gts=False):  
-    if config.log:
-        if image_list == []:
-            os.makedirs(origin_path, exist_ok=True)
-            image_list = os.listdir(origin_path)
-            image_list = [image for image in image_list if not image.startswith(".")]
-            image_list.sort()
-        
-        images = load_images(config, image_list, origin_path, gts=gts)
+    if image_list == []:
+        os.makedirs(origin_path, exist_ok=True)
+        image_list = os.listdir(origin_path)
+        image_list = [image for image in image_list if not image.startswith(".")]
+        image_list.sort()
+    
+    images = load_images(config, image_list, origin_path, gts=gts)
 
-        index = start_index
-        for image in images:
-        
-            save_name = "image_" + str(index).zfill(6) + ".jpg"
-            save_image(config, image, destination_path, save_name, gt=gts)
-            index += 1
+    index = start_index
+    for image in images:
+    
+        save_name = "image_" + str(index).zfill(6) + ".jpg"
+        save_image(config, image, destination_path, save_name, gt=gts)
+        index += 1
             
     return index

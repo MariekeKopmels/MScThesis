@@ -6,8 +6,6 @@ import torch
 """
 def save_model(config, model, epoch, best=False):
     print("Saving model")
-    if not config.log:
-        print("Warning: Saving the model even though config.log == False")
     
     # Create folder that stores this run's models
     os.chdir(config.model_path)
