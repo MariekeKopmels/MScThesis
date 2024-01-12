@@ -7,21 +7,19 @@ import random
 default_config = SimpleNamespace(
     dims = 224,  
     colour_space = "RGB",
-    train_split = 0.85,
-    validation_split = 0.05,
+    num_channels = 3,
+    train_split = 0.9,
     test_split = 0.1,
     dataset_folder = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/All_Skin_Datasets",
     combined_dataset_folder = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/LargeCombinedDataset",
 )
 
 def check_splits(config):
-    total = config.train_split + config.validation_split + config.test_split
-    if config.train_split + config.validation_split > 1.0:
-        raise Exception(f"Train {config.train_split} and validation {config.validation_split} split are too large, will cause test set to be non-existant.")
+    total = config.train_split + config.test_split
     if total > 1.0:
-        print(f"Warning: One or more splits are too large as currently {config.train_split} + {config.validation_split} + {config.test_split} > 1.0. Will cause the test split to be be cut-off!")
+        print(f"Warning: One or more splits are too large as currently {config.train_split} + {config.test_split} > 1.0. Will cause the test split to be be cut-off!")
     if total < 1.0:
-        print(f"Warning: Not all data from the dataset is used. {config.train_split} + {config.validation_split} + {config.test_split} < 1.0")
+        print(f"Warning: Test set will be larger than expected. {config.train_split} + {config.test_split} < 1.0")
 
 """ Combines all datasets into one
 """
@@ -46,17 +44,15 @@ def merge_datasets(config):
         current_dataset_start_id = DataFunctions.move_images(config, current_dataset_start_id, origin_gt_path, destination_path, gts=True) 
     return
 
-""" Split the combined dataset into a train, validation and test dataset
+""" Split the combined dataset into a train and test dataset.
 """
 def split_dataset(config):
     image_path = config.combined_dataset_folder + "/AllImages"
     train_image_destination = config.combined_dataset_folder + "/TrainImages"
-    validation_image_destination = config.combined_dataset_folder + "/ValidationImages"
     test_image_destination = config.combined_dataset_folder + "/TestImages"
     
     gt_path = config.combined_dataset_folder + "/AllGroundTruths"
     train_gt_destination = config.combined_dataset_folder + "/TrainGroundTruths"
-    validation_gt_destination = config.combined_dataset_folder + "/ValidationGroundTruths"
     test_gt_destination = config.combined_dataset_folder + "/TestGroundTruths"
     
     image_list = os.listdir(image_path)
@@ -64,7 +60,6 @@ def split_dataset(config):
     random.shuffle(image_list)
     
     train_end_index = int(len(image_list) * config.train_split)
-    validation_end_index = int(train_end_index + len(image_list) * config.validation_split)
     test_end_index = len(image_list)
 
     # current_dataset_start_id refers to the  ID that is used for the data splitting such that all samples 
@@ -74,12 +69,9 @@ def split_dataset(config):
     print("Splitting dataset into train...")
     _ = DataFunctions.move_images(config, current_dataset_start_id, image_path, train_image_destination, image_list[:train_end_index])
     current_dataset_start_id = DataFunctions.move_images(config, current_dataset_start_id, gt_path, train_gt_destination, image_list[:train_end_index], gts=True)
-    print("validation...")
-    _ = DataFunctions.move_images(config, current_dataset_start_id, image_path, validation_image_destination, image_list[train_end_index:validation_end_index])
-    current_dataset_start_id = DataFunctions.move_images(config, current_dataset_start_id, gt_path, validation_gt_destination, image_list[train_end_index:validation_end_index], gts=True)
     print("and test...")
-    _ = DataFunctions.move_images(config, current_dataset_start_id, image_path, test_image_destination, image_list[validation_end_index:test_end_index])
-    current_dataset_start_id = DataFunctions.move_images(config, current_dataset_start_id, gt_path, test_gt_destination, image_list[validation_end_index:test_end_index], gts=True)
+    _ = DataFunctions.move_images(config, current_dataset_start_id, image_path, test_image_destination, image_list[train_end_index:test_end_index])
+    current_dataset_start_id = DataFunctions.move_images(config, current_dataset_start_id, gt_path, test_gt_destination, image_list[train_end_index:test_end_index], gts=True)
 
 """ Complete pipeline of combining datasets into a new dataset.
 """

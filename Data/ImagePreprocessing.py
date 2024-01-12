@@ -30,6 +30,7 @@ default_config = SimpleNamespace(
     batch_size = 32, 
     dataset = "LargeCombinedDataset",
     colour_space = "RGB",
+    num_channels = 3,
     
     mirror = True,
     rotate = True,
