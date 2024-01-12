@@ -22,7 +22,6 @@ from torch.cuda import amp
 # Size of LargeCombined Train=6528, Validation=384, Test=768
 # Size of LargeCombinedAugmented Train=32640
 
-# TODO: cm_train eruit
 default_config = SimpleNamespace(
     machine = "OS4",
     device = torch.device("cuda"),
@@ -51,10 +50,7 @@ default_config = SimpleNamespace(
     
     train_size = 128,         #Smaller part
     test_size = 64,           #Smaller part
-    
-    cm_train = False,
-    cm_parts = 16,
-    
+
     automatic_mixed_precision = True,
     
     early_stopping = False,
@@ -179,8 +175,6 @@ def train(config, model, data_loader, loss_function, optimizer):
         model.train()
         epoch_loss = 0.0
         batch = 0
-        epoch_outputs = torch.empty((0, config.dims, config.dims)).to(config.device)
-        epoch_targets = torch.empty((0, config.dims, config.dims)).to(config.device)
         for images, targets in train_loader:
             
             batch += 1
@@ -188,18 +182,7 @@ def train(config, model, data_loader, loss_function, optimizer):
             batch_loss, batch_outputs = train_batch(config, scaler, images, targets, model, optimizer, loss_function)
             epoch_loss += batch_loss.item()
             
-            if config.cm_train:
-                epoch_outputs = torch.cat((epoch_outputs, batch_outputs), dim=0)
-                epoch_targets = torch.cat((epoch_targets, targets.to(config.device)), dim=0)
-
         print(f"-------------------------Finished training batches-------------------------") 
-        
-        # Keep track of training epoch stats, or skip for sake of efficiency
-        if config.cm_train:
-            epoch_tn, epoch_fn, epoch_fp, epoch_tp = DataFunctions.confusion_matrix(config, epoch_outputs, epoch_targets, "train")
-            # drop_last=False in the train dataloader, so we compute the amount of batches first
-            mean_loss = epoch_loss / len(data_loader.dataset)
-            _ = LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
         
          # Test the performance with validation data
         val_IoU_scores[epoch] = test_performance(config, model, validation_loader, loss_function, "validation")        
