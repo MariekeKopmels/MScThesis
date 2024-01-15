@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from Models.i3d import InceptionI3d
 
 NO_PIXELS = 224
 
@@ -113,38 +114,49 @@ class SkinClassifier(nn.Module):
         x = self.fc2(x)  
         x = self.sigmoid(x)
         return x
-    
 
-""" Work in progress... 
-    Multi-task learning model. Predicts both violence (false, true) and skin colour (black, white, asian).
-"""
-class MultiTaskModel(nn.Module):
+    
+class I3DMultiTaskModel(InceptionI3d):
     def __init__(self, config):
-        super(MultiTaskModel, self).__init__()
+        super(I3DMultiTaskModel, self).__init__()
         
-        self.shared_layers = nn.Sequential(
-            nn.Linear(config.num_channels, 128),
-            nn.ReLU(),
-            nn.Linear(128,64), 
-            nn.ReLU()
-        )
+        # Define the layers for the violence and skin colour heads
         self.violence_layers = nn.Sequential(
-            nn.Linear(64, 32),
+            nn.Linear(1024, 128),
             nn.ReLU(),
-            nn.Linear(32, 16),
+            nn.Linear(128, 16),
             nn.ReLU(),
             nn.Linear(16, config.num_violence_classes)
         )
         self.skincolour_layers = nn.Sequential(
-            nn.Linear(64, 32),
+            nn.Linear(1024, 128),
             nn.ReLU(),
-            nn.Linear(32, 16),
+            nn.Linear(128, 16),
             nn.ReLU(),
             nn.Linear(16, config.num_skincolour_classes)
         )
-        
+
+
     def forward(self, x):
-        shared_features = self.shared_layers(x)
-        violence_output = self.violence_layers(shared_features)
-        skincolour_output = self.skincolour_layers(shared_features)
+        # Reformat the input. 
+        # Original input [batch_size, num_frames, channels, 224, 224]
+        # Permuted input [batch_size, channels, num_frames, 224, 224]
+        x = x.permute(0, 2, 1, 3, 4)
+        
+        # Pass the input through the base I3D and extract features.
+        # Squeeze to get features in shape [batch_size, num_features]
+        # Where num_features=1024, as determined by the I3D model definition.
+        base_features = super(I3DMultiTaskModel, self).extract_features(x)
+        base_features = torch.squeeze(base_features)
+
+        # Pass the features through violence and skin colour prediction heads.
+        # Output of shape [batch_size] for violence and [batch_size, num_skincolour_classes] for skin colour        
+        violence_output = self.violence_layers(base_features)
+        violence_output = torch.squeeze(violence_output)
+        skincolour_output = self.skincolour_layers(base_features)
+        
+        # print(f"{base_features.shape = }")
+        # print(f"{violence_output.shape = }")
+        # print(f"{skincolour_output.shape = }")
+
         return violence_output, skincolour_output

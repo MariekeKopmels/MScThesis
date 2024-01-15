@@ -19,6 +19,14 @@ def log_metrics(config, mean_loss, tn, fn, fp, tp, stage):
             wandb.log({f"{stage}_accuracy": accuracy, f"{stage}_fn_rate": fn_rate, f"{stage}_fp_rate": fp_rate, f"{stage}_sensitivity": sensitivity, f"{stage}_f1_score": f1_score, f"{stage}_IoU": IoU})
     
     return IoU
+
+
+""" Logs intermediate results from the multitask model to WandB.
+"""    
+def log_multitask_metrics(config, mean_loss, violence_f1_score, skincolour_f1_score, stage):
+    print(f"{stage}_mean_loss = {mean_loss}, {stage}_violence_f1 = {violence_f1_score}, {stage}_skincolour_f1 = {skincolour_f1_score}")
+    wandb.log({f"{stage}_mean_loss": mean_loss, f"{stage}_violence_f1": violence_f1_score, f"{stage}_skincolour_f1": skincolour_f1_score})
+    
     
 """ Stores the model to the disk.
 """

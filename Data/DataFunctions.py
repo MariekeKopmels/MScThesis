@@ -4,7 +4,7 @@ import sklearn.metrics
 import torch 
 import json
 import numpy as np 
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 import time
 import Logging.LogFunctions as LogFunctions
 
@@ -140,43 +140,55 @@ def map_to_numeric(label):
     # Define a mapping from label strings to numeric values
     label_mapping = {
         # Violence
-        "Neutral": 0,
-        "Violence": 1,
+        "Neutral": 0.0,
+        "Violence": 1.0,
         # Shoe colour
         "White": 0,
         "Pink": 1,
         "Green": 2,
         "Black": 3,
-        "Unknown": 9
+        "Unknown": 4
     }
     return label_mapping.get(label, -1)  # Return -1 if label is not found in mapping
 
 
-""" Loads the ground truths of videos in torch tensor format
+""" Loads the ground truths of videos in torch tensor format. In the returned ground truths, 
+    the first element of each row is the violence target and the rest of the columns represent 
+    the one-hot encoded skin colour class.
 """
 def load_video_gts(config, dir_path):
     with open(dir_path, "r") as json_file:
         gts_json = json.load(json_file)
         
-    gts = []
+    violence_gts = []
+    skincolour_gts = []
     for _, labels in gts_json.items():
-        row = []
-        row.append(map_to_numeric(labels["Violence"]["Class"]))
-        row.append(map_to_numeric(labels["ShoeColour"]["Class"]))
-        gts.append(row)
+        violence_gts.append(map_to_numeric(labels["Violence"]["Class"]))
         
-    return torch.tensor(gts)
+        skincolour_class = map_to_numeric(labels["ShoeColour"]["Class"])
+        one_hot = torch.zeros(config.num_skincolour_classes, dtype=torch.float32)
+        one_hot[skincolour_class] = 1.0
+        skincolour_gts.append(one_hot)
+        
+    gts = torch.cat((torch.tensor(violence_gts).unsqueeze(dim=1), torch.stack(skincolour_gts)), dim=-1)
+    
+    return gts
 
 """ Returns input videos in a given directory
         Format of return: torch tensors containing videos and corresponding ground truths.
-        Torch tensors are of shape batch_size,frame,num_channels,dims,dims for videos and XXX for ground truths.
+        Torch tensors are of shape batch_size,frame,num_channels,dims,dims for videos and TODO: XXX for ground truths.
 """
-def load_input_videos(config, image_dir_path, gt_dir_path):
+def load_input_videos(config, image_dir_path, gt_dir_path, stage):
     # Load list of files in directories
     video_list = os.listdir(image_dir_path)
     
     # Skip hidden files in the video directory
     dir_list = [video for video in video_list if not video.startswith(".")]
+    
+    if stage == "train":
+        dir_list = dir_list[:config.train_size]
+    elif stage == "test":
+        dir_list = dir_list[:config.test_size]
     
     # Load the videos
     videos = load_videos(config, dir_list, image_dir_path)
@@ -194,10 +206,10 @@ def load_video_data(config):
     # Load train and test data
     print("Loading training data...")
     base_path = config.data_path + "/" + config.trainset
-    train_videos, train_gts = load_input_videos(config, base_path + "/TrainVideos", base_path + "/TrainGroundTruths.json")
+    train_videos, train_gts = load_input_videos(config, base_path + "/TrainVideos", base_path + "/TrainGroundTruths.json", "train")
     print("Loading test data...")
     base_path = config.data_path + "/" + config.testset
-    test_videos, test_gts = load_input_videos(config, base_path + "/TestVideos", base_path + "/TestGroundTruths.json")
+    test_videos, test_gts = load_input_videos(config, base_path + "/TestVideos", base_path + "/TestGroundTruths.json", "test")
 
     # Combine images and ground truths in TensorDataset format
     train = torch.utils.data.TensorDataset(train_videos, train_gts)
@@ -209,6 +221,15 @@ def load_video_data(config):
     
     # Return dataloaders
     return train_loader, test_loader
+
+""" Splits the data in the passed data loader into a train and validation loader.
+"""
+def split_dataset(config, data_loader):
+    train_data, validation_data = random_split(data_loader.dataset, [config.split, 1-config.split])
+    train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, drop_last=True) 
+    validation_loader = DataLoader(validation_data, batch_size=config.batch_size, shuffle=True, drop_last=True) 
+    
+    return train_loader, validation_loader
 
 """ Splits the videos in config.video_path directory into images, stores them on disk
 """
@@ -349,6 +370,21 @@ def confusion_matrix(config, outputs, targets, stage):
     fn = matrix[1][0]
     tp = matrix[1][1]
     fp = matrix[0][1]
+    
+    return tn, fn, fp, tp
+
+""" Computes and returns the the values of the confusion matrix.
+    Takes as input the one-hot encoded model outputs.
+    (true negative, false negative, true positive and false positive values)
+"""
+# TODO: Get rid of the old, and make this the default function
+def new_confusion_matrix(config, outputs, targets):
+    output = torch.flatten(outputs)
+    target = torch.flatten(targets)
+    
+    print(f"{output = }\n{target = }")
+    
+    tn, fp, fn, tp = sklearn.metrics.confusion_matrix(target.to("cpu"), output.to("cpu")).ravel()
     
     return tn, fn, fp, tp
 

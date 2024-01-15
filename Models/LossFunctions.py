@@ -50,3 +50,23 @@ class FocalLoss(nn.Module):
             return focal_loss.sum()
         else:
             return focal_loss
+        
+""" The loss function used for the multi task model. Combines the loss from the violence and skin colour heads.
+"""
+class MultiTaskLoss(nn.Module):
+    def __init__(self, violence_weight=1.0, skincolour_weight=1.0):
+        super(MultiTaskLoss, self).__init__()
+        self.violence_weight = violence_weight
+        self.skincolour_weight = skincolour_weight
+        self.violence_loss_function = nn.BCEWithLogitsLoss()
+        self.skincolour_loss_function = nn.CrossEntropyLoss()
+        
+    def forward(self, violence_outputs, skincolour_outputs, violence_targets, skincolour_targets):
+        # Calculate the individual head's losses
+        violence_loss = self.violence_loss_function(violence_outputs, violence_targets)
+        skincolour_loss = self.skincolour_loss_function(skincolour_outputs, skincolour_targets)
+        
+        # Combine the losses, using their weight
+        combined_loss = self.violence_weight*violence_loss + self.skincolour_weight*skincolour_loss
+        
+        return combined_loss
