@@ -95,8 +95,8 @@ def load_image_data(config):
 """ Splits the data in the passed data loader into a train and validation loader.
 """
 def split_dataset(config, data_loader):
-    print(f"{config.device = }")
-    generator = torch.Generator(device=config.device).manual_seed(42)
+    # TODO: naar cuda zetten? 
+    generator = torch.Generator().manual_seed(42)
     train_data, validation_data = random_split(data_loader.dataset, [config.split, 1-config.split], generator)
     train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, drop_last=False) 
     validation_loader = DataLoader(validation_data, batch_size=config.batch_size, shuffle=True, drop_last=False) 
@@ -143,7 +143,6 @@ def merge_images_to_video(config):
     video_list = os.listdir(config.grinch_path)
     video_list = [video for video in video_list if not video.startswith(".") and not video.endswith(".mp4")]
     video_list.sort()
-    print("videolist: ", video_list)
     for video in video_list:
         os.chdir(f"{config.grinch_path}")
         

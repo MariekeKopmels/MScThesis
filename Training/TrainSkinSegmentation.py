@@ -28,7 +28,7 @@ default_config = SimpleNamespace(
     dims = 224,
     num_channels = 3,
     
-    pretrained = False,
+    pretrained = True,
     lr = 0.00001, 
     colour_space = "BGR",
     optimizer = "AdamW",
@@ -37,19 +37,19 @@ default_config = SimpleNamespace(
     num_workers = 4,
     num_epochs = 5,
     batch_size = 32, 
-    split = 0.8,
+    split = 0.95,
     
     # train_size = 44783,       #VisuAAL
     # test_size = 768,          #LargeCombinedTest
     
-    # train_size = 6528,        #LargeCombined
+    # train_size = 6912,        #LargeCombined
     # test_size = 768,          #LargeCombinedTest
     
-    # train_size = 32640,       #LargeCombinedAugmented
-    # test_size = 768,          #LargeCombinedTest
+    train_size = 34560,         #LargeCombinedAugmented
+    test_size = 768,            #LargeCombinedTest
     
-    train_size = 128,         #Smaller part
-    test_size = 64,           #Smaller part
+    # train_size = 128,         #Smaller part
+    # test_size = 64,           #Smaller part
 
     automatic_mixed_precision = True,
     
@@ -58,11 +58,12 @@ default_config = SimpleNamespace(
     min_improvement = 0.05,     #Minimal improvement needed for early stopping 
     
     data_path = "/home/oddity/marieke/Datasets",
-    trainset = "VisuAAL", 
+    # trainset = "VisuAAL", 
+    trainset = "LargeCombinedAugmented", 
     testset = "LargeCombinedTest",
     
     model_path = "/home/oddity/marieke/Output/Models",
-    model_name = "pretrained.pt",
+    model_name = "test_pretrained.pt",
     run_name = "",
     architecture = "UNet"
 )
@@ -265,8 +266,8 @@ def test_performance(config, model, data_loader, loss_function, stage):
 """
 def model_pipeline(hyperparameters):
     # Give the run a name
-    # hyperparameters.run_name = f"{hyperparameters.machine}_{hyperparameters.batch_size}_LR:{hyperparameters.lr}_Colourspace:{hyperparameters.colour_space}_Pretrained:{hyperparameters.pretrained}_Trainset:{hyperparameters.trainset}_Validationset:{hyperparameters.validationset}"
-    hyperparameters.run_name = f"{hyperparameters.machine}_{hyperparameters.colour_space}"
+    hyperparameters.run_name = f"{hyperparameters.machine}_Colourspace:{hyperparameters.colour_space}_num_epochs:{hyperparameters.num_epochs}_batch_size:{hyperparameters.batch_size}_LR:{hyperparameters.lr}_Pretrained:{hyperparameters.pretrained}_Trainset:{hyperparameters.trainset}"
+    # hyperparameters.run_name = f"{hyperparameters.machine}_{hyperparameters.colour_space}"
     
     # Start wandb
     with wandb.init(mode="online", project="skin_segmentation", config=hyperparameters): 

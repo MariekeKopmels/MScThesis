@@ -103,6 +103,9 @@ class UNET(nn.Module):
         """ Reformatting """
         # Squeeze output to get the desired shape (batch_size, height, width)
         raw_outputs = torch.squeeze(x)
+        
+        """ Sigmoid """
+        # Put output through activation function to get outputs in range [0,1]
         outputs = self.sigmoid(raw_outputs)
         
         return raw_outputs, outputs
