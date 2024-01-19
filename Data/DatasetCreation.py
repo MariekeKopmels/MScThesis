@@ -32,7 +32,6 @@ def merge_datasets(config):
     
     # current_dataset_start_id refers to the  ID that is used for the data splitting such that all samples 
     # get a unique ID, identical for an image and its corresponding  ground truth.
-    # TODO: Herschrijven naar een nettere manier als hier tijd voor is, dus zonder current_dataset_start_id.
     current_dataset_start_id = 0
     for folder in folderlist:
         print(f"Now processing folder {folder}")
@@ -64,7 +63,6 @@ def split_dataset(config):
 
     # current_dataset_start_id refers to the  ID that is used for the data splitting such that all samples 
     # get a unique ID, identical for an image and its corresponding  ground truth.
-    # TODO: Herschrijven naar een nettere manier als hier tijd voor is, dus zonder start_id.
     current_dataset_start_id = 0
     print("Splitting dataset into train...")
     _ = DataFunctions.move_images(config, current_dataset_start_id, image_path, train_image_destination, image_list[:train_end_index])

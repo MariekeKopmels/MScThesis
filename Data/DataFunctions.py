@@ -95,7 +95,6 @@ def load_image_data(config):
 """ Splits the data in the passed data loader into a train and validation loader.
 """
 def split_dataset(config, data_loader):
-    # TODO: naar cuda zetten? 
     generator = torch.Generator().manual_seed(42)
     train_data, validation_data = random_split(data_loader.dataset, [config.split, 1-config.split], generator)
     train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, drop_last=False) 
