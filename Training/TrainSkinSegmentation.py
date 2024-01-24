@@ -28,7 +28,7 @@ default_config = SimpleNamespace(
     dims = 224,
     num_channels = 3,
     
-    pretrained = True,
+    pretrained = False,
     lr = 0.00001, 
     colour_space = "BGR",
     optimizer = "AdamW",
@@ -39,27 +39,27 @@ default_config = SimpleNamespace(
     batch_size = 32, 
     split = 0.95,
     
-    # train_size = 44783,       #VisuAAL
-    # test_size = 768,          #LargeCombinedTest
+    train_size = 44783,       #VisuAAL
+    test_size = 768,          #LargeCombinedTest
     
     # train_size = 6912,        #LargeCombined
     # test_size = 768,          #LargeCombinedTest
     
-    train_size = 34560,         #LargeCombinedAugmented
-    test_size = 768,            #LargeCombinedTest
+    # train_size = 34560,         #LargeCombinedAugmented
+    # test_size = 768,            #LargeCombinedTest
     
     # train_size = 128,         #Smaller part
     # test_size = 64,           #Smaller part
 
     automatic_mixed_precision = True,
     
-    early_stopping = False,
-    patience = 2,               #The number of epochs the model is allowed not to improve
-    min_improvement = 0.05,     #Minimal improvement needed for early stopping 
+    early_stopping = True,
+    patience = 3,               #The number of epochs the model is allowed not to improve
+    min_improvement = 0.01,     #Minimal improvement needed for early stopping 
     
     data_path = "/home/oddity/marieke/Datasets",
-    # trainset = "VisuAAL", 
-    trainset = "LargeCombinedAugmented", 
+    trainset = "VisuAAL", 
+    # trainset = "LargeCombinedAugmented", 
     testset = "LargeCombinedTest",
     
     model_path = "/home/oddity/marieke/Output/Models",
@@ -80,6 +80,7 @@ def parse_args():
     argparser.add_argument('--lr', type=float, default=default_config.lr, help='learning rate')
     argparser.add_argument('--weight_decay', type=float, default=default_config.weight_decay, help='weight decay for Weighted Adam optimizer')
     argparser.add_argument('--colour_space', type=str, default=default_config.colour_space, help='colour space')
+    argparser.add_argument('--pretrained', type=bool, default=default_config.pretrained, help='indicates wether or not a pretrained model is used') 
     argparser.add_argument('--model_name', type=str, default=default_config.model_name, help='name of the model to be loaded')    
     args = argparser.parse_args()
     vars(default_config).update(vars(args))
@@ -112,7 +113,10 @@ def make(config):
     
     # Create or load the model
     if config.pretrained:
-        model = ModelFunctions.load_model(config, config.model_name)
+        # TODO: Terugzetten
+        model_name = "best" + config.colour_space + ".pt"
+        model = ModelFunctions.load_model(config, model_name)
+        # model = ModelFunctions.load_model(config, config.model_name)
     else: 
         model = MyModels.UNET(config).to(config.device)
 
@@ -266,7 +270,7 @@ def test_performance(config, model, data_loader, loss_function, stage):
 """
 def model_pipeline(hyperparameters):
     # Give the run a name
-    hyperparameters.run_name = f"{hyperparameters.machine}_Colourspace:{hyperparameters.colour_space}_num_epochs:{hyperparameters.num_epochs}_batch_size:{hyperparameters.batch_size}_LR:{hyperparameters.lr}_Pretrained:{hyperparameters.pretrained}_Trainset:{hyperparameters.trainset}"
+    hyperparameters.run_name = f"{hyperparameters.machine}_Colourspace:{hyperparameters.colour_space}_num_epochs:{hyperparameters.num_epochs}_batch_size:{hyperparameters.batch_size}_LR:{hyperparameters.lr}_weight_decay:{hyperparameters.weight_decay}_Pretrained:{hyperparameters.pretrained}_Trainset:{hyperparameters.trainset}"
     # hyperparameters.run_name = f"{hyperparameters.machine}_{hyperparameters.colour_space}"
     
     # Start wandb

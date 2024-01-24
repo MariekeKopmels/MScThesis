@@ -21,5 +21,8 @@ Notes.txt
 *.jpg
 *.jpeg
 *.yaml
+*.sh
+*.json
 
 .DS_Store
+
