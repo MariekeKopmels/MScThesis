@@ -7,6 +7,7 @@ import Models.MyModels as MyModels
 import Logging.LogFunctions as LogFunctions
 import Models.ModelFunctions as ModelFunctions
 import Data.DataFunctions as DataFunctions
+import Data.AugmentationFunctions as AugmentationFunctions
 import torch
 import wandb
 import torch.nn as nn
@@ -33,14 +34,15 @@ default_config = SimpleNamespace(
     colour_space = "BGR",
     optimizer = "AdamW",
     weight_decay = 0.01,
+    augmentation_rate = 0.5,
     
     num_workers = 4,
-    num_epochs = 5,
+    num_epochs = 1,
     batch_size = 32, 
     split = 0.95,
     
-    train_size = 44783,       #VisuAAL
-    test_size = 768,          #LargeCombinedTest
+    # train_size = 44783,       #VisuAAL
+    # test_size = 768,          #LargeCombinedTest
     
     # train_size = 6912,        #LargeCombined
     # test_size = 768,          #LargeCombinedTest
@@ -48,8 +50,8 @@ default_config = SimpleNamespace(
     # train_size = 34560,         #LargeCombinedAugmented
     # test_size = 768,            #LargeCombinedTest
     
-    # train_size = 128,         #Smaller part
-    # test_size = 64,           #Smaller part
+    train_size = 128,         #Smaller part
+    test_size = 64,           #Smaller part
 
     automatic_mixed_precision = True,
     
@@ -61,6 +63,10 @@ default_config = SimpleNamespace(
     trainset = "VisuAAL", 
     # trainset = "LargeCombinedAugmented", 
     testset = "LargeCombinedTest",
+    
+    augmented_image_path = "/home/oddity/marieke/Datasets/AugmentationTest/TrainImages",
+    augmented_gt_path = "/home/oddity/marieke/Datasets/AugmentationTest/TrainGroundTruths",
+    
     
     model_path = "/home/oddity/marieke/Output/Models",
     model_name = "test_pretrained.pt",
@@ -204,11 +210,12 @@ def train_batch(config, scaler, images, targets, model, optimizer, loss_function
         # Model inference
         images, targets = images.to(config.device), targets.to(config.device)
         normalized_images = DataFunctions.normalize_images(config, images)
-        raw_outputs, outputs = model(normalized_images)
+        augmented_images, augmented_targets = AugmentationFunctions.augment_images(config, normalized_images, targets)
+        raw_outputs, outputs = model(augmented_images)
         
         # Compute loss, update model
         optimizer.zero_grad(set_to_none=True)
-        loss = loss_function(raw_outputs, targets)
+        loss = loss_function(raw_outputs, augmented_targets)
         if config.automatic_mixed_precision:
             scaler.scale(loss).backward()
             scaler.step(optimizer)
