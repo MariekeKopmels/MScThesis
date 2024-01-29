@@ -34,10 +34,10 @@ default_config = SimpleNamespace(
     colour_space = "BGR",
     optimizer = "AdamW",
     weight_decay = 0.01,
-    augmentation_rate = 0.5,
+    augmentation_rate = 0.75,
     
     num_workers = 4,
-    num_epochs = 1,
+    num_epochs = 30,
     batch_size = 32, 
     split = 0.95,
     
@@ -63,10 +63,6 @@ default_config = SimpleNamespace(
     trainset = "VisuAAL", 
     # trainset = "LargeCombinedAugmented", 
     testset = "LargeCombinedTest",
-    
-    augmented_image_path = "/home/oddity/marieke/Datasets/AugmentationTest/TrainImages",
-    augmented_gt_path = "/home/oddity/marieke/Datasets/AugmentationTest/TrainGroundTruths",
-    
     
     model_path = "/home/oddity/marieke/Output/Models",
     model_name = "test_pretrained.pt",
