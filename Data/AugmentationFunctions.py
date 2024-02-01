@@ -19,8 +19,7 @@ def augment_images(config, images, gts):
         
         image = image.transpose(1,2,0)
             
-        augment = random.random()
-        if augment < config.augmentation_rate:
+        if random.random() < config.augmentation_rate:
             augmented_image, augmented_gt = choose_and_perform_augmentation(image, gt)
             augmented_images.append(augmented_image.transpose(2,0,1))
             augmented_gts.append(augmented_gt)
