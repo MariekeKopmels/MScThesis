@@ -168,8 +168,14 @@ def merge_images_to_video(config):
 """
 def normalize_images(config, images):
     channel1, channel2, channel3 = images[:, 0, :, :], images[:, 1, :, :], images[:, 2, :, :]
-    if channel1.max() > 255.0 or channel2.max() > 255.0 or channel3.max() > 255.0:
-        print(f"WARNING: there is a value larger than 255! Should not happen. Colour_space:{config.colour_space}")
+    if channel1.max().item() > 255.0 or channel2.max().item() > 255.0 or channel3.max().item() > 255.0:
+        print(f"WARNING: there is a value larger than 255 or 179! Should not happen. Colour_space:{config.colour_space}")
+        
+    if config.colour_space == "HSV": 
+        images[:, 0, :, :] = channel1/179.0
+        images[:, 1, :, :] = channel2/255.0
+        images[:, 2, :, :] = channel3/255.0
+        return images
     
     normalized_images = images/255.0
     
