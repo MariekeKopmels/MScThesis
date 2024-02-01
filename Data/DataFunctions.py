@@ -164,7 +164,7 @@ def merge_images_to_video(config):
 
 """ Normalizes values in the passed images by dividing by the max value of 255, irrespective of the colour space.
     Therefore, the original images have values in the range [0,255] whereas the normalized
-    Images are in range [0,255].
+    Images are in range [0,1].
 """
 def normalize_images(config, images):
     channel1, channel2, channel3 = images[:, 0, :, :], images[:, 1, :, :], images[:, 2, :, :]
