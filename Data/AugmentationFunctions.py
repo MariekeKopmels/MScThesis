@@ -8,8 +8,10 @@ def augment_images(config, images, gts):
     images = images.to("cpu")
     gts = gts.to("cpu")
     
-    augmented_images = []
-    augmented_gts = []
+    no_samples = len(images)
+    augmented_images = np.zeros((no_samples, *images[0].shape), dtype=np.float32)
+    augmented_gts = np.zeros((no_samples, *gts[0].shape), dtype=np.float32)
+    
     for i in range(len(images)):
         image = images[i]
         gt = gts[i]
@@ -21,18 +23,14 @@ def augment_images(config, images, gts):
             
         if random.random() < config.augmentation_rate:
             augmented_image, augmented_gt = choose_and_perform_augmentation(image, gt)
-            augmented_images.append(augmented_image.transpose(2,0,1))
-            augmented_gts.append(augmented_gt)
+            augmented_images[i] = augmented_image.transpose(2,0,1)
+            augmented_gts[i] = augmented_gt
         else:
-            augmented_images.append(image.transpose(2,0,1))
-            augmented_gts.append(gt)
+            augmented_images[i] = image.transpose(2,0,1)
+            augmented_gts[i] = gt
     
-    augmented_images = np.array(augmented_images)
-    augmented_gts = np.array(augmented_gts)
-    augmented_images = torch.from_numpy(augmented_images)
-    augmented_gts = torch.from_numpy(augmented_gts)
-    augmented_images = augmented_images.to(config.device)
-    augmented_gts = augmented_gts.to(config.device)
+    augmented_images = torch.from_numpy(augmented_images).to(config.device)
+    augmented_gts = torch.from_numpy(augmented_gts).to(config.device)
     
     return augmented_images, augmented_gts
 
