@@ -21,33 +21,31 @@ def augment_images(config, images, gts):
         
         image = image.transpose(1,2,0)
             
-        if random.random() < config.augmentation_rate:
-            augmented_image, augmented_gt = choose_and_perform_augmentation(image, gt)
-            augmented_images[i] = augmented_image.transpose(2,0,1)
-            augmented_gts[i] = augmented_gt
-        else:
-            augmented_images[i] = image.transpose(2,0,1)
-            augmented_gts[i] = gt
+        augmented_image, augmented_gt = choose_and_perform_augmentation(image, gt)
+        augmented_images[i] = augmented_image.transpose(2,0,1)
+        augmented_gts[i] = augmented_gt
+
     
     augmented_images = torch.from_numpy(augmented_images).to(config.device)
     augmented_gts = torch.from_numpy(augmented_gts).to(config.device)
     
     return augmented_images, augmented_gts
 
-def choose_and_perform_augmentation(image, gt):
-    augmentation = random.randint(0,3)
-    if augmentation == 0:
-        augmented_image, augmented_gt = mirror(image, gt)
-        return augmented_image, augmented_gt
-    if augmentation == 1:
-        augmented_image, augmented_gt = sheerX(image, gt)
-        return augmented_image, augmented_gt
-    if augmentation == 2:
-        augmented_image, augmented_gt = sheerY(image, gt)
-        return augmented_image, augmented_gt
-    if augmentation == 3:
-        augmented_image, augmented_gt = brightness(image, gt)
-        return augmented_image, augmented_gt
+def choose_and_perform_augmentation(image, gt):    
+    augmented_image = np.copy(image)
+    augmented_gt = np.copy(gt)
+    augmentations = [random.random() for _ in range(0,4)]
+    
+    if augmentations[0] < 0.33:
+        augmented_image, augmented_gt = mirror(augmented_image, augmented_gt)
+    if augmentations[1] < 0.33:
+        augmented_image, augmented_gt = sheerX(augmented_image, augmented_gt)
+    if augmentations[2] < 0.33:
+        augmented_image, augmented_gt = sheerY(augmented_image, augmented_gt)
+    if augmentations[3] < 0.33:
+        augmented_image, augmented_gt = brightness(augmented_image, augmented_gt)
+
+    return augmented_image, augmented_gt
     
 def mirror(image, gt):
     augmented_image = cv2.flip(image, 1)
