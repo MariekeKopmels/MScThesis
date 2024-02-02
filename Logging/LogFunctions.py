@@ -27,8 +27,8 @@ def log_example(config, example, target, output, stage="UNKNOWN"):
         example = cv2.cvtColor(example, cv2.COLOR_YCR_CB2RGB)
         grinch = cv2.cvtColor(grinch, cv2.COLOR_YCR_CB2RGB)
     elif config.colour_space == "HSV":
-        example = cv2.cvtColor(example, cv2.COLOR_HSV2RGB)
-        grinch = cv2.cvtColor(grinch, cv2.COLOR_HSV2RGB)
+        example = cv2.cvtColor(example, cv2.COLOR_HSV2RGB_FULL)
+        grinch = cv2.cvtColor(grinch, cv2.COLOR_HSV2RGB_FULL)
     elif config.colour_space == "BGR":
         example = cv2.cvtColor(example, cv2.COLOR_BGR2RGB)
         grinch = cv2.cvtColor(grinch, cv2.COLOR_BGR2RGB)

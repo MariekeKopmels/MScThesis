@@ -12,6 +12,7 @@ import Logging.LogFunctions as LogFunctions
 def load_images(config, dir_list, dir_path, gts=False):
     # Initialize the images tensor
     if gts: 
+        # TODO: kijken of beide ook als float 32 binnenkomen of miss de ene als int en de ander als float
         images = torch.empty(len(dir_list), config.dims, config.dims, dtype=torch.float32)
     else:
         images = torch.empty(len(dir_list), config.num_channels, config.dims, config.dims, dtype=torch.float32)
@@ -26,7 +27,7 @@ def load_images(config, dir_list, dir_path, gts=False):
         if config.colour_space == "YCrCb" and not gts:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2YCR_CB)
         elif config.colour_space == "HSV" and not gts:
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV_FULL)
         
         # Convert Ground Truth from BGR to 1 channel (Black or White)
         if gts: 
@@ -169,13 +170,8 @@ def merge_images_to_video(config):
 def normalize_images(config, images):
     channel1, channel2, channel3 = images[:, 0, :, :], images[:, 1, :, :], images[:, 2, :, :]
     if channel1.max().item() > 255.0 or channel2.max().item() > 255.0 or channel3.max().item() > 255.0:
-        print(f"WARNING: there is a value larger than 255 or 179! Should not happen. Colour_space:{config.colour_space}")
-        
-    if config.colour_space == "HSV": 
-        images[:, 0, :, :] = channel1/179.0
-        images[:, 1, :, :] = channel2/255.0
-        images[:, 2, :, :] = channel3/255.0
-        return images
+        print(f"{channel1.min().item() = }{channel1.max().item() = }\n{channel2.min().item() = }{channel2.max().item() = }\n{channel3.min().item() = }{channel3.max().item() = }")
+        print(f"WARNING: there is a value larger than 255! Should not happen. Colour_space:{config.colour_space}")
     
     normalized_images = images/255.0
     
@@ -195,7 +191,7 @@ def make_grinch(config, image, output):
         green_ycrcb = cv2.cvtColor(np.uint8([[green_bgr]]), cv2.COLOR_BGR2YCrCb)[0][0]
         grinch[mask] = green_ycrcb
     elif config.colour_space == "HSV":
-        green_hsv = cv2.cvtColor(np.uint8([[green_bgr]]), cv2.COLOR_BGR2HSV)[0][0]
+        green_hsv = cv2.cvtColor(np.uint8([[green_bgr]]), cv2.COLOR_BGR2HSV_FULL)[0][0]
         grinch[mask] = green_hsv
     
     return grinch
