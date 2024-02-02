@@ -9,6 +9,7 @@ import Models.ModelFunctions as ModelFunctions
 import Data.DataFunctions as DataFunctions
 import Data.AugmentationFunctions as AugmentationFunctions
 import torch
+import random
 import wandb
 import torch.nn as nn
 from torch import optim
@@ -28,6 +29,7 @@ default_config = SimpleNamespace(
     device = torch.device("cuda"),
     dims = 224,
     num_channels = 3,
+    seed = 42,
     
     pretrained = False,
     lr = 0.00001, 
@@ -37,7 +39,7 @@ default_config = SimpleNamespace(
     augmentation_rate = 0.75,
     
     num_workers = 4,
-    num_epochs = 30,
+    num_epochs = 5,
     batch_size = 32, 
     split = 0.95,
     
@@ -50,7 +52,7 @@ default_config = SimpleNamespace(
     # train_size = 34560,         #LargeCombinedAugmented
     # test_size = 768,            #LargeCombinedTest
     
-    train_size = 128,         #Smaller part
+    train_size = 512,         #Smaller part
     test_size = 64,           #Smaller part
 
     automatic_mixed_precision = True,
@@ -107,6 +109,11 @@ def get_optimizer(config, model):
 """ Returns dataloaders, model, loss function and optimizer.
 """
 def make(config):
+    # Set seeds for reproducibility purposes
+    np.random.seed(config.seed)
+    random.seed(config.seed)
+    torch.manual_seed(config.seed)
+    
     # Fetch data
     start_time = time.time()
     train_loader, test_loader = DataFunctions.load_image_data(config)
