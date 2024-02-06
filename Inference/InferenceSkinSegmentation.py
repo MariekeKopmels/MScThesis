@@ -55,6 +55,9 @@ def parse_args():
 def inference(config):
     model = ModelFunctions.load_model(config, config.model_name)
     
+    if model.colour_space != config.colour_space:
+        print("WARNING! Colour space is not the same as the model's colour space!")
+    
     video_dir = os.listdir(config.video_path)
     video_dir = [folder for folder in video_dir if not folder.startswith(".") and not folder.endswith(".mp4")]
     video_dir.sort()

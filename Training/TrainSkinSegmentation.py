@@ -36,15 +36,15 @@ default_config = SimpleNamespace(
     colour_space = "BGR",
     optimizer = "AdamW",
     weight_decay = 0.01,
-    augmentation_rate = 0.75,
+    augmentation_rate = 0.33,
     
     num_workers = 4,
-    num_epochs = 5,
+    num_epochs = 10,
     batch_size = 32, 
     split = 0.95,
     
-    # train_size = 44783,       #VisuAAL
-    # test_size = 768,          #LargeCombinedTest
+    train_size = 44783,       #VisuAAL
+    test_size = 768,          #LargeCombinedTest
     
     # train_size = 6912,        #LargeCombined
     # test_size = 768,          #LargeCombinedTest
@@ -52,8 +52,8 @@ default_config = SimpleNamespace(
     # train_size = 34560,         #LargeCombinedAugmented
     # test_size = 768,            #LargeCombinedTest
     
-    train_size = 512,         #Smaller part
-    test_size = 64,           #Smaller part
+    # train_size = 512,         #Smaller part
+    # test_size = 64,           #Smaller part
 
     automatic_mixed_precision = True,
     
@@ -82,6 +82,7 @@ def parse_args():
     argparser.add_argument('--test_size', type=int, default=default_config.test_size, help='test size')
     argparser.add_argument('--split', type=float, default=default_config.split, help='split used for train/validation, defines the size of the train set')
     argparser.add_argument('--lr', type=float, default=default_config.lr, help='learning rate')
+    argparser.add_argument('--augmentation_rate', type=float, default=default_config.augmentation_rate, help='augmentation rate')
     argparser.add_argument('--weight_decay', type=float, default=default_config.weight_decay, help='weight decay for Weighted Adam optimizer')
     argparser.add_argument('--colour_space', type=str, default=default_config.colour_space, help='colour space')
     argparser.add_argument('--pretrained', type=bool, default=default_config.pretrained, help='indicates wether or not a pretrained model is used') 
@@ -280,7 +281,7 @@ def test_performance(config, model, data_loader, loss_function, stage):
 """
 def model_pipeline(hyperparameters):
     # Give the run a name
-    hyperparameters.run_name = f"{hyperparameters.machine}_Colourspace:{hyperparameters.colour_space}_num_epochs:{hyperparameters.num_epochs}_batch_size:{hyperparameters.batch_size}_LR:{hyperparameters.lr}_weight_decay:{hyperparameters.weight_decay}_Pretrained:{hyperparameters.pretrained}_Trainset:{hyperparameters.trainset}"
+    hyperparameters.run_name = f"{hyperparameters.machine}_Colourspace:{hyperparameters.colour_space}_num_epochs:{hyperparameters.num_epochs}_LR:{hyperparameters.lr}_weight_decay:{hyperparameters.weight_decay}_augmentation_rate:{hyperparameters.augmentation_rate}_Pretrained:{hyperparameters.pretrained}_Trainset:{hyperparameters.trainset}"
     # hyperparameters.run_name = f"{hyperparameters.machine}_{hyperparameters.colour_space}"
     
     # Start wandb
