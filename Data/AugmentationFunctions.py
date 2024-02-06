@@ -21,7 +21,7 @@ def augment_images(config, images, gts):
         
         image = image.transpose(1,2,0)
             
-        augmented_image, augmented_gt = choose_and_perform_augmentation(image, gt)
+        augmented_image, augmented_gt = choose_and_perform_augmentation(config, image, gt)
         augmented_images[i] = augmented_image.transpose(2,0,1)
         augmented_gts[i] = augmented_gt
 
@@ -31,18 +31,18 @@ def augment_images(config, images, gts):
     
     return augmented_images, augmented_gts
 
-def choose_and_perform_augmentation(image, gt):    
+def choose_and_perform_augmentation(config, image, gt):    
     augmented_image = image
     augmented_gt = gt
     augmentations = [random.random() for _ in range(0,4)]
     
-    if augmentations[0] < 0.33:
+    if augmentations[0] < config.augmentation_rate:
         augmented_image, augmented_gt = mirror(augmented_image, augmented_gt)
-    if augmentations[1] < 0.33:
+    if augmentations[1] < config.augmentation_rate:
         augmented_image, augmented_gt = sheerX(augmented_image, augmented_gt)
-    if augmentations[2] < 0.33:
+    if augmentations[2] < config.augmentation_rate:
         augmented_image, augmented_gt = sheerY(augmented_image, augmented_gt)
-    if augmentations[3] < 0.33:
+    if augmentations[3] < config.augmentation_rate:
         augmented_image, augmented_gt = brightness(augmented_image, augmented_gt)
 
     return augmented_image, augmented_gt
