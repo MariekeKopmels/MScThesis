@@ -51,7 +51,6 @@ def parse_args():
     vars(default_config).update(vars(args))
     return
 
-# TODO: put in check for the colour space, see what the colour space of the model is
 def inference(config):
     model = ModelFunctions.load_model(config, config.model_name)
     
