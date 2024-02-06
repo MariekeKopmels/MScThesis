@@ -7,7 +7,9 @@ import Models.MyModels as MyModels
 import Logging.LogFunctions as LogFunctions
 import Models.ModelFunctions as ModelFunctions
 import Data.DataFunctions as DataFunctions
+import Data.AugmentationFunctions as AugmentationFunctions
 import torch
+import random
 import wandb
 import torch.nn as nn
 from torch import optim
@@ -22,78 +24,68 @@ from torch.cuda import amp
 # Size of LargeCombined Train=6528, Validation=384, Test=768
 # Size of LargeCombinedAugmented Train=32640
 
-# TODO: log eruit, cm_train eruit
 default_config = SimpleNamespace(
-    machine = "OS4",
+    machine = "OTS5",
     device = torch.device("cuda"),
     dims = 224,
     num_channels = 3,
+    seed = 42,
     
-    log = True,
     pretrained = False,
     lr = 0.00001, 
     colour_space = "BGR",
     optimizer = "AdamW",
     weight_decay = 0.01,
+    augmentation_rate = 0.33,
     
     num_workers = 4,
-    num_epochs = 5,
+    num_epochs = 10,
     batch_size = 32, 
-    split = 0.8,
+    split = 0.95,
     
-    # train_size = 44783,       #VisuAAL
+    train_size = 44783,       #VisuAAL
+    test_size = 768,          #LargeCombinedTest
+    
+    # train_size = 6912,        #LargeCombined
     # test_size = 768,          #LargeCombinedTest
     
-    # train_size = 6528,        #LargeCombined
-    # test_size = 768,          #LargeCombinedTest
+    # train_size = 34560,         #LargeCombinedAugmented
+    # test_size = 768,            #LargeCombinedTest
     
-    # train_size = 32640,       #LargeCombinedAugmented
-    # test_size = 768,          #LargeCombinedTest
-    
-    train_size = 128,         #Smaller part
-    test_size = 64,           #Smaller part
-    
-    cm_train = False,
-    cm_parts = 16,
-    
+    # train_size = 512,         #Smaller part
+    # test_size = 64,           #Smaller part
+
     automatic_mixed_precision = True,
     
-    early_stopping = False,
-    patience = 2,               #The number of epochs the model is allowed not to improve
-    min_improvement = 0.05,     #Minimal improvement needed for early stopping 
+    early_stopping = True,
+    patience = 3,               #The number of epochs the model is allowed not to improve
+    min_improvement = 0.01,     #Minimal improvement needed for early stopping 
     
     data_path = "/home/oddity/marieke/Datasets",
     trainset = "VisuAAL", 
+    # trainset = "LargeCombinedAugmented", 
     testset = "LargeCombinedTest",
     
     model_path = "/home/oddity/marieke/Output/Models",
-    model_name = "pretrained.pt",
+    model_name = "test_pretrained.pt",
     run_name = "",
     architecture = "UNet"
 )
-
-def init_device(config):
-    # TODO: voor cuda maken, mac eruit slopen
-    if config.machine == "TS2" or config.machine == "OS4":
-        torch.set_default_tensor_type('torch.cuda.FloatTensor')
-    elif config.machine == "mac":
-        torch.set_default_tensor_type('torch.FloatTensor')
-    else: 
-        warnings.warn(f"Device type not found, can only deal with cpu or CUDA and is {config.machine}")
 
 
 def parse_args():
     "Overriding default arguments"
     argparser = argparse.ArgumentParser(description='Process hyper-parameters')
-    argparser.add_argument('--log', type=str, default=default_config.log, help='turns logging on or off')
     argparser.add_argument('--num_epochs', type=int, default=default_config.num_epochs, help='number of epochs')
     argparser.add_argument('--batch_size', type=int, default=default_config.batch_size, help='batch size')
     argparser.add_argument('--train_size', type=int, default=default_config.train_size, help='train size')
-    argparser.add_argument('--split', type=float, default=default_config.split, help='split used for train/validation, defines the size of the train set')
     argparser.add_argument('--test_size', type=int, default=default_config.test_size, help='test size')
+    argparser.add_argument('--split', type=float, default=default_config.split, help='split used for train/validation, defines the size of the train set')
     argparser.add_argument('--lr', type=float, default=default_config.lr, help='learning rate')
+    argparser.add_argument('--augmentation_rate', type=float, default=default_config.augmentation_rate, help='augmentation rate')
     argparser.add_argument('--weight_decay', type=float, default=default_config.weight_decay, help='weight decay for Weighted Adam optimizer')
     argparser.add_argument('--colour_space', type=str, default=default_config.colour_space, help='colour space')
+    argparser.add_argument('--pretrained', type=bool, default=default_config.pretrained, help='indicates wether or not a pretrained model is used') 
     argparser.add_argument('--model_name', type=str, default=default_config.model_name, help='name of the model to be loaded')    
     args = argparser.parse_args()
     vars(default_config).update(vars(args))
@@ -117,17 +109,24 @@ def get_optimizer(config, model):
     
 """ Returns dataloaders, model, loss function and optimizer.
 """
-# TODO: group into distinct parts (i.e. splitting dataset stuff from model stuff)
 def make(config):
+    # Set seeds for reproducibility purposes
+    np.random.seed(config.seed)
+    random.seed(config.seed)
+    torch.manual_seed(config.seed)
+    
     # Fetch data
     start_time = time.time()
     train_loader, test_loader = DataFunctions.load_image_data(config)
     end_time = time.time() - start_time
     print(f"Loading of data done in %.2d seconds" % end_time)
     
-    # Make or load the model
+    # Create or load the model
     if config.pretrained:
-        model = ModelFunctions.load_model(config, config.model_name)
+        # TODO: Terugzetten
+        model_name = "best" + config.colour_space + ".pt"
+        model = ModelFunctions.load_model(config, model_name)
+        # model = ModelFunctions.load_model(config, config.model_name)
     else: 
         model = MyModels.UNET(config).to(config.device)
 
@@ -160,11 +159,10 @@ def early_stopping(config, epoch, patience_counter, val_IoU_scores):
 """
 def train(config, model, data_loader, loss_function, optimizer):
     if config.automatic_mixed_precision:
-        if config.machine == "TS2" or config.machine == "OS4":
+        if config.machine == "TS2" or config.machine == "OS4" or config.machine == "OTS5":
             scaler = amp.GradScaler(enabled=config.automatic_mixed_precision)
         else: 
-            config.automatic_mixed_precision = False
-            Warning("Machine not approved to use for Automatic Mixed Precision, so AMP turned off.")
+            Warning("Machine not approved to use for Automatic Mixed Precision, AMP should be turned off.")
     else:
         scaler = None
         
@@ -181,8 +179,6 @@ def train(config, model, data_loader, loss_function, optimizer):
         model.train()
         epoch_loss = 0.0
         batch = 0
-        epoch_outputs = torch.empty((0, config.dims, config.dims)).to(config.device)
-        epoch_targets = torch.empty((0, config.dims, config.dims)).to(config.device)
         for images, targets in train_loader:
             
             batch += 1
@@ -190,18 +186,7 @@ def train(config, model, data_loader, loss_function, optimizer):
             batch_loss, batch_outputs = train_batch(config, scaler, images, targets, model, optimizer, loss_function)
             epoch_loss += batch_loss.item()
             
-            if config.cm_train:
-                epoch_outputs = torch.cat((epoch_outputs, batch_outputs), dim=0)
-                epoch_targets = torch.cat((epoch_targets, targets.to(config.device)), dim=0)
-
         print(f"-------------------------Finished training batches-------------------------") 
-        
-        # Keep track of training epoch stats, or skip for sake of efficiency
-        if config.cm_train:
-            epoch_tn, epoch_fn, epoch_fp, epoch_tp = DataFunctions.confusion_matrix(config, epoch_outputs, epoch_targets, "train")
-            # drop_last=False in the train dataloader, so we compute the amount of batches first
-            mean_loss = epoch_loss / len(data_loader.dataset)
-            _ = LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, "train")
         
          # Test the performance with validation data
         val_IoU_scores[epoch] = test_performance(config, model, validation_loader, loss_function, "validation")        
@@ -225,32 +210,23 @@ def train(config, model, data_loader, loss_function, optimizer):
 """ Performs training for one batch of datapoints. Returns the true/false positive/negative metrics. 
 """
 def train_batch(config, scaler, images, targets, model, optimizer, loss_function):
-    # TODO: create helper function and reduce code duplication in this if/else statement
-    if config.automatic_mixed_precision:
-        with amp.autocast(enabled=config.automatic_mixed_precision):
-            # Model inference
-            images, targets = images.to(config.device), targets.to(config.device)
-            normalized_images = DataFunctions.normalize_images(config, images)
-            raw_outputs, outputs = model(normalized_images)
-            
-            # Compute loss, update model
-            loss = loss_function(raw_outputs, targets)
-            optimizer.zero_grad(set_to_none=True)
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
-
-    else:
+    with amp.autocast(enabled=config.automatic_mixed_precision):
         # Model inference
         images, targets = images.to(config.device), targets.to(config.device)
         normalized_images = DataFunctions.normalize_images(config, images)
-        raw_outputs, outputs = model(normalized_images)
+        augmented_images, augmented_targets = AugmentationFunctions.augment_images(config, normalized_images, targets)
+        raw_outputs, outputs = model(augmented_images)
         
         # Compute loss, update model
         optimizer.zero_grad(set_to_none=True)
-        loss = loss_function(raw_outputs, targets)
-        loss.backward()
-        optimizer.step()
+        loss = loss_function(raw_outputs, augmented_targets)
+        if config.automatic_mixed_precision:
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            loss.backward()
+            optimizer.step()
         
     return loss, outputs
 
@@ -305,8 +281,8 @@ def test_performance(config, model, data_loader, loss_function, stage):
 """
 def model_pipeline(hyperparameters):
     # Give the run a name
-    # hyperparameters.run_name = f"{hyperparameters.machine}_{hyperparameters.batch_size}_LR:{hyperparameters.lr}_Colourspace:{hyperparameters.colour_space}_Pretrained:{hyperparameters.pretrained}_Trainset:{hyperparameters.trainset}_Validationset:{hyperparameters.validationset}"
-    hyperparameters.run_name = f"{hyperparameters.machine}_{hyperparameters.colour_space}"
+    hyperparameters.run_name = f"{hyperparameters.machine}_Colourspace:{hyperparameters.colour_space}_num_epochs:{hyperparameters.num_epochs}_LR:{hyperparameters.lr}_weight_decay:{hyperparameters.weight_decay}_augmentation_rate:{hyperparameters.augmentation_rate}_Pretrained:{hyperparameters.pretrained}_Trainset:{hyperparameters.trainset}"
+    # hyperparameters.run_name = f"{hyperparameters.machine}_{hyperparameters.colour_space}"
     
     # Start wandb
     with wandb.init(mode="online", project="skin_segmentation", config=hyperparameters): 
@@ -314,16 +290,10 @@ def model_pipeline(hyperparameters):
         config = wandb.config
         wandb.run.name = config.run_name
 
-        # TODO: Aanzetten en testen
-        # init_device(config)
-
         # Create model, data loaders, loss function and optimizer
-        # Note that de data in the train loader is split into a train and validation dataset during training
+        # Note that the data in the train loader is split into a train and validation dataset during training
         model, train_loader, test_loader, loss_function, optimizer = make(config)
-        if config.log:
-            wandb.watch(model, log="all", log_freq=1)
-        else: 
-            wandb.watch(model, log=None, log_freq=1)
+        wandb.watch(model, log="all", log_freq=1)
             
         # In case of a pretrained model, test the performance on the test set before training to provide baseline information 
         if config.pretrained: 

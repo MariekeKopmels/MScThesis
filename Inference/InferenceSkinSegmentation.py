@@ -9,34 +9,35 @@ import os
 import torch.nn as nn
 
 default_config = SimpleNamespace(
-    machine = "OS4",
-    device = torch.device("cuda"),
+    # machine = "OTS5",
+    # device = torch.device("cuda"),
+    # num_workers = 1,
+    # dims = 224,
+    # num_channels = 3,
+    # max_video_length = 50,
+    # batch_size = 32, 
+    # dataset = "Demo",
+    # colour_space = "BGR",
+    # architecture = "UNet", 
+    # model_path = "/home/oddity/marieke/Output/Models",
+    # model_name = "pretrained_2.pt",
+    # video_path = "/home/oddity/marieke/Datasets/Demo/OriginalVideos",
+    # grinch_path = "/home/oddity/marieke/Datasets/Demo/GrinchVideos"
+    
+    machine = "Mac",
+    device = torch.device("mps"),
     num_workers = 1,
     dims = 224,
-    log = True,
     num_channels = 3,
     max_video_length = 50,
     batch_size = 32, 
-    dataset = "Demo",
-    colour_space = "RGB",
-    architecture = "UNet", 
-    model_path = "/home/oddity/marieke/Output/Models/Pretrained",
-    video_path = "/home/oddity/marieke/Datasets/Demo/OriginalVideos",
-    grinch_path = "/home/oddity/marieke/Datasets/Demo/GrinchVideos"
-    
-    # machine = "Mac",
-    # device = torch.device("mps"),
-    # num_workers = 1,
-    # log = True,
-    # dims = 224,
-    # max_video_length = 300,
-    # batch_size = 32, 
-    # dataset = "VisuAAL",
-    # colour_space = "RGB",
-    # architecture = "UNet",
-    # model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Thesis/Models",
-    # video_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch/DemoInputVideos", 
-    # grinch_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch/DemoGrinchVideos"
+    dataset = "VisuAAL",
+    colour_space = "BGR",
+    architecture = "UNet",
+    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Output/SkinDetectionModels",
+    model_name = "test_pretrained.pt",
+    video_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch/DemoInputVideos", 
+    grinch_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch/DemoGrinchVideosNEW"
 )
 
 def parse_args():
@@ -50,10 +51,11 @@ def parse_args():
     vars(default_config).update(vars(args))
     return
 
-
 def inference(config):
-    model = ModelFunctions.load_model(config)
-    sigmoid = nn.Sigmoid()
+    model = ModelFunctions.load_model(config, config.model_name)
+    
+    if model.colour_space != config.colour_space:
+        print("WARNING! Colour space is not the same as the model's colour space!")
     
     video_dir = os.listdir(config.video_path)
     video_dir = [folder for folder in video_dir if not folder.startswith(".") and not folder.endswith(".mp4")]
@@ -65,29 +67,21 @@ def inference(config):
         image_list = [image for image in image_list if not image.startswith(".")]
         image_list.sort()
         image_list = image_list[:config.max_video_length]
-        
-        print("len of file_list: ", len(image_list))
-        
+                
         print("Loading images...")
         images = DataFunctions.load_images(config, image_list, f"{config.video_path}/{video}")
         images = images.to(device=config.device)
         
-        # print(f"Device of images: {images.get_device()}")
-        # print(f"Device of model: {model.get_device()}")
-        
         with torch.no_grad():
             print(f"Calculating masks of {video}")
             images.to(config.device)
-            raw_masks = model(images)
-            masks = sigmoid(raw_masks)
-            print("Making masks black&white")
-            masks = (masks >= 0.5).float()
+            normalized_images = DataFunctions.normalize_images(config, images)
+            _, masks = model(normalized_images)
+            binary_masks = (masks >= 0.5).float()
             
-        print("Masks shape: ", np.shape(masks))
         print("Start making grinches")    
-        grinches = DataFunctions.to_grinches(config, images, masks, video)
+        _ = DataFunctions.to_grinches(config, images, binary_masks, video)
         
-        print("Grinches shape: ", np.shape(grinches))
         
     return 
 

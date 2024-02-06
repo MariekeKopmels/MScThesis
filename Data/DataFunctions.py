@@ -26,7 +26,7 @@ def load_images(config, dir_list, dir_path, gts=False):
         if config.colour_space == "YCrCb" and not gts:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2YCR_CB)
         elif config.colour_space == "HSV" and not gts:
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV_FULL)
         
         # Convert Ground Truth from BGR to 1 channel (Black or White)
         if gts: 
@@ -55,9 +55,9 @@ def load_input_images(config, image_dir_path, gt_dir_path, stage):
     
     # Not all images have a ground truth, select those that do. Also skip the hidden files.
     dir_list = [file for file in image_list if file in gt_list and not file.startswith(".")]
+    # TODO: shuffle? 
         
     # Include as many items as requested
-    #TODO: Hier aanpassen K-fold training ingebouwd wordt
     if stage == "train":
         dir_list = dir_list[:config.train_size]
     elif stage == "test":
@@ -140,51 +140,39 @@ def split_video_to_images(config):
 """ Reads images from config.grinch_path directory, merges them into a video and stores the video on disk
 """
 def merge_images_to_video(config):
-    if config.log: 
-        video_list = os.listdir(config.grinch_path)
-        video_list = [video for video in video_list if not video.startswith(".") and not video.endswith(".mp4")]
-        video_list.sort()
-        print("videolist: ", video_list)
-        for video in video_list:
-            os.chdir(f"{config.grinch_path}")
-            
-            image_list = os.listdir(f"{config.grinch_path}/{video}")
-            image_list = [image for image in image_list if not image.startswith(".")]
-            image_list.sort()
-            
-            video_name = "grinch_" + video + ".mp4"
-            fourcc = cv2.VideoWriter_fourcc('m','p','4','v')        
-            video_writer = cv2.VideoWriter(filename=video_name, fourcc=fourcc, fps=25, frameSize=(config.dims, config.dims))
-            
-            os.chdir(f"{config.grinch_path}/{video}")
-            while video_writer.isOpened():
-                for i in image_list:
-                    image = cv2.imread(i)
-                    video_writer.write(image)
-                video_writer.release()
+    video_list = os.listdir(config.grinch_path)
+    video_list = [video for video in video_list if not video.startswith(".") and not video.endswith(".mp4")]
+    video_list.sort()
+    for video in video_list:
+        os.chdir(f"{config.grinch_path}")
+        
+        image_list = os.listdir(f"{config.grinch_path}/{video}")
+        image_list = [image for image in image_list if not image.startswith(".")]
+        image_list.sort()
+        
+        video_name = "grinch_" + video + ".mp4"
+        fourcc = cv2.VideoWriter_fourcc('m','p','4','v')        
+        video_writer = cv2.VideoWriter(filename=video_name, fourcc=fourcc, fps=25, frameSize=(config.dims, config.dims))
+        
+        os.chdir(f"{config.grinch_path}/{video}")
+        while video_writer.isOpened():
+            for i in image_list:
+                image = cv2.imread(i)
+                video_writer.write(image)
+            video_writer.release()
     return
 
-""" Normalizes the passed images according to the ImageNet normalization mean and standard deviation.
-    TODO: Checken of ImageNet normalization idd het beste is, of dat ik beter zelf naar [0,1] kan normalizen.
-    TODO: Normalizen kan nog een stuk netter door zelf een mean en std uit te rekenen, ipv gewoon door 255 delen.
-    Let op, als ik ze zelf ga normalizen moet ik dezelfde methode bij zowel pretrainen als bij finetunen gebruiken. 
+""" Normalizes values in the passed images by dividing by the max value of 255, irrespective of the colour space.
+    Therefore, the original images have values in the range [0,255] whereas the normalized
+    Images are in range [0,1].
 """
 def normalize_images(config, images):
     channel1, channel2, channel3 = images[:, 0, :, :], images[:, 1, :, :], images[:, 2, :, :]
-    if channel1.max() > 255.0 or channel2.max() > 255.0 or channel3.max() > 255.0:
+    if channel1.max().item() > 255.0 or channel2.max().item() > 255.0 or channel3.max().item() > 255.0:
+        print(f"{channel1.min().item() = }{channel1.max().item() = }\n{channel2.min().item() = }{channel2.max().item() = }\n{channel3.min().item() = }{channel3.max().item() = }")
         print(f"WARNING: there is a value larger than 255! Should not happen. Colour_space:{config.colour_space}")
     
-    # Imagenet normilization voor BGR (dus idd omgedraaid tov RGB)
-    if config.colour_space == "BGR":
-        # mean = torch.tensor([0.406, 0.456, 0.485]).view(1, 3, 1, 1).to(config.device)
-        # std = torch.tensor([0.225, 0.224, 0.229]).view(1, 3, 1, 1).to(config.device)
-        # normalized_images = ((images/255) - mean) / std
-        normalized_images = images/255.0
-    elif config.colour_space == "YCrCb" or config.colour_space == "HSV": 
-        normalized_images = images/255.0
-    else:
-        print(f"Unknown colour space {config.colour_space}. Images are not normalized.")
-        normalized_images = images
+    normalized_images = images/255.0
     
     return normalized_images
 
@@ -202,28 +190,27 @@ def make_grinch(config, image, output):
         green_ycrcb = cv2.cvtColor(np.uint8([[green_bgr]]), cv2.COLOR_BGR2YCrCb)[0][0]
         grinch[mask] = green_ycrcb
     elif config.colour_space == "HSV":
-        green_hsv = cv2.cvtColor(np.uint8([[green_bgr]]), cv2.COLOR_BGR2HSV)[0][0]
+        green_hsv = cv2.cvtColor(np.uint8([[green_bgr]]), cv2.COLOR_BGR2HSV_FULL)[0][0]
         grinch[mask] = green_hsv
     
     return grinch
 
-""" Takes baches of images in ndarrays, stores (if log=True) as well as returns the grinch versions
+""" Takes baches of images in ndarrays, stores as well as returns the grinch versions
 """
 def to_grinches(config, images, outputs, video):
-    if config.log:
-        outputs = outputs.cpu().numpy()
-        grinches = images.cpu().numpy()
-        mask = outputs == 1
-        
-        os.makedirs(config.grinch_path, exist_ok=True)
-        os.chdir(config.grinch_path)
-        os.makedirs(video, exist_ok=True)
-        
-        for i in range(len(mask)):
-            grinches[i] = make_grinch(config, grinches[i].transpose(1,2,0), outputs[i]).transpose(2,0,1)
-            save_path = config.grinch_path + "/" + video
-            save_name = "grinchframe_" + str(i).zfill(5) + ".jpg"
-            save_image(config, grinches[i].transpose(1,2,0), save_path, save_name)
+    outputs = outputs.cpu().numpy()
+    grinches = images.cpu().numpy()
+    mask = outputs == 1
+    
+    os.makedirs(config.grinch_path, exist_ok=True)
+    os.chdir(config.grinch_path)
+    os.makedirs(video, exist_ok=True)
+    
+    for i in range(len(mask)):
+        grinches[i] = make_grinch(config, grinches[i].transpose(1,2,0), outputs[i]).transpose(2,0,1)
+        save_path = config.grinch_path + "/" + video
+        save_name = "grinchframe_" + str(i).zfill(5) + ".jpg"
+        save_image(config, grinches[i].transpose(1,2,0), save_path, save_name)
             
     return torch.from_numpy(grinches)
     
@@ -271,7 +258,6 @@ def metrics(tn, fn, fp, tp):
 
 """ Stores an image (in form of ndarray or tensor) to the disk.
 """
-# TODO: Add other colour spaces here
 def save_image(config, image, path, filename, bw=False, gt=False):
     os.makedirs(path, exist_ok=True)
     os.chdir(path)
@@ -312,20 +298,19 @@ def save_augmentation(config, i, image, gt, augmentation):
 """ Copies images from a folder into a new folder.
 """
 def move_images(config, start_index, origin_path, destination_path, image_list=[], gts=False):  
-    if config.log:
-        if image_list == []:
-            os.makedirs(origin_path, exist_ok=True)
-            image_list = os.listdir(origin_path)
-            image_list = [image for image in image_list if not image.startswith(".")]
-            image_list.sort()
-        
-        images = load_images(config, image_list, origin_path, gts=gts)
+    if image_list == []:
+        os.makedirs(origin_path, exist_ok=True)
+        image_list = os.listdir(origin_path)
+        image_list = [image for image in image_list if not image.startswith(".")]
+        image_list.sort()
+    
+    images = load_images(config, image_list, origin_path, gts=gts)
 
-        index = start_index
-        for image in images:
-        
-            save_name = "image_" + str(index).zfill(6) + ".jpg"
-            save_image(config, image, destination_path, save_name, gt=gts)
-            index += 1
+    index = start_index
+    for image in images:
+    
+        save_name = "image_" + str(index).zfill(6) + ".jpg"
+        save_image(config, image, destination_path, save_name, gt=gts)
+        index += 1
             
     return index

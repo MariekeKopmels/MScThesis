@@ -57,16 +57,17 @@ class decoder_block(nn.Module):
         Outputs are the raw and sigmoid outputs of the model in the shape of 
         torch tensors of shape (batch_size, height, width) 
         (One channels as it represents only 1 classification)
+        The colour space that the model is trained for is stored in self.colour_space
         
         The raw output contains unprocessed float outputs whereas the regular outputs
         are in the range [0,1].
 """
-# TODO: cleanup: verdelen in nn.Sequential blokken encoeder, bottleneck en decoder
 class UNET(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.batch_size = config.batch_size
         self.dims = config.dims
+        self.colour_space = config.colour_space
         """ Encoder """
         self.e1 = encoder_block(config.num_channels, 64)
         self.e2 = encoder_block(64, 128)
@@ -102,6 +103,9 @@ class UNET(nn.Module):
         """ Reformatting """
         # Squeeze output to get the desired shape (batch_size, height, width)
         raw_outputs = torch.squeeze(x)
+        
+        """ Sigmoid """
+        # Put output through activation function to get outputs in range [0,1]
         outputs = self.sigmoid(raw_outputs)
         
         return raw_outputs, outputs
