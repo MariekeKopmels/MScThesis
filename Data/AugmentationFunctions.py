@@ -32,8 +32,8 @@ def augment_images(config, images, gts):
     return augmented_images, augmented_gts
 
 def choose_and_perform_augmentation(image, gt):    
-    augmented_image = np.copy(image)
-    augmented_gt = np.copy(gt)
+    augmented_image = image
+    augmented_gt = gt
     augmentations = [random.random() for _ in range(0,4)]
     
     if augmentations[0] < 0.33:
