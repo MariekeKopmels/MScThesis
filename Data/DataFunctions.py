@@ -12,7 +12,6 @@ import Logging.LogFunctions as LogFunctions
 def load_images(config, dir_list, dir_path, gts=False):
     # Initialize the images tensor
     if gts: 
-        # TODO: kijken of beide ook als float 32 binnenkomen of miss de ene als int en de ander als float
         images = torch.empty(len(dir_list), config.dims, config.dims, dtype=torch.float32)
     else:
         images = torch.empty(len(dir_list), config.num_channels, config.dims, config.dims, dtype=torch.float32)
