@@ -295,7 +295,8 @@ def save_augmentation(config, i, image, gt, augmentation):
     return
 
 
-""" Copies images from a folder into a new folder.
+""" Copies images from a folder into a new folder. Note that the images are renamed before
+    storing.
 """
 def move_images(config, start_index, origin_path, destination_path, image_list=[], gts=False):  
     if image_list == []:
@@ -308,7 +309,6 @@ def move_images(config, start_index, origin_path, destination_path, image_list=[
 
     index = start_index
     for image in images:
-    
         save_name = "image_" + str(index).zfill(6) + ".jpg"
         save_image(config, image, destination_path, save_name, gt=gts)
         index += 1

@@ -43,7 +43,9 @@ def merge_datasets(config):
         current_dataset_start_id = DataFunctions.move_images(config, current_dataset_start_id, origin_gt_path, destination_path, gts=True) 
     return
 
-""" Split the combined dataset into a train and test dataset.
+""" Split the combined dataset into a train and test dataset. Note that move_images gives the files
+    new names, starting from 000000. Therefore, it may seem as if images are not shuffled before they
+    are split into train/test sets, however they actually are.
 """
 def split_dataset(config):
     image_path = config.combined_dataset_folder + "/AllImages"
