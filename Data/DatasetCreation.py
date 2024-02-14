@@ -3,8 +3,8 @@ import Data.DataFunctions as DataFunctions
 import os
 import random
 
-
 default_config = SimpleNamespace(
+    seed = 42,
     dims = 224,  
     colour_space = "RGB",
     num_channels = 3,
@@ -81,5 +81,7 @@ def datasetcreation_pipeline(config):
     return
 
 if __name__ == '__main__':
+    print("Start dataset creation")
+    random.seed(default_config.seed)
     datasetcreation_pipeline(default_config)
     
