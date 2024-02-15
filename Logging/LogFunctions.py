@@ -8,11 +8,11 @@ import numpy as np
 """ Prints intermediate results to WandB, also logs them to WandB if not in batch stage.
 """
 def log_metrics(config, mean_loss, tn, fn, fp, tp, stage):
-    accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU = DataFunctions.metrics(tn, fn, fp, tp)
-    print(f"{stage} results\nMean loss: {mean_loss:.6f}, accuracy: {accuracy:.3f}, fn_rate: {fn_rate:.3f}, fp_rate:: {fp_rate:.3f}, sensitivity: {sensitivity:.3f}, f1-score: {f1_score:.3f}, IoU: {IoU:.3f}") 
+    accuracy, fn_rate, fp_rate, sensitivity, f1_score, f2_score, IoU = DataFunctions.metrics(tn, fn, fp, tp)
+    print(f"{stage} results\nMean loss: {mean_loss:.6f}, accuracy: {accuracy:.3f}, fn_rate: {fn_rate:.3f}, fp_rate:: {fp_rate:.3f}, sensitivity: {sensitivity:.3f}, f1-score: {f1_score:.3f}, f2_score: {f2_score:.3f}, IoU: {IoU:.3f}") 
     
     if stage != "batch":
-        wandb.log({f"{stage}_accuracy": accuracy, f"{stage}_fn_rate": fn_rate, f"{stage}_fp_rate": fp_rate, f"{stage}_sensitivity": sensitivity, f"{stage}_f1_score": f1_score, f"{stage}_IoU": IoU, f"{stage}_mean_loss": mean_loss})
+        wandb.log({f"{stage}_accuracy": accuracy, f"{stage}_fn_rate": fn_rate, f"{stage}_fp_rate": fp_rate, f"{stage}_sensitivity": sensitivity, f"{stage}_f1_score": f1_score, f"{stage}_f2_score": f2_score, f"{stage}_IoU": IoU, f"{stage}_mean_loss": mean_loss})
     
     return IoU
 

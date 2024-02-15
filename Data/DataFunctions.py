@@ -250,10 +250,20 @@ def metrics(tn, fn, fp, tp):
     # If there are no pixels that should be marked as skin, the sensitivity should be 1
     sensitivity = tp/(fn+tp) if fn+tp!= 0 else 1
     
-    f1_score = tp/(tp+((fp+fn)*0.5))
+    f1_score = f_beta_score(tp, fp, fn, 1)
+    f2_score = f_beta_score(tp, fp, fn, 2)
+    
     IoU = tp/(tp+fp+fn)
     
-    return accuracy, fn_rate, fp_rate, sensitivity, f1_score, IoU
+    return accuracy, fn_rate, fp_rate, sensitivity, f1_score, f2_score, IoU
+
+
+""" Calculates and returns the F-beta score given the passed tp, fp and fn rates.
+"""
+def f_beta_score(tp, fp, fn, beta):
+    numerator = (1 + np.square(beta)) * tp
+    denominator = (1 + np.square(beta)) * tp + fp + (np.square(beta) * fn)
+    return numerator/denominator
 
 
 """ Stores an image (in form of ndarray or tensor) to the disk.
