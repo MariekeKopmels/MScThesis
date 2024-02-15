@@ -1,28 +1,12 @@
-wandb/
-Models/OutputModels/
-TestPrograms/
-Logging/Logs/
-models_oddity/
-Annotation/
-__pycache__/
-sweeps/
-Inference/OutputInference/
+# This gitignore file is a whitelist. Therefore, everything is ignored unless specified otherwise
+*
 
-GitSkinSegmentation.py
-JsonTest.py
-Training/TEMPTrainSkinSegmentation.py
-Training/SkinPixelSegmentation.py
+# Manually add files and folders
+!/Config/*.py
+!/Data/*.py
+!/Inference/*.py
+!/Logging/*.py
+!/Models/*.py
+!/Training/*.py
 
-
-Notes.txt
-
-*.mp4
-*.png
-*.jpg
-*.jpeg
-*.yaml
-*.sh
-*.json
-
-.DS_Store
-
+!.gitignore
