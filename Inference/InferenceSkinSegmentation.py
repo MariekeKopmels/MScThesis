@@ -9,35 +9,35 @@ import os
 import torch.nn as nn
 
 default_config = SimpleNamespace(
-    # machine = "OTS5",
-    # device = torch.device("cuda"),
+    machine = "OTS5",
+    device = torch.device("cuda"),
+    num_workers = 1,
+    dims = 224,
+    num_channels = 3,
+    max_video_length = 16,
+    batch_size = 32, 
+    dataset = "Demo",
+    colour_space = "YCrCb",
+    architecture = "UNet", 
+    model_path = "/home/oddity/marieke/Output/Models",
+    model_name = "overallbestYCrCb.pt",
+    video_path = "/home/oddity/marieke/Datasets/ViolenceGrinchTest/samples",
+    grinch_path = "/home/oddity/marieke/Datasets/ViolenceGrinchTest/grinchsamples"
+    
+    # machine = "Mac",
+    # device = torch.device("mps"),
     # num_workers = 1,
     # dims = 224,
     # num_channels = 3,
     # max_video_length = 50,
     # batch_size = 32, 
-    # dataset = "Demo",
+    # dataset = "VisuAAL",
     # colour_space = "BGR",
-    # architecture = "UNet", 
-    # model_path = "/home/oddity/marieke/Output/Models",
-    # model_name = "pretrained_2.pt",
-    # video_path = "/home/oddity/marieke/Datasets/Demo/OriginalVideos",
-    # grinch_path = "/home/oddity/marieke/Datasets/Demo/GrinchVideos"
-    
-    machine = "Mac",
-    device = torch.device("mps"),
-    num_workers = 1,
-    dims = 224,
-    num_channels = 3,
-    max_video_length = 50,
-    batch_size = 32, 
-    dataset = "VisuAAL",
-    colour_space = "BGR",
-    architecture = "UNet",
-    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Output/SkinDetectionModels",
-    model_name = "test_pretrained.pt",
-    video_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch/DemoInputVideos", 
-    grinch_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch/DemoGrinchVideosNEW"
+    # architecture = "UNet",
+    # model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Output/SkinDetectionModels",
+    # model_name = "test_pretrained.pt",
+    # video_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch/DemoInputVideos", 
+    # grinch_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch/DemoGrinchVideosNEW"
 )
 
 def parse_args():
@@ -81,7 +81,6 @@ def inference(config):
             
         print("Start making grinches")    
         _ = DataFunctions.to_grinches(config, images, binary_masks, video)
-        
         
     return 
 
