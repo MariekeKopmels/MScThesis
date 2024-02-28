@@ -1,11 +1,12 @@
 import os
 import cv2
 import sklearn.metrics
+import json
 import torch 
 import numpy as np 
+import random
 from torch.utils.data import DataLoader, random_split
-import time
-import Logging.LogFunctions as LogFunctions
+
 
 """ Loads the requested images, returns them in a Torch tensor.
 """
@@ -93,11 +94,204 @@ def load_image_data(config):
     return train_loader, test_loader
 
 
+""" Loads the frames of the requested videos, returns them in a Torch tensor.
+"""
+def load_video_frames(config, dir_list, dir_path):
+    # dir_path = /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/COPY-oddity-copy-refined-nms-data-0103/samples
+    # dir_list = list of folders samples folder (so video names)
+    
+    # Initialize the videos tensor
+    videos = torch.empty(len(dir_list), config.max_video_length, config.num_channels, config.dims, config.dims, dtype=torch.float32)
+        
+    # read the videos
+    for i, video_name in enumerate(dir_list):
+        video_path = dir_path + "/" + video_name
+        frame_list = os.listdir(video_path)
+        frame_list = [frame for frame in frame_list if not frame.startswith(".")]
+        frame_list.sort()
+        
+        frames = load_images(config, frame_list, video_path)
+        videos[i][:] = frames
+        
+    return videos
+
+""" Function to map the violence and shoe colour labels to a numeric value
+    For the violence labels it is defined as: 
+    Violence = 1, Neutral = 0
+    and for shoe colour it is defined as:
+    White = 0, Pink = 1, Green = 2, Black = 3, Unknown = 9
+"""
+def map_to_numeric(label):
+    # Define a mapping from label strings to numeric values
+    label_mapping = {
+        "neutral": 0.0,
+        "violence": 1.0,
+    }
+    return label_mapping.get(label, -1)  # Return -1 if label is not found in mapping
+
+
+""" Loads the ground truths of videos in torch tensor format. In the returned ground truths, 
+    the first element of each row is the violence target and the rest of the columns represent 
+    the one-hot encoded skin colour class.
+"""
+def load_video_gts(config, dir_list, dir_path):
+    gts = []
+    for gt_name in dir_list:
+        path = dir_path + "/" + gt_name
+        with open(path, "r") as json_file:
+            gts_json = json.load(json_file)
+        label = gts_json['class_label'][0]
+        gts.append(map_to_numeric(label))
+
+    # TODO: Checken of ik idd moet unsqueezen (nu is gts.shape [dataset_size,1] en zonder unsqueeze is het [dataset_size])
+    gts = torch.tensor(gts).unsqueeze(dim=1)
+    
+    return gts
+
+""" Returns input videos in a given directory
+        Format of return: torch tensors containing videos and corresponding ground truths.
+        Torch tensors are of shape batch_size,frame,num_channels,dims,dims for videos and TODO: XXX for ground truths.
+"""
+def load_input_videos(config, videos_dir_path, gt_dir_path):
+    # videos_dir_path = /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/COPY-oddity-copy-refined-nms-data-0103/samples
+    # video_list = list of folders in videos_dir_path (so video names)
+    
+    # gt_dir_path = /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/COPY-oddity-copy-refined-nms-data-0103/labels
+    # gt_list = list of folders in gt_dir_path (so video names)
+    
+    # Load list of files in directories
+    video_list = os.listdir(videos_dir_path)
+    gt_list = os.listdir(gt_dir_path)
+    
+    # Remove hidden files and keep only the folders in video_list
+    gt_list = [gt for gt in gt_list if not gt.startswith(".")]
+    video_list = [entry for entry in video_list if os.path.isdir(os.path.join(videos_dir_path, entry))]
+
+    # print(f"After keeping folders only, {len(video_list) = }")
+    
+    # # Skip hidden files in the video directory
+    # video_list = [video for video in video_list if not video.startswith(".")]
+    # print(f"After removing hidden files, {len(video_list) = }")
+    # video_list = [element for element in video_list if not element.endswith(".mp4")]
+    # print(f"After removing .mp4 files, {len(video_list) = }")
+    # video_list = [element for element in video_list if not element.startswith("grinch_")]
+    # print(f"After removing grinch_ files, {len(video_list) = }")
+    
+    # no_el = 0
+    # for el in video_list:
+    #     no_el += 1
+    # print(f"{no_el = }")
+    
+    # 
+    
+    # Sort to get them in the same order, then shuffle together to randomize
+    video_list.sort()  
+    gt_list.sort() 
+    
+    combined_list = list(zip(video_list, gt_list))
+    random.shuffle(combined_list)
+    video_list, gt_list = zip(*combined_list)
+        
+    # Sanity check, see if videos and gts really are in the same order
+    # Check with temporary gt names, where the .json extension is removed
+    # gt_temp = [element[:-5] if element.endswith('.json') else element for element in gt_list]    
+    # if not video_list == gt_temp:
+    #     non_matching_items = []
+    #     for i in range(len(video_list)):
+    #         if video_list[i] != gt_temp[i]:
+    #             non_matching_items.append((i, video_list[i], gt_temp[i]))
+    #     print(f"{video_list[:10] = }")
+    #     print(f"{gt_temp[:10] = }")
+    #     print(f"{non_matching_items = }")
+    #     exit()
+    #     raise Exception("Listed videos and ground truths don't seem to match! Check the config.data_path folder and check if samples and labels folder align.")
+
+
+    # # Step 1: Check length
+    # Quick check using the == operator
+    # if video_list == gt_temp:
+    #     print("The lists are identical.")
+    # else:
+    #     print("Detailed comparison needed.")
+    #     if len(video_list) != len(gt_temp):
+    #         print("Lists have different lengths.")
+    #     else:
+    #         # Step 2: Print both lists
+    #         # print("Video List:", video_list)
+    #         # print("GT Temp:", gt_temp)
+
+    #         # Step 3: Compare element by element
+    #         for i, (v, gt) in enumerate(zip(video_list, gt_temp)):
+    #             if v != gt:
+    #                 print(f"Difference at step 3")
+    #                 # print(f"Difference found at index {i}: {v} (Video List) != {gt} (GT Temp)")
+
+    #         # Step 4: Check set difference
+    #         set_diff = set(video_list) - set(gt_temp)
+    #         if set_diff:
+    #             print("Elements present in Video List but not in GT Temp: ", len(set_diff))
+    #         else:
+    #             print("No differences found.")
+
+    #         set_diff = set(gt_temp) - set(video_list)
+    #         if set_diff:
+    #             print("Elements present in GT Temp but not in Video List")
+    #         else:
+    #             print("No differences found.")
+    
+    # TODO: eruit slopen om alle data te gebruiken!
+    video_list = video_list[:config.dataset_size]
+    gt_list = gt_list[:config.dataset_size]
+    
+    videos = torch.empty(0, 16, 3, 224, 224)
+    gts = torch.empty(0, 1)
+
+    # TODO: Heeft hier niet mee te maken vgm, eruit slopen?
+    batches = len(video_list) // config.max_loading_capacity
+    if len(video_list) % config.max_loading_capacity>0:
+        batches += 1
+        
+    for batch in range(batches):
+        start_idx = batch*config.max_loading_capacity
+        end_idx = min((batch + 1) * config.max_loading_capacity, len(video_list))
+        video_batch = load_video_frames(config, video_list[start_idx:end_idx], videos_dir_path)
+        gt_batch = load_video_gts(config, gt_list[start_idx:end_idx], gt_dir_path)
+        videos = torch.cat((videos, video_batch), 0)
+        gts = torch.cat((gts, gt_batch), 0)
+
+    return videos, gts
+
+""" Returns train and test, being data loaders with tuples of input videos and corresponding ground truths.
+        Format of return: Data loaders of tuples containing an input tensor and a ground truth tensor
+        Video tensors are of shape (batch_size, frames, channels, height, width)
+        Ground truth tensors are of shape (batch_size, 2) where each row defines the Violence and SkinColour class of that row's sample
+"""
+#TODO: See if this (and the other video/image data functions can be merged.
+def load_violence_data(config):
+    # Load train and test data
+    print("Loading violence data...")
+    all_videos, all_gts = load_input_videos(config, config.data_path + "/" + config.sampletype, config.data_path + "/labels")
+    
+    # Combine images and ground truths in TensorDataset format
+    dataset = torch.utils.data.TensorDataset(all_videos, all_gts)
+    dataloader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True, num_workers=config.num_workers, pin_memory=True, drop_last=False)
+    
+    train_loader, test_loader = split_dataset(config, dataloader, "train/test")
+    
+    # Return dataloaders
+    return train_loader, test_loader
+
+
+# TODO: Omdat deze nu ook voor de train/test en niet alleen voor train/validation split gebruikt wordt even aanpassen omdat er twee verschillende splits zijn.
 """ Splits the data in the passed data loader into a train and validation loader.
 """
-def split_dataset(config, data_loader):
-    generator = torch.Generator().manual_seed(42)
-    train_data, validation_data = random_split(data_loader.dataset, [config.split, 1-config.split], generator)
+def split_dataset(config, data_loader, split_type="train/validation"):
+    generator = torch.Generator().manual_seed(config.seed)
+    if split_type == "train/validation":
+        split_value = config.trainvalidation_split
+    else:
+        split_value = config.traintest_split
+    train_data, validation_data = random_split(data_loader.dataset, [split_value, 1-split_value], generator)
     train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, drop_last=False) 
     validation_loader = DataLoader(validation_data, batch_size=config.batch_size, shuffle=True, drop_last=False) 
     
@@ -109,9 +303,7 @@ def split_dataset(config, data_loader):
 def split_video_to_images(config):    
     video_list = os.listdir(config.video_path)
     video_list = [video for video in video_list if not video.startswith(".") and video.endswith(".mp4")]
-    
-    print("Video_list: ", video_list)
-        
+            
     video_no = 0
     for video in video_list:
         video_path = config.video_path + "/" + video
@@ -176,6 +368,14 @@ def normalize_images(config, images):
     
     return normalized_images
 
+""" Normalizes values in the passed videos.
+"""
+def normalize_videos(config, videos):
+    for i in range(videos.shape[0]):
+        frames = videos[i]
+        videos[i] = normalize_images(config, frames)
+    return videos
+        
 ''' Returns the grinch version of the passed image, based on the passed output of the model
 '''
 def make_grinch(config, image, output):
@@ -215,7 +415,8 @@ def to_grinches(config, images, outputs, video):
     return torch.from_numpy(grinches)
     
     
-"""Returns the values of the confusion matrix of true negative, false negative, true positive and false positive values
+""" Returns the values of the confusion matrix of true negative, false negative, true positive and false positive values.
+    Receives the outputs as values in the range [0,1] and targets of either 0 or 1.
 """
 def confusion_matrix(config, outputs, targets, stage):
     # Flatten output and target

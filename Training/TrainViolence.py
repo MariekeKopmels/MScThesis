@@ -1,17 +1,15 @@
 # Main for training the I3D violence model
-
 import Config.ConfigFunctions as ConfigFunctions
 import Data.DataFunctions as DataFunctions
 import Models.MyModels as MyModels
-import Models.LossFunctions as LossFunctions
 import Logging.LogFunctions as LogFunctions
 import wandb
 import torch
+import random
 import torch.nn as nn
 import numpy as np
 from torch import optim
 from torch.cuda import amp
-from sklearn.metrics import f1_score
 
 """Returns the grad scaler in case of automatic mixed precision.
 """
@@ -20,11 +18,12 @@ def getGradScaler(config):
         if config.machine == "OTS5":
             return amp.GradScaler(enabled=config.automatic_mixed_precision)
         else: 
-            Warning("Machine not approved to use for Automatic Mixed Precision, so AMP turned off.")
+            Warning("Machine not approved to use for Automatic Mixed Precision, so AMP is turned off.")
     return None
     
 """ Trains the passed model"""
 def train(config, model, scaler, loss_function, optimizer, data_loader):
+    # TODO Implement early stopping, or remove this f1 score tracker
     val_f1_scores = np.zeros((config.num_epochs, 2))
     
     for epoch in range(config.num_epochs):
@@ -35,56 +34,38 @@ def train(config, model, scaler, loss_function, optimizer, data_loader):
         
         train_loader, validation_loader = DataFunctions.split_dataset(config, data_loader)
         for videos, targets in train_loader:  
-            violence_targets, skincolour_targets = targets[:, 0], targets[:, 1:]
             batch += 1
-            print(f"-------------------------Starting Batch {batch}/{int(config.train_size/config.batch_size)} batches-------------------------", end="\r")
-            batch_loss, batch_violence_outputs, batch_skincolour_outputs = train_batch(config, scaler, videos, violence_targets, skincolour_targets, model, optimizer, loss_function)
+            print(f"-------------------------Starting Batch {batch}/{int(len(train_loader.dataset)/config.batch_size)} batches-------------------------", end="\r")
+            # TODO: Wil ik nog iets met deze outputs doen? Anders hoef ik ze niet terug te krijgen
+            batch_loss, _ = train_batch(config, scaler, videos, targets, model, optimizer, loss_function)
             epoch_loss += batch_loss.item()
                                     
         print(f"-------------------------Finished training batches-------------------------") 
         
         # Validate the performance of the model
         val_f1_scores[epoch] = test_performance(config, model, validation_loader, loss_function, "validation")
+        
+        # TODO: Save the (best) model
+        
     return
 
-def train_batch(config, scaler, videos, violence_targets, skincolour_targets, model, optimizer, loss_function):
-    # TODO: create helper function and reduce code duplication in this if/else statement (not possible yet when running on mac as well)
-    if config.automatic_mixed_precision:
-        with amp.autocast(enabled=config.automatic_mixed_precision):
-            # Model inference
-            videos, violence_targets, skincolour_targets = videos.to(config.device), violence_targets.to(config.device), skincolour_targets.to(config.device)
-            
-            # TODO: normalize videos? 
-            # normalized_images = DataFunctions.normalize_images(config, images)
-            raw_violence_outputs, raw_skincolour_outputs = model(videos)
-            
-            # Compute loss, update model
-            optimizer.zero_grad(set_to_none=True)
-            loss = loss_function(raw_violence_outputs, raw_skincolour_outputs, violence_targets, skincolour_targets)
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
-
-    else:
+def train_batch(config, scaler, videos, targets, model, optimizer, loss_function):
+    with amp.autocast(enabled=config.automatic_mixed_precision):
         # Model inference
-        videos, violence_targets, skincolour_targets = videos.to(config.device), violence_targets.to(config.device), skincolour_targets.to(config.device)
-        # TODO: normalize videos? 
-        # normalized_images = DataFunctions.normalize_images(config, images)
-                
-        raw_violence_outputs, raw_skincolour_outputs = model(videos)
+        videos, targets = videos.to(config.device), targets.to(config.device)
+        
+        # Normalize videos
+        normalized_videos = DataFunctions.normalize_videos(config, videos)
+        raw_outputs, outputs = model(normalized_videos)
         
         # Compute loss, update model
         optimizer.zero_grad(set_to_none=True)
-        loss = loss_function(raw_violence_outputs, raw_skincolour_outputs, violence_targets, skincolour_targets)
-        loss.backward()
-        optimizer.step()
-        
-    # Return the outputs in the correct format where violence is either 0 or 1
-    # and skin colour is one-hot encoded. 
-    violence_outputs = raw_violence_outputs > 0.5
-    skincolour_outputs = torch.argmax(raw_skincolour_outputs, dim=1)
+        loss = loss_function(raw_outputs, targets)
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
     
-    return loss, violence_outputs, skincolour_outputs
+    return loss, outputs
 
 def test_performance(config, model, data_loader, loss_function, stage):
     print(f"-------------------------Start {stage}-------------------------")
@@ -92,64 +73,85 @@ def test_performance(config, model, data_loader, loss_function, stage):
     
     with torch.no_grad():
         total_loss = 0.0
+        total_violence = 0
+        total_neutral = 0
         batch = 0
-        test_violence_outputs = torch.empty((0)).to(config.device)
-        test_violence_targets = torch.empty((0)).to(config.device)
-        test_skincolour_outputs = torch.empty((0)).to(config.device)
-        test_skincolour_targets = torch.empty((0)).to(config.device)
+        test_outputs = torch.empty((0)).to(config.device)
+        test_targets = torch.empty((0)).to(config.device)
         
         for videos, targets in data_loader:
-            violence_targets, skincolour_targets = targets[:, 0], targets[:, 1:]
             batch += 1
             print(f"-------------------------Starting Batch {batch}/{int(len(data_loader.dataset)/config.batch_size)} batches-------------------------", end="\r")
 
-            # Model inference 
-            videos, violence_targets, skincolour_targets = videos.to(config.device), violence_targets.to(config.device), skincolour_targets.to(config.device)
-            # TODO: normalize videos?
-            # normalized_images = DataFunctions.normalize_images(config, images)
-            raw_violence_outputs, raw_skincolour_outputs = model(videos)
+            # Store example for printing while on CPU and non-normalized
+            example_video = videos[0]
             
-            # Transform the outputs into the correct format where violence is either 0 or 1
-            # and skin colour is one-hot encoded. 
-            violence_outputs = raw_violence_outputs > 0.5
-            skincolour_outputs = torch.argmax(raw_skincolour_outputs, dim=1)
+            # Model inference 
+            videos, targets = videos.to(config.device), targets.to(config.device)
+            
+            # Normalize videos
+            normalized_videos = DataFunctions.normalize_videos(config, videos)
+            raw_outputs, outputs = model(normalized_videos)
+            
+            # Transform the outputs into the binary format where violence is either 0 or 1. Solely for logging purposes
+            binary_outputs = outputs > 0.5
+            batch_violence = (binary_outputs==1).sum()
+            batch_neutral = outputs.shape[0] - batch_violence
+            total_violence += batch_violence.item()
+            total_neutral += batch_neutral.item()
+            
+            # Log example to WandB
+            LogFunctions.log_video_example(config, example_video, targets[0], outputs[0], stage)
             
             # Compute batch loss and add to total loss
-            batch_loss = loss_function(raw_violence_outputs, raw_skincolour_outputs, violence_targets, skincolour_targets).item()
+            batch_loss = loss_function(raw_outputs, targets).item()
             total_loss += batch_loss
             
             # Store all outputs and targets
-            test_violence_outputs = torch.cat((test_violence_outputs, violence_outputs), dim=0)
-            test_violence_targets = torch.cat((test_violence_targets, violence_targets.to(config.device)), dim=0)
-            test_skincolour_outputs = torch.cat((test_skincolour_outputs, skincolour_outputs), dim=0)
-            test_skincolour_targets = torch.cat((test_skincolour_targets, skincolour_targets.to(config.device)), dim=0)
+            test_outputs = torch.cat((test_outputs, outputs), dim=0)
+            test_targets = torch.cat((test_targets, targets.to(config.device)), dim=0)
             
         print(f"-------------------------Finished {stage} batches-------------------------")
         
+        print(f"{total_violence = }")
+        print(f"{total_neutral = }")
+        
         # Compute and log metrics
-        argmax_test_skincolour_targets = torch.argmax(test_skincolour_targets, dim=1).float()
         num_batches = len(data_loader.dataset) // config.batch_size
         mean_loss = total_loss / (num_batches * config.batch_size)
-        violence_f1_score = f1_score(test_violence_targets.to("cpu").numpy(), test_violence_outputs.to("cpu").numpy(), )  
-        skincolour_f1_score = f1_score(argmax_test_skincolour_targets.to("cpu").numpy(), test_skincolour_outputs.to("cpu").numpy(), average='micro')
-        LogFunctions.log_multitask_metrics(config, mean_loss, violence_f1_score, skincolour_f1_score, stage)
+        tn, fn, fp, tp = DataFunctions.confusion_matrix(config, test_outputs, test_targets, stage)
+        accuracy, fn_rate, fp_rate, _, f1_score, f2_score, _ = DataFunctions.metrics(tn, fn, fp, tp)
+        # f1_score = metrics.f1_score(test_targets.to("cpu").numpy(), test_outputs.to("cpu").numpy()) 
+        LogFunctions.log_violence_metrics(config, mean_loss, accuracy, fn_rate, fp_rate, f1_score, f2_score, stage)
 
-    return violence_f1_score, skincolour_f1_score
+    return f1_score
+    
     
 def make(config):
+    print(f"{config.sampletype = }")
+    
+    np.random.seed(config.seed)
+    random.seed(config.seed)
+    torch.manual_seed(config.seed)
+    
     print("Creating data loaders")
-    train_loader, test_loader = DataFunctions.load_video_data(config)
+    train_loader, test_loader = DataFunctions.load_violence_data(config)
     
     model = MyModels.I3DViolenceModel(config).to(config.device)
-    loss_function = nn.BCEWithLogitsLoss()
+    loss_function = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([config.WBCEweight])).to(config.device)
     optimizer = optim.Adam(model.parameters(), lr=config.lr)
     scaler = getGradScaler(config)
     
     return model, scaler, loss_function, optimizer, train_loader, test_loader
 
+
 def violence_pipeline(hyperparameters):
+    # Give the run a name
+    hyperparameters.run_name = f"num_epochs:{hyperparameters.num_epochs}_LR:{hyperparameters.lr}_WBCEweight:{hyperparameters.WBCEweight}"
+
     with wandb.init(mode="online", project="violence-model", config=hyperparameters):
         config = wandb.config
+        wandb.run.name = config.run_name
         
         # Create model, data loaders, loss function and optimizer
         model, scaler, loss_function, optimizer, train_loader, test_loader = make(config)

@@ -6,7 +6,14 @@ from types import SimpleNamespace
 def parse_args():
     "Overriding default arguments"
     argparser = argparse.ArgumentParser(description='Process hyper-parameters')
-    argparser.add_argument('--config', type=str, default='Config/mac.config', help='path to the configuration file.')
+    argparser.add_argument('--config', type=str, default='Config/OTS5.config', help='path to the configuration file.')
+    argparser.add_argument('--WBCEweight', type=float, default=None, help='Weight for weighted binary cross-entropy loss.')
+    argparser.add_argument('--batch_size', type=int, default=None, help='Batch size for training.')
+    argparser.add_argument('--colour_space', type=str, default=None, help='Color space for input data.')
+    argparser.add_argument('--lr', type=float, default=None, help='Learning rate for training.')
+    argparser.add_argument('--num_epochs', type=int, default=None, help='Number of epochs for training.')
+    argparser.add_argument('--dataset_size', type=int, default=None, help='Size of the dataset that is used.')
+    argparser.add_argument('--sampletype', type=str, default=None, help='Type of samples that are used. Either "samples" or "grinchsamples".')
     args = argparser.parse_args()
     return args
 

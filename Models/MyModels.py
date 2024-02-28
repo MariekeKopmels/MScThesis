@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+from Models.I3D import InceptionI3d
+
 
 # Implementation of the U-Net is from https://github.com/nikhilroxtomar/Semantic-Segmentation-Architecture/blob/main/PyTorch/unet.py
 
@@ -124,3 +126,17 @@ class SkinClassifier(nn.Module):
         x = self.fc2(x)  
         x = self.sigmoid(x)
         return x
+    
+class I3DViolenceModel(InceptionI3d):
+    def __init__(self, config):
+        super(I3DViolenceModel, self).__init__(num_classes=config.num_violence_classes)
+        
+        # Sigmoid activation layer
+        self.sigmoid = nn.Sigmoid()
+    
+    def forward(self, x):
+        # Reformat the input to the shape [batch_size, num_channels, num_frames(16), 224, 224]
+        x = x.permute(0, 2, 1, 3, 4)
+        raw_outputs = torch.squeeze(super().forward(x), dim=-1)
+        outputs = self.sigmoid(raw_outputs)
+        return raw_outputs, outputs

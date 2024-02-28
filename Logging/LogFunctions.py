@@ -4,7 +4,6 @@ import warnings
 import Data.DataFunctions as DataFunctions
 import numpy as np
 
-
 """ Prints intermediate results to WandB, also logs them to WandB if not in batch stage.
 """
 def log_metrics(config, mean_loss, tn, fn, fp, tp, stage):
@@ -15,6 +14,14 @@ def log_metrics(config, mean_loss, tn, fn, fp, tp, stage):
         wandb.log({f"{stage}_accuracy": accuracy, f"{stage}_fn_rate": fn_rate, f"{stage}_fp_rate": fp_rate, f"{stage}_sensitivity": sensitivity, f"{stage}_f1_score": f1_score, f"{stage}_f2_score": f2_score, f"{stage}_IoU": IoU, f"{stage}_mean_loss": mean_loss})
     
     return IoU
+
+""" Logs intermediate results from the violence model to WandB.
+"""    
+def log_violence_metrics(config, mean_loss, accuracy, fn_rate, fp_rate, f1_score, f2_score, stage):
+    
+    print(f"{stage}_mean_loss = {mean_loss}, {stage}_fn_rate = {fn_rate}, {stage}_fp_rate = {fp_rate}, {stage}_f1 = {f1_score}, {stage}_f2 = {f2_score}")
+    wandb.log({f"{stage}_accuracy": accuracy, f"{stage}_fn_rate": fn_rate, f"{stage}_fp_rate": fp_rate, f"{stage}_mean_loss": mean_loss, f"{stage}_f1": f1_score, f"{stage}_f2_score": f2_score})
+    
 
 """ Logs test examples of input image, ground truth and model output to WandB.
 """
@@ -43,3 +50,10 @@ def log_example(config, example, target, output, stage="UNKNOWN"):
     wandb.log({f"Model {stage} grinch output": [wandb.Image(grinch)]})
     
     return
+
+""" Logs test examples of input video, ground truth and model output to WandB.
+"""
+def log_video_example(config, example, target, output, stage="UNKNOWN"):
+    frames = example.numpy().astype(np.uint8)
+    binary_output = 1 if output.item()>0.5 else 0
+    wandb.log({f"{stage}, target={target.item()}, output={binary_output}": wandb.Video(frames, fps=32)})

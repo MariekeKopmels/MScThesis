@@ -246,7 +246,7 @@ def test_performance(config, model, data_loader, loss_function, stage):
             batch += 1
             print(f"-------------------------Starting Batch {batch}/{int(len(data_loader.dataset)/config.batch_size)} batches-------------------------", end="\r")
             
-            # Store example for printing while on CPU
+            # Store example for printing while on CPU and non-normalized
             example_image = np.array(images[0].permute(1,2,0), dtype=np.uint8)
 
             # Model inference 
