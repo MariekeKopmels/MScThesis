@@ -6,6 +6,7 @@ import Logging.LogFunctions as LogFunctions
 import wandb
 import torch
 import random
+import math
 import torch.nn as nn
 import numpy as np
 from torch import optim
@@ -22,9 +23,10 @@ def getGradScaler(config):
     return None
     
 """ Trains the passed model"""
-def train(config, model, scaler, loss_function, optimizer, data_loader):
+def train(config, model, scaler, loss_function, optimizer, data_list):
     # TODO Implement early stopping, or remove this f1 score tracker
     val_f1_scores = np.zeros((config.num_epochs, 2))
+    train_list, validation_list = DataFunctions.split_video_list(config, data_list)
     
     for epoch in range(config.num_epochs):
         print(f"-------------------------Starting Training Epoch {epoch+1}/{config.num_epochs} epochs-------------------------")
@@ -32,10 +34,13 @@ def train(config, model, scaler, loss_function, optimizer, data_loader):
         epoch_loss = 0.0
         batch = 0
         
-        train_loader, validation_loader = DataFunctions.split_dataset(config, data_loader)
-        for videos, targets in train_loader:  
-            batch += 1
-            print(f"-------------------------Starting Batch {batch}/{int(len(train_loader.dataset)/config.batch_size)} batches-------------------------", end="\r")
+        # Shuffle the list to ensure every training epoch is different
+        random.shuffle(train_list)
+        num_batches = math.ceil(len(train_list) / config.batch_size)
+                
+        for batch in range(num_batches):
+            videos, targets = DataFunctions.load_violence_data(config, train_list, batch)            
+            print(f"-------------------------Starting Batch {batch}/{num_batches} batches-------------------------", end="\r")
             # TODO: Wil ik nog iets met deze outputs doen? Anders hoef ik ze niet terug te krijgen
             batch_loss, _ = train_batch(config, scaler, videos, targets, model, optimizer, loss_function)
             epoch_loss += batch_loss.item()
@@ -43,7 +48,7 @@ def train(config, model, scaler, loss_function, optimizer, data_loader):
         print(f"-------------------------Finished training batches-------------------------") 
         
         # Validate the performance of the model
-        val_f1_scores[epoch] = test_performance(config, model, validation_loader, loss_function, "validation")
+        val_f1_scores[epoch] = test_performance(config, model, validation_list, loss_function, "validation")
         
         # TODO: Save the (best) model
         
@@ -67,7 +72,7 @@ def train_batch(config, scaler, videos, targets, model, optimizer, loss_function
     
     return loss, outputs
 
-def test_performance(config, model, data_loader, loss_function, stage):
+def test_performance(config, model, data_list, loss_function, stage):
     print(f"-------------------------Start {stage}-------------------------")
     model.eval()
     
@@ -79,9 +84,12 @@ def test_performance(config, model, data_loader, loss_function, stage):
         test_outputs = torch.empty((0)).to(config.device)
         test_targets = torch.empty((0)).to(config.device)
         
-        for videos, targets in data_loader:
-            batch += 1
-            print(f"-------------------------Starting Batch {batch}/{int(len(data_loader.dataset)/config.batch_size)} batches-------------------------", end="\r")
+        num_batches = math.ceil(len(data_list) / config.batch_size)
+                
+        for batch in range(num_batches):
+            videos, targets = DataFunctions.load_violence_data(config, data_list, batch)            
+        
+            print(f"-------------------------Starting Batch {batch}/{num_batches} batches-------------------------", end="\r")
 
             # Store example for printing while on CPU and non-normalized
             example_video = videos[0]
@@ -93,7 +101,7 @@ def test_performance(config, model, data_loader, loss_function, stage):
             normalized_videos = DataFunctions.normalize_videos(config, videos)
             raw_outputs, outputs = model(normalized_videos)
             
-            # Transform the outputs into the binary format where violence is either 0 or 1. Solely for logging purposes
+            # Transform the outputs into the binary format where violence is either 0 or 1. Solely for logging purposes.
             binary_outputs = outputs > 0.5
             batch_violence = (binary_outputs==1).sum()
             batch_neutral = outputs.shape[0] - batch_violence
@@ -117,7 +125,6 @@ def test_performance(config, model, data_loader, loss_function, stage):
         print(f"{total_neutral = }")
         
         # Compute and log metrics
-        num_batches = len(data_loader.dataset) // config.batch_size
         mean_loss = total_loss / (num_batches * config.batch_size)
         tn, fn, fp, tp = DataFunctions.confusion_matrix(config, test_outputs, test_targets, stage)
         accuracy, fn_rate, fp_rate, _, f1_score, f2_score, _ = DataFunctions.metrics(tn, fn, fp, tp)
@@ -128,39 +135,40 @@ def test_performance(config, model, data_loader, loss_function, stage):
     
     
 def make(config):
-    print(f"{config.sampletype = }")
+    # print(f"{config.sampletype = }")
     
     np.random.seed(config.seed)
     random.seed(config.seed)
     torch.manual_seed(config.seed)
     
-    print("Creating data loaders")
-    train_loader, test_loader = DataFunctions.load_violence_data(config)
+    print("Creating video lists")
+    # train_loader, test_loader = DataFunctions.load_violence_data(config)
+    train_list, test_list = DataFunctions.load_video_list(config)
     
     model = MyModels.I3DViolenceModel(config).to(config.device)
     loss_function = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([config.WBCEweight])).to(config.device)
     optimizer = optim.Adam(model.parameters(), lr=config.lr)
     scaler = getGradScaler(config)
     
-    return model, scaler, loss_function, optimizer, train_loader, test_loader
+    return model, scaler, loss_function, optimizer, train_list, test_list
 
 
 def violence_pipeline(hyperparameters):
-    # Give the run a name
-    hyperparameters.run_name = f"num_epochs:{hyperparameters.num_epochs}_LR:{hyperparameters.lr}_WBCEweight:{hyperparameters.WBCEweight}"
-
     with wandb.init(mode="online", project="violence-model", config=hyperparameters):
         config = wandb.config
+        
+        # Give the run a name
+        config.run_name = f"{config.dataset_size}_{config.sampletype}_LR:{config.lr}_WBCE:{config.WBCEweight}_num_epochs:{config.num_epochs}_batch_size:{config.batch_size}"
         wandb.run.name = config.run_name
         
         # Create model, data loaders, loss function and optimizer
-        model, scaler, loss_function, optimizer, train_loader, test_loader = make(config)
+        model, scaler, loss_function, optimizer, train_list, test_list = make(config)
         
         # Train the model, incl. validation
-        train(config, model, scaler, loss_function, optimizer, train_loader)
+        train(config, model, scaler, loss_function, optimizer, train_list)
         
         # Test the final model's performance
-        test_performance(config, model, test_loader, loss_function, "test")
+        test_performance(config, model, test_list, loss_function, "test")
         
     return
 
