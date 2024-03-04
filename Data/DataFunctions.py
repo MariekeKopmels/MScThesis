@@ -109,9 +109,7 @@ def split_dataset(config, data_loader):
 def split_video_to_images(config):    
     video_list = os.listdir(config.video_path)
     video_list = [video for video in video_list if not video.startswith(".") and video.endswith(".mp4")]
-    
-    print("Video_list: ", video_list)
-        
+            
     video_no = 0
     for video in video_list:
         video_path = config.video_path + "/" + video
@@ -199,9 +197,11 @@ def make_grinch(config, image, output):
 """
 def to_grinches(config, images, outputs, video):
     # Incoming images are in float32 type but this will mess up image printing. 
-    # Thereforeonvert the images back to  uint8 type. 
-    outputs = torch.tensor(outputs, dtype=torch.uint8)
-    grinches = torch.tensor(images, dtype=torch.uint8)
+    # Therefore clone and convert the images back to  uint8 type. 
+    outputs = outputs.clone().detach()
+    outputs = outputs.to(torch.uint8)
+    grinches = images.clone().detach()
+    grinches = grinches.to(torch.uint8)
     outputs = outputs.cpu().numpy()
     grinches = grinches.cpu().numpy()
     mask = outputs == 1
