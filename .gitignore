@@ -3,7 +3,6 @@ Models/OutputModels/
 TestPrograms/
 Logging/Logs/
 models_oddity/
-Annotation/
 __pycache__/
 sweeps/
 Inference/OutputInference/
