@@ -22,7 +22,12 @@ def log_violence_metrics(config, mean_loss, accuracy, fn_rate, fp_rate, f1_score
     print(f"{stage}_mean_loss = {mean_loss}, {stage}_fn_rate = {fn_rate}, {stage}_fp_rate = {fp_rate}, {stage}_f1 = {f1_score}, {stage}_f2 = {f2_score}")
     wandb.log({f"{stage}_accuracy": accuracy, f"{stage}_fn_rate": fn_rate, f"{stage}_fp_rate": fp_rate, f"{stage}_mean_loss": mean_loss, f"{stage}_f1": f1_score, f"{stage}_f2_score": f2_score})
     
-
+""" Log intermediate results from the skin tone model to WandB.
+"""
+def log_skin_tone_metrics(config, mean_loss, mae, mse, stage):
+    print(f"{stage}_mean_loss = {mean_loss}, {stage}_mae = {mae}, {stage}_mse = {mse}")
+    wandb.log({f"{stage}_mean_loss": mean_loss, f"{stage}_mae": mae, f"{stage}_mse": mse})
+ 
 """ Logs test examples of input image, ground truth and model output to WandB.
 """
 def log_example(config, example, target, output, stage="UNKNOWN"):
@@ -55,5 +60,7 @@ def log_example(config, example, target, output, stage="UNKNOWN"):
 """
 def log_video_example(config, example, target, output, stage="UNKNOWN"):
     frames = example.numpy().astype(np.uint8)
-    binary_output = 1 if output.item()>0.5 else 0
-    wandb.log({f"{stage}, target={target.item()}, output={binary_output}": wandb.Video(frames, fps=32)})
+    output = output.item()
+    if config.architecture == "I3D_Violence":
+        output = 1 if output>0.5 else 0
+    wandb.log({f"{stage}, target={target.item()}, output={output}": wandb.Video(frames, fps=32)})
