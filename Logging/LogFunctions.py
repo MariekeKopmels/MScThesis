@@ -29,19 +29,22 @@ def log_example(config, example, target, output, stage="UNKNOWN"):
     bw_output = (output >= 0.5).float()
     grinch = DataFunctions.make_grinch(config, example, bw_output)
     
-    # Change channels from YCrCb, HSV or BGR to RGB
-    if config.colour_space == "YCrCb": 
-        example = cv2.cvtColor(example, cv2.COLOR_YCR_CB2RGB)
-        grinch = cv2.cvtColor(grinch, cv2.COLOR_YCR_CB2RGB)
-    elif config.colour_space == "HSV":
-        example = cv2.cvtColor(example, cv2.COLOR_HSV2RGB_FULL)
-        grinch = cv2.cvtColor(grinch, cv2.COLOR_HSV2RGB_FULL)
-    elif config.colour_space == "BGR":
-        example = cv2.cvtColor(example, cv2.COLOR_BGR2RGB)
-        grinch = cv2.cvtColor(grinch, cv2.COLOR_BGR2RGB)
-    else:
-        warnings.warn("No colour space found!")
-        print(f"Current config.colour_space = {config.colour_space}")
+    example = logging_colour_space_conversion(config, example)
+    grinch = logging_colour_space_conversion(config, grinch)
+    
+    # # Change channels from YCrCb, HSV or BGR to RGB
+    # if config.colour_space == "YCrCb": 
+    #     example = cv2.cvtColor(example, cv2.COLOR_YCR_CB2RGB)
+    #     grinch = cv2.cvtColor(grinch, cv2.COLOR_YCR_CB2RGB)
+    # elif config.colour_space == "HSV":
+    #     example = cv2.cvtColor(example, cv2.COLOR_HSV2RGB_FULL)
+    #     grinch = cv2.cvtColor(grinch, cv2.COLOR_HSV2RGB_FULL)
+    # elif config.colour_space == "BGR":
+    #     example = cv2.cvtColor(example, cv2.COLOR_BGR2RGB)
+    #     grinch = cv2.cvtColor(grinch, cv2.COLOR_BGR2RGB)
+    # else:
+    #     warnings.warn("No colour space found!")
+    #     print(f"Current config.colour_space = {config.colour_space}")
         
     wandb.log({f"Input {stage} image":[wandb.Image(example)]})
     wandb.log({f"Target {stage} output": [wandb.Image(target)]})
@@ -55,5 +58,27 @@ def log_example(config, example, target, output, stage="UNKNOWN"):
 """
 def log_video_example(config, example, target, output, stage="UNKNOWN"):
     frames = example.numpy().astype(np.uint8)
+    print(f"{frames.shape = }")
+    
+    # TODO: Make pretty. Works but it's a bit hacky atm
+    for i, frame in enumerate(frames):
+        converted_frame = logging_colour_space_conversion(config, frame)
+        frames[i] = converted_frame.transpose(2,0,1)
     binary_output = 1 if output.item()>0.5 else 0
     wandb.log({f"{stage}, target={target.item()}, output={binary_output}": wandb.Video(frames, fps=32)})
+    
+    
+def logging_colour_space_conversion(config, image):
+    # Change channels from YCrCb, HSV or BGR to RGB
+    if image.shape[0] == 3:
+        image = image.transpose(1,2,0)
+    if config.colour_space == "YCrCb": 
+        image = cv2.cvtColor(image, cv2.COLOR_YCR_CB2RGB)
+    elif config.colour_space == "HSV":
+        image = cv2.cvtColor(image, cv2.COLOR_HSV2RGB_FULL)
+    elif config.colour_space == "BGR":
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    else:
+        warnings.warn("No colour space found!")
+        print(f"Current config.colour_space = {config.colour_space}")
+    return image
