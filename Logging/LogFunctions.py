@@ -63,4 +63,6 @@ def log_video_example(config, example, target, output, stage="UNKNOWN"):
     output = output.item()
     if config.architecture == "I3D_Violence":
         output = 1 if output>0.5 else 0
+    elif config.architecture == "ResNet_SkinTone":
+        output = round(output)
     wandb.log({f"{stage}, target={target.item()}, output={output}": wandb.Video(frames, fps=32)})
