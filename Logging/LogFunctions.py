@@ -22,7 +22,12 @@ def log_violence_metrics(config, mean_loss, accuracy, fn_rate, fp_rate, f1_score
     print(f"{stage}_mean_loss = {mean_loss}, {stage}_fn_rate = {fn_rate}, {stage}_fp_rate = {fp_rate}, {stage}_f1 = {f1_score}, {stage}_f2 = {f2_score}")
     wandb.log({f"{stage}_accuracy": accuracy, f"{stage}_fn_rate": fn_rate, f"{stage}_fp_rate": fp_rate, f"{stage}_mean_loss": mean_loss, f"{stage}_f1": f1_score, f"{stage}_f2_score": f2_score})
     
-
+""" Log intermediate results from the skin tone model to WandB.
+"""
+def log_skin_tone_metrics(config, mean_loss, mae, mse, stage):
+    print(f"{stage}_mean_loss = {mean_loss}, {stage}_mae = {mae}, {stage}_mse = {mse}")
+    wandb.log({f"{stage}_mean_loss": mean_loss, f"{stage}_mae": mae, f"{stage}_mse": mse})
+ 
 """ Logs test examples of input image, ground truth and model output to WandB.
 """
 def log_example(config, example, target, output, stage="UNKNOWN"):
@@ -32,20 +37,6 @@ def log_example(config, example, target, output, stage="UNKNOWN"):
     example = logging_colour_space_conversion(config, example)
     grinch = logging_colour_space_conversion(config, grinch)
     
-    # # Change channels from YCrCb, HSV or BGR to RGB
-    # if config.colour_space == "YCrCb": 
-    #     example = cv2.cvtColor(example, cv2.COLOR_YCR_CB2RGB)
-    #     grinch = cv2.cvtColor(grinch, cv2.COLOR_YCR_CB2RGB)
-    # elif config.colour_space == "HSV":
-    #     example = cv2.cvtColor(example, cv2.COLOR_HSV2RGB_FULL)
-    #     grinch = cv2.cvtColor(grinch, cv2.COLOR_HSV2RGB_FULL)
-    # elif config.colour_space == "BGR":
-    #     example = cv2.cvtColor(example, cv2.COLOR_BGR2RGB)
-    #     grinch = cv2.cvtColor(grinch, cv2.COLOR_BGR2RGB)
-    # else:
-    #     warnings.warn("No colour space found!")
-    #     print(f"Current config.colour_space = {config.colour_space}")
-        
     wandb.log({f"Input {stage} image":[wandb.Image(example)]})
     wandb.log({f"Target {stage} output": [wandb.Image(target)]})
     wandb.log({f"Model {stage} greyscale output": [wandb.Image(output)]})
@@ -57,9 +48,7 @@ def log_example(config, example, target, output, stage="UNKNOWN"):
 """ Logs test examples of input video, ground truth and model output to WandB.
 """
 def log_video_example(config, example, target, output, stage="UNKNOWN"):
-    frames = example.numpy().astype(np.uint8)
-    print(f"{frames.shape = }")
-    
+    frames = example.numpy().astype(np.uint8)    
     # TODO: Make pretty. Works but it's a bit hacky atm
     for i, frame in enumerate(frames):
         converted_frame = logging_colour_space_conversion(config, frame)

@@ -125,33 +125,53 @@ def load_video_gts(config, dir_list, dir_path):
         path = dir_path + "/" + gt_name
         with open(path, "r") as json_file:
             gts_json = json.load(json_file)
-        label = gts_json['class_label'][0]
-        gts.append(map_to_numeric(label))
+        label = gts_json['class_label']
+        gts.append(map_to_numeric(config, label))
 
     # TODO: Checken of ik idd moet unsqueezen (nu is gts.shape [dataset_size,1] en zonder unsqueeze is het [dataset_size])
     gts = torch.tensor(gts).unsqueeze(dim=1)
     
-    return gts
+    return gts.float()
 
-""" Function to map the violence and shoe colour labels to a numeric value
+""" Function to map the violence and skin tone labels to a numeric value
     For the violence labels it is defined as: 
     Violence = 1, Neutral = 0
-    and for shoe colour it is defined as:
-    White = 0, Pink = 1, Green = 2, Black = 3, Unknown = 9
+    and for skin tone it is defined as:
+    White = 1.0, Light brown = 2.0, Medium brown = 3.0, Dark brown = 4.0, Black = 5.0
 """
-def map_to_numeric(label):
-    # Define a mapping from label strings to numeric values
-    label_mapping = {
+def map_to_numeric(config, label):
+    # Define mappings from label strings to numeric values
+    violence_label_mapping = {
         "neutral": 0.0,
         "violence": 1.0,
     }
-    return label_mapping.get(label, -1)  # Return -1 if label is not found in mapping
+    skin_tone_label_mapping = {
+        "Questionable": 0.0,
+        "White": 1.0,
+        "LightBrown": 2.0,
+        "MediumBrown": 3.0,
+        "DarkBrown": 4.0,
+        "Black": 5.0
+    }
+    # Return label or -1 if label is not found in mapping
+    if config.architecture == "I3D_Violence":
+        mapped_label = violence_label_mapping.get(label, -1)
+        if mapped_label == -1:
+            print(f"Label {label} not found, mapped to {mapped_label}.")
+        return mapped_label
+    elif config.architecture == "ResNet_SkinTone":
+        mapped_label =  skin_tone_label_mapping.get(label, -1)
+        if mapped_label == -1:
+            print(f"Label {label} not found, mapped to {mapped_label}.")
+        return mapped_label
+    else:
+        return -1
 
 
 """ Returns the videos and gts of a certain batch if one is given,
-    returns all data otherwise.
+    returns all violence or skin tone data otherwise.
 """
-def load_violence_data(config, video_list, batch=-1):       
+def load_video_data(config, video_list, batch=-1):       
     if batch != -1:
         start_index = batch*config.batch_size
         end_index = min((batch+1)*config.batch_size, len(video_list))
@@ -167,8 +187,15 @@ def load_violence_data(config, video_list, batch=-1):
     dir_path = config.data_path + "/" + config.sampletype 
     videos = load_video_frames(config, video_list, dir_path)
     
-    # load the ground truths
-    dir_path = config.data_path + "/labels" 
+    # load the ground truths, depending on the task at hand
+    if config.architecture == "I3D_Violence":
+        dir_path = config.data_path + "/labels" 
+    elif config.architecture == "ResNet_SkinTone":
+        dir_path = config.data_path + "/skin_tone_labels"
+    else:
+        print(f"Error! Architecture ({config.architecture}) not found. Error trown in DataFunctions.load_video_data()")
+        exit()
+     
     gts = load_video_gts(config, gt_list, dir_path)
     
     return videos, gts
@@ -209,6 +236,52 @@ def load_video_list(config):
     train_list, test_list = split_video_list(config, video_list, split_type="train/test")
     
     return train_list, test_list
+
+def load_skin_tone_video_list(config):
+    videos_dir_path = config.data_path + "/skin_tone_labels"
+        
+    # Load list of files in directory
+    video_list = os.listdir(videos_dir_path)
+    video_list = [video[:-5] for video in video_list if video.endswith(".json")]
+    
+    # Remove all samples with annotation "Questionable"
+    # TODO: Remove all violent samples (use neutral samples only)?
+    video_dict = {}
+    for video in video_list:
+        path = config.data_path + "/skin_tone_labels/" + video + ".json"
+        # Consider the name of the source video rather than the video itself. We need to
+        # split into train/test based on the source rather than the video.
+        source_video = video.split('.mp4')[0]
+        with open(path, 'r') as annotation_file:
+            annotation = json.load(annotation_file)
+            if annotation['class_label'] != 'Questionable':
+                if source_video in video_dict:
+                    video_dict[source_video].append(video)
+                else:
+                    video_dict[source_video] = [video]
+
+    # Split videos into train and test sets
+    # Keeps into account that videos originating from the same source (in the keys) 
+    # should all be in either train or test, not both.
+    source_videos = list(video_dict.keys())
+    random.shuffle(source_videos)  
+    # Partition the source videos into train/test split
+    train_size = int(config.traintest_split * len(source_videos))
+    train_videos = source_videos[:train_size]
+    test_videos = source_videos[train_size:]
+    
+    # Create the final train and test lists, with the data stored in the video_dict
+    train_list = []
+    test_list = []
+
+    for video in train_videos:
+        train_list.extend(video_dict[video])
+
+    for video in test_videos:
+        test_list.extend(video_dict[video])
+        
+    return train_list, test_list
+        
 
 """ Splits the already shuffled video list into a train/test or train/validation split, dependent on the type.
 """
@@ -388,6 +461,21 @@ def metrics(tn, fn, fp, tp):
     
     return accuracy, fn_rate, fp_rate, sensitivity, f1_score, f2_score, IoU
 
+def regression_metrics(outputs, targets):
+    outputs = outputs.detach().cpu().numpy()
+    targets = targets.detach().cpu().numpy()
+    
+    # Calculate the mean absolute error and mean squared error 
+    abs_diff = np.abs(targets - outputs)
+    squared_diff = np.square(targets - outputs)
+    mae = np.mean(abs_diff)
+    mse = np.mean(squared_diff)
+    
+    return mae, mse
+    
+
+# New function
+# squared_diff = np.square(target - predictions)
 
 """ Calculates and returns the F-beta score given the passed tp, fp and fn rates.
 """

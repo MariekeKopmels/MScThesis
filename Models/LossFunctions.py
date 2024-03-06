@@ -50,3 +50,21 @@ class FocalLoss(nn.Module):
             return focal_loss.sum()
         else:
             return focal_loss
+        
+""" A custom weighted MSE loss, due to the imbalance in target classes. 
+    The weights defined should be in a torch tensor in the format
+    [weight_for_target=1, weight_for_target=2, weight_for_target=3, weight_for_target=4, weight_for_target=5]
+"""
+class WeightedMSELoss(nn.Module):
+    def __init__(self, weights=None):
+        super(WeightedMSELoss, self).__init__()
+        self.weights = weights
+
+    def forward(self, outputs, targets):
+        mse_loss = nn.MSELoss(reduction='none')(outputs, targets)
+        
+        if self.weights is not None:
+            weights = torch.tensor([self.weights[int(target)-1] for target in targets], dtype=torch.float32)
+            mse_loss = mse_loss * weights
+
+        return mse_loss.mean()
