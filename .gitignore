@@ -8,6 +8,5 @@
 !/Logging/*.py
 !/Models/*.py
 !/Training/*.py
-!/Training/TrainSkinTone.py
 
 !.gitignore
