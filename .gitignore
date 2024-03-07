@@ -2,7 +2,7 @@
 *
 
 # Manually add files and folders
-!/Config/
+!/Config/*.py
 !/Data/
 !/Inference/
 !/Logging/
