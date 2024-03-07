@@ -2,11 +2,11 @@
 *
 
 # Manually add files and folders
-!/Config/*.py
-!/Data/*.py
-!/Inference/*.py
-!/Logging/*.py
-!/Models/*.py
-!/Training/*.py
+!/Config/
+!/Data/
+!/Inference/
+!/Logging/
+!/Models/
+!/Training/
 
 !.gitignore
