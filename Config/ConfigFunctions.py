@@ -1,5 +1,6 @@
 
 import argparse
+import torch
 from types import SimpleNamespace
 
 
@@ -31,6 +32,12 @@ def isFloat(value):
 def isBool(value):
     return value.lower() == "true" or value.lower() == "false"
 
+""" Converts string to array.
+"""
+def toArray(config, string_array):
+    string_values = string_array.strip('[]').split(',')
+    return torch.tensor([float(value) for value in string_values]).to("cpu")
+
 """ Loads the arguments from the configuration file.
 """
 def load_config(config_path):
@@ -38,6 +45,8 @@ def load_config(config_path):
     with open(config_path, 'r') as config_file:
         for line in config_file:
             key, value = line.strip().split('=')
+            if "[" in value:
+                config[key.strip()] = value
             if value.isdigit():
                 config[key.strip()] = int(value)
             elif isFloat(value):
@@ -48,4 +57,3 @@ def load_config(config_path):
                 
                 config[key.strip()] = value
     return SimpleNamespace(**config)
-
