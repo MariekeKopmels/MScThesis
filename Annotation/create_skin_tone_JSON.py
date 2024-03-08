@@ -3,7 +3,7 @@ import json
 
 # Define the path to the 'annotated' folder
 annotated_folder = '/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/NEWOFFICIAL_OddityData-1-refined-nms-data-0103/annotated'
-# json_folder = '/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/NEWOFFICIAL_OddityData-1-refined-nms-data-0103/labels'
+json_folder = '/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/NEWOFFICIAL_OddityData-1-refined-nms-data-0103/skin_tone_labels'
 
 # Initialize the result dictionary
 result = {}
@@ -11,9 +11,7 @@ result = {}
 # Iterate through the subfolders ('black', 'white', 'unidentifyable')
 class_list = os.listdir(annotated_folder)
 class_list.sort()
-for class_folder in class_list:
-    # print(f"{class_folder = }")
-    
+for class_folder in class_list:    
     if class_folder == '.DS_Store':
         continue
         
@@ -27,40 +25,25 @@ for class_folder in class_list:
         if video_folder == '.DS_Store':
             continue
         
-        # video_json_path = os.path.join(json_folder, f'{video_folder}.json')
-        
-        # print(f"{video_json_path = }")
-        
-        # # Read the JSON file for the video
-        # with open(video_json_path, 'r') as json_file:
-        #     video_data = json.load(json_file)
-        
-        # Determine the ShoeColour class based on the parent folder
+        # Determine the skin tone class based on the parent folder
         if class_folder == '0-Questionable':
-            skin_tone_class = 0.0
+            skin_tone_class = "Questionable"
         elif class_folder == '1-White':
-            skin_tone_class = 1.0
+            skin_tone_class = "White"
         elif class_folder == '2-LightBrown':
-            skin_tone_class = 2.0
+            skin_tone_class = "LightBrown"
         elif class_folder == '3-MediumBrown':
-            skin_tone_class = 3.0
+            skin_tone_class = "MediumBrown"
         elif class_folder == '4-DarkBrown':
-            skin_tone_class = 4.0
+            skin_tone_class = "DarkBrown"
         elif class_folder == '5-Black':
-            skin_tone_class = 5.0
+            skin_tone_class = "Black"
         else:
             raise ValueError('Class not recognised!')
 
-        # Create the video entry in the result dictionary
-        result[video_folder] = {
-            'SkinTone': {
-                'Class': skin_tone_class
-            }
-        }
-
-# Create the final JSON output file
-os.chdir("/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/NEWOFFICIAL_OddityData-1-refined-nms-data-0103/")
-with open('skin_tone_labels.json', 'w') as output_file:
-    json.dump(result, output_file, indent=4)
-
-print("JSON file 'skin_tone_labels.json' created successfully!")
+        # Create the resulting JSON file
+        result = {"class_label": skin_tone_class}
+        os.makedirs(json_folder, exist_ok=True)
+        output_path = os.path.join(json_folder, f'{video_folder}.json')
+        with open(output_path, 'w') as output_file:
+            json.dump(result, output_file)
