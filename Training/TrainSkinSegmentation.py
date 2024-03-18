@@ -20,9 +20,7 @@ from torch.cuda import amp
 
 # Default parameters
 # Size of VisuAAL dataset: Train=44783, Test=1157
-# Size of Augmented Pratheepan dataset: Train=300
-# Size of LargeCombined Train=6528, Validation=384, Test=768
-# Size of LargeCombinedAugmented Train=32640
+# Size of LargeCombined Train=6909, Test=768
 
 default_config = SimpleNamespace(
     machine = "OTS5",
@@ -32,25 +30,22 @@ default_config = SimpleNamespace(
     seed = 42,
     
     pretrained = False,
-    lr = 0.00001, 
-    colour_space = "BGR",
+    lr = 0.0001,
+    colour_space = "HSV",
     optimizer = "AdamW",
-    weight_decay = 0.01,
-    augmentation_rate = 0.33,
+    weight_decay = 0.001,
+    augmentation_rate = 0.7,
     
     num_workers = 4,
-    num_epochs = 10,
+    num_epochs = 20,
     batch_size = 32, 
     split = 0.95,
     
     train_size = 44783,       #VisuAAL
     test_size = 768,          #LargeCombinedTest
     
-    # train_size = 6912,        #LargeCombined
+    # train_size = 6909,        #LargeCombined
     # test_size = 768,          #LargeCombinedTest
-    
-    # train_size = 34560,         #LargeCombinedAugmented
-    # test_size = 768,            #LargeCombinedTest
     
     # train_size = 512,         #Smaller part
     # test_size = 64,           #Smaller part
@@ -58,16 +53,16 @@ default_config = SimpleNamespace(
     automatic_mixed_precision = True,
     
     early_stopping = True,
-    patience = 3,               #The number of epochs the model is allowed not to improve
+    patience = 5,               #The number of epochs the model is allowed not to improve
     min_improvement = 0.01,     #Minimal improvement needed for early stopping 
     
     data_path = "/home/oddity/marieke/Datasets",
     trainset = "VisuAAL", 
-    # trainset = "LargeCombinedAugmented", 
-    testset = "LargeCombinedTest",
+    # trainset = "LargeCombinedDataset", 
+    testset = "LargeCombinedDataset",
     
     model_path = "/home/oddity/marieke/Output/Models",
-    model_name = "test_pretrained.pt",
+    model_name = "",
     run_name = "",
     architecture = "UNet"
 )
@@ -124,7 +119,7 @@ def make(config):
     # Create or load the model
     if config.pretrained:
         # TODO: Terugzetten
-        model_name = "best" + config.colour_space + ".pt"
+        model_name = config.colour_space + "_BestShortPretrain.pt"
         model = ModelFunctions.load_model(config, model_name)
         # model = ModelFunctions.load_model(config, config.model_name)
     else: 
@@ -145,11 +140,13 @@ def make(config):
 def early_stopping(config, epoch, patience_counter, val_IoU_scores):
     early_stop = False
     if epoch > 0:
-        if val_IoU_scores[epoch] <= val_IoU_scores[epoch-1]*(1+config.min_improvement):
+        if max(val_IoU_scores) <= val_IoU_scores[epoch-1]*(1+config.min_improvement):
             patience_counter += 1
             if patience_counter > config.patience:
                 print(f"Not enough improvement, should be at least {config.min_improvement*100}% better than the last epoch, so training is stopped early.")
                 early_stop = True
+            else:
+                print(f"Model has not improved, patience counter is now at {patience_counter}. After {config.patience} epochs of no improvement of the best model, training is terminated.")
         else: 
             patience_counter = 0
 
@@ -166,7 +163,7 @@ def train(config, model, data_loader, loss_function, optimizer):
     else:
         scaler = None
         
-    val_IoU_scores = np.zeros(config.num_epochs)
+    val_f2_scores = np.zeros(config.num_epochs)
     patience_counter = 0
     
     # Split the data into a train and validation part
@@ -189,22 +186,25 @@ def train(config, model, data_loader, loss_function, optimizer):
         print(f"-------------------------Finished training batches-------------------------") 
         
          # Test the performance with validation data
-        val_IoU_scores[epoch] = test_performance(config, model, validation_loader, loss_function, "validation")        
+        val_f2_scores[epoch] = test_performance(config, model, validation_loader, loss_function, "validation")        
         
         # Save the model of this epoch, overwrite the best model if it has a better IoU score than all previous model
-        if epoch == 0 or val_IoU_scores[epoch] > max(val_IoU_scores[:epoch]):
+        if epoch == 0 or val_f2_scores[epoch] > max(val_f2_scores[:epoch]):
             ModelFunctions.save_model(config, model, epoch+1, best=True)
         else:
             ModelFunctions.save_model(config, model, epoch+1)
-        
+                
         # Early stopping
         if config.early_stopping:
-            early_stop, patience_counter = early_stopping(config, epoch, patience_counter, val_IoU_scores)
+            early_stop, patience_counter = early_stopping(config, epoch, patience_counter, val_f2_scores)
             if early_stop:
                 # If stopped early, retrieve the best model for further computations
                 model = ModelFunctions.load_model(config, model_from_current_run=True)
                 return model
             
+    # After training, return the model with the highest validation f2-score.
+    model = ModelFunctions.load_model(config, model_from_current_run=True)
+    
     return model
             
 """ Performs training for one batch of datapoints. Returns the true/false positive/negative metrics. 
@@ -272,17 +272,17 @@ def test_performance(config, model, data_loader, loss_function, stage):
         epoch_tn, epoch_fn, epoch_fp, epoch_tp = DataFunctions.confusion_matrix(config, test_outputs, test_targets, stage)
         # Drop_last=False for both the validation and test dataloader, so the size of the dataset is used to compute the mean
         mean_loss = total_loss / len(data_loader.dataset)
-        IoU = LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, stage)
+        f2_score = LogFunctions.log_metrics(config, mean_loss, epoch_tn, epoch_fn, epoch_fp, epoch_tp, stage)
         
-    return IoU
+    return f2_score
         
 
 """ Runs the whole pipeline of creating, training and testing a model
 """
 def model_pipeline(hyperparameters):
     # Give the run a name
-    hyperparameters.run_name = f"{hyperparameters.machine}_Colourspace:{hyperparameters.colour_space}_num_epochs:{hyperparameters.num_epochs}_LR:{hyperparameters.lr}_weight_decay:{hyperparameters.weight_decay}_augmentation_rate:{hyperparameters.augmentation_rate}_Pretrained:{hyperparameters.pretrained}_Trainset:{hyperparameters.trainset}"
-    # hyperparameters.run_name = f"{hyperparameters.machine}_{hyperparameters.colour_space}"
+    hyperparameters.run_name = f"{hyperparameters.colour_space}_LR:{hyperparameters.lr}_augmentation_rate:{hyperparameters.augmentation_rate}_Pretrained:{hyperparameters.pretrained}_Trainset:{hyperparameters.trainset}"
+    # hyperparameters.run_name = f"{hyperparameters.colour_space}_LongPretrain"
     
     # Start wandb
     with wandb.init(mode="online", project="skin_segmentation", config=hyperparameters): 
