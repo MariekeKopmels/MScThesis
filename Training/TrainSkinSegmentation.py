@@ -29,7 +29,7 @@ default_config = SimpleNamespace(
     num_channels = 3,
     seed = 42,
     
-    pretrained = False,
+    pretrained = True,
     lr = 0.0001,
     colour_space = "HSV",
     optimizer = "AdamW",
@@ -41,11 +41,11 @@ default_config = SimpleNamespace(
     batch_size = 32, 
     split = 0.95,
     
-    train_size = 44783,       #VisuAAL
-    test_size = 768,          #LargeCombinedTest
-    
-    # train_size = 6909,        #LargeCombined
+    # train_size = 44783,       #VisuAAL
     # test_size = 768,          #LargeCombinedTest
+    
+    train_size = 6909,        #LargeCombined
+    test_size = 768,          #LargeCombinedTest
     
     # train_size = 512,         #Smaller part
     # test_size = 64,           #Smaller part
@@ -57,8 +57,8 @@ default_config = SimpleNamespace(
     min_improvement = 0.01,     #Minimal improvement needed for early stopping 
     
     data_path = "/home/oddity/marieke/Datasets",
-    trainset = "VisuAAL", 
-    # trainset = "LargeCombinedDataset", 
+    # trainset = "VisuAAL", 
+    trainset = "LargeCombinedDataset", 
     testset = "LargeCombinedDataset",
     
     model_path = "/home/oddity/marieke/Output/Models",
@@ -118,10 +118,9 @@ def make(config):
     
     # Create or load the model
     if config.pretrained:
-        # TODO: Terugzetten
-        model_name = config.colour_space + "_BestShortPretrain.pt"
+        # TODO: Aanpassen
+        model_name = config.colour_space + "_DefinitiveBestShortPretrain.pt"
         model = ModelFunctions.load_model(config, model_name)
-        # model = ModelFunctions.load_model(config, config.model_name)
     else: 
         model = MyModels.UNET(config).to(config.device)
 

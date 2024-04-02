@@ -16,18 +16,18 @@ default_config = SimpleNamespace(
     num_channels = 3,
     max_video_length = 16,
     batch_size = 32, 
-    dataset = "Demo",
+    dataset = "refined_nms",
     colour_space = "YCrCb",
     architecture = "UNet", 
     model_path = "/home/oddity/marieke/Output/Models",
-    model_name = "overallbestYCrCb.pt",
-    video_path = "/home/oddity/marieke/Datasets/ViolenceGrinchTest/samples",
-    grinch_path = "/home/oddity/marieke/Datasets/ViolenceGrinchTest/grinchsamples"
+    model_name = "",
+    video_path = "/home/oddity/marieke/Datasets/05_firsthalf_testset/balanced_samples/samples",
+    grinch_path = "/home/oddity/marieke/Datasets/05_firsthalf_testset/balanced_samples/YCrCb_grinchsamples"
     
     # machine = "Mac",
     # device = torch.device("mps"),
     # num_workers = 1,
-    # dims = 224,
+    # dims = 224,ls
     # num_channels = 3,
     # max_video_length = 50,
     # batch_size = 32, 
@@ -60,26 +60,29 @@ def inference(config):
     video_dir = os.listdir(config.video_path)
     video_dir = [folder for folder in video_dir if not folder.startswith(".") and not folder.endswith(".mp4")]
     video_dir.sort()
-    print("directory contents: ", video_dir)
         
+    i = 0
     for video in video_dir:
+        print(f"Processing video {i}/{len(video_dir)}", end="\r")
+        i += 1
+        
         image_list = os.listdir(f"{config.video_path}/{video}")
         image_list = [image for image in image_list if not image.startswith(".")]
         image_list.sort()
         image_list = image_list[:config.max_video_length]
                 
-        print("Loading images...")
+        # print("Loading images...")
         images = DataFunctions.load_images(config, image_list, f"{config.video_path}/{video}")
         images = images.to(device=config.device)
         
+        # print("Calculating masks...")
         with torch.no_grad():
-            print(f"Calculating masks of {video}")
             images.to(config.device)
             normalized_images = DataFunctions.normalize_images(config, images)
             _, masks = model(normalized_images)
             binary_masks = (masks >= 0.5).float()
             
-        print("Start making grinches")    
+        # print("Start making grinches")    
         _ = DataFunctions.to_grinches(config, images, binary_masks, video)
         
     return 
@@ -87,6 +90,7 @@ def inference(config):
 
 def inference_pipeline(hyperparameters):
     config = hyperparameters
+    config.model_name = config.colour_space + "_DefinitiveBestShortFinetune.pt"
     
     # Splits videos into images
     DataFunctions.split_video_to_images(config)
