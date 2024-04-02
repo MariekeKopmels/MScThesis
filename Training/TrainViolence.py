@@ -39,7 +39,7 @@ def train(config, model, scaler, loss_function, optimizer, data_list):
         num_batches = math.ceil(len(train_list) / config.batch_size)
                 
         for batch in range(num_batches):
-            videos, targets = DataFunctions.load_violence_data(config, train_list, batch)            
+            videos, targets = DataFunctions.load_video_data(config, train_list, batch)            
             print(f"-------------------------Starting Batch {batch}/{num_batches} batches-------------------------", end="\r")
             # TODO: Wil ik nog iets met deze outputs doen? Anders hoef ik ze niet terug te krijgen
             batch_loss, _ = train_batch(config, scaler, videos, targets, model, optimizer, loss_function)
@@ -87,14 +87,14 @@ def test_performance(config, model, data_list, loss_function, stage):
         num_batches = math.ceil(len(data_list) / config.batch_size)
                 
         for batch in range(num_batches):
-            videos, targets = DataFunctions.load_violence_data(config, data_list, batch)            
+            videos, targets = DataFunctions.load_video_data(config, data_list, batch)            
         
             print(f"-------------------------Starting Batch {batch}/{num_batches} batches-------------------------", end="\r")
 
             # Store example for printing while on CPU and non-normalized
             example_video = videos[0]
             
-            # Model inference 
+            # Model inference  
             videos, targets = videos.to(config.device), targets.to(config.device)
             
             # Normalize videos
@@ -134,17 +134,13 @@ def test_performance(config, model, data_list, loss_function, stage):
     return f1_score
     
     
-def make(config):
-    # print(f"{config.sampletype = }")
-    
+def make(config):    
     np.random.seed(config.seed)
     random.seed(config.seed)
     torch.manual_seed(config.seed)
     
     print("Creating video lists")
-    # train_loader, test_loader = DataFunctions.load_violence_data(config)
     train_list, test_list = DataFunctions.load_video_list(config)
-    
     model = MyModels.I3DViolenceModel(config).to(config.device)
     loss_function = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([config.WBCEweight])).to(config.device)
     optimizer = optim.Adam(model.parameters(), lr=config.lr)
@@ -163,6 +159,9 @@ def violence_pipeline(hyperparameters):
         
         # Create model, data loaders, loss function and optimizer
         model, scaler, loss_function, optimizer, train_list, test_list = make(config)
+        
+        # Test the model's performance before training
+        test_performance(config, model, test_list, loss_function, "test")
         
         # Train the model, incl. validation
         train(config, model, scaler, loss_function, optimizer, train_list)
