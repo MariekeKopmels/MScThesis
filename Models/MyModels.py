@@ -128,9 +128,33 @@ class SkinClassifier(nn.Module):
         x = self.sigmoid(x)
         return x
     
+# class I3DViolenceModel(InceptionI3d):
+#     def __init__(self, config):
+#         super(I3DViolenceModel, self).__init__(num_classes=config.num_violence_classes)
+#         # Sigmoid activation layer
+#         self.sigmoid = nn.Sigmoid()
+    
+#     def forward(self, x):
+#         # Shape of x: [batch_size, num_frames(16), num_channels, 224, 224]
+#         # Reformat the input to the shape [batch_size, num_channels, num_frames(16), 224, 224]
+#         x = x.permute(0, 2, 1, 3, 4)
+#         raw_outputs = torch.squeeze(super().forward(x), dim=-1)
+#         outputs = self.sigmoid(raw_outputs)
+#         return raw_outputs, outputs
+    
 class I3DViolenceModel(InceptionI3d):
     def __init__(self, config):
-        super(I3DViolenceModel, self).__init__(num_classes=config.num_violence_classes)
+        super().__init__()
+        
+        # Create the model
+        # Load the weights and customize the final layer if config.pretrained is True
+        if config.pretrained: 
+            self.model =  InceptionI3d()
+            self.model.load_state_dict(torch.load(config.weights_path))
+            self.model.replace_logits(config.num_violence_classes)
+        else: 
+            self.model = InceptionI3d(num_classes=config.num_violence_classes)
+        
         # Sigmoid activation layer
         self.sigmoid = nn.Sigmoid()
     
@@ -138,7 +162,7 @@ class I3DViolenceModel(InceptionI3d):
         # Shape of x: [batch_size, num_frames(16), num_channels, 224, 224]
         # Reformat the input to the shape [batch_size, num_channels, num_frames(16), 224, 224]
         x = x.permute(0, 2, 1, 3, 4)
-        raw_outputs = torch.squeeze(super().forward(x), dim=-1)
+        raw_outputs = torch.squeeze(self.model(x), dim=-1)
         outputs = self.sigmoid(raw_outputs)
         return raw_outputs, outputs
     
