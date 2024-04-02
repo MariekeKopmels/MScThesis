@@ -172,7 +172,6 @@ class SkinToneModel(nn.Module):
     def __init__(self, config):
         super(SkinToneModel, self).__init__()
         # Load pre-trained ResNet-18 model
-        # TODO: Kijken of deze weights beter zijn of miss toch de nieuwste (R3D_18_Weights.DEFAULT)
         self.resnet = models.video.r3d_18(weights=models.video.R3D_18_Weights.KINETICS400_V1)
         # Replace the final fully connected layer with a single neuron
         self.resnet.fc = nn.Linear(self.resnet.fc.in_features, 1)
