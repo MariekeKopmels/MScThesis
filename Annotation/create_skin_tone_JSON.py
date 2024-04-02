@@ -2,8 +2,8 @@ import os
 import json
 
 # Define the path to the 'annotated' folder
-annotated_folder = '/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/NEWOFFICIAL_OddityData-1-refined-nms-data-0103/annotated'
-json_folder = '/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/NEWOFFICIAL_OddityData-1-refined-nms-data-0103/skin_tone_labels'
+annotated_folder = '/Users/marieke/Desktop/MScThesis/Datasets/official_dataset/05_firsthalf_testset/non_balanced_samples/annotated'
+json_folder = '/Users/marieke/Desktop/MScThesis/Datasets/official_dataset/05_firsthalf_testset/non_balanced_samples/skin_tone_labels'
 
 # Initialize the result dictionary
 result = {}
@@ -39,7 +39,7 @@ for class_folder in class_list:
         elif class_folder == '5-Black':
             skin_tone_class = "Black"
         else:
-            raise ValueError('Class not recognised!')
+            raise ValueError(f'Class {class_folder} not recognised!')
 
         # Create the resulting JSON file
         result = {"class_label": skin_tone_class}

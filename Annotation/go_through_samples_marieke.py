@@ -23,20 +23,27 @@ def sort_filenames(filenames):
 
 
 def main():
-    base_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/NEWOFFICIAL_OddityData-1-refined-nms-data-0103/"
+    base_path = "/Users/marieke/Desktop/MScThesis/Datasets/official_dataset/"
+    sample_prefix = "02_samples"
     os.chdir(base_path)
     
-    prefix = "samples"
-    
-    with open('trainlist.txt') as trainlist:
-        sample_list = trainlist.readlines()
-        sample_list = sort_filenames(sample_list)
-        trainlist.close()
-        # print(f"Samplelist: {sample_list}")
+    # with open('trainlist.txt') as trainlist:
+    #     sample_list = trainlist.readlines()
+    #     sample_list = sort_filenames(sample_list)
+    #     trainlist.close()
+    #     print(f"Samplelist: {sample_list}")
+
+    sample_path = os.path.join(base_path, sample_prefix)
+    sample_list = os.listdir(sample_path)
+    sample_list.sort()
+    print(f"Length of sample_list: {len(sample_list)}")
 
     for sample in sample_list:
         sample_name = os.path.basename(sample)
-        total_path = os.path.join(prefix, sample_name)
+        if sample_name == ".DS_Store":
+            continue
+        print(f"{sample_name = }")
+        total_path = os.path.join(sample_path, sample_name)
         total_path = total_path.replace("\n", "")
         print(f"Total path: {total_path}")
         loop = True
@@ -56,35 +63,41 @@ def main():
                         img = img[:-6]
                     img_path = os.path.join(total_path, img)
                     frame = cv2.imread(img_path)
+                    cv2.moveWindow('viewer', 600, 30)
                     cv2.imshow('viewer', resize(frame))
                     key = cv2.waitKey(30)
                     if key == ord('q') or key == ord('0'):
-                        shutil.move(total_path, "annotated/0-Questionable")
+                        shutil.move(total_path, "03_annotated_samples/0-Questionable")
                         loop = False
                         print(sample_name)
                         break
                     elif key == ord('w') or key == ord('1'):
-                        shutil.move(total_path, "annotated/1-White")
+                        shutil.move(total_path, "03_annotated_samples/1-White")
                         print(sample_name)
                         loop = False
                         break 
                     elif key == ord('l') or key == ord('2'):
-                        shutil.move(total_path, "annotated/2-LightBrown")
+                        shutil.move(total_path, "03_annotated_samples/2-LightBrown")
                         loop = False
                         print(sample_name)
                         break
                     elif key == ord('m') or key == ord('3'):
-                        shutil.move(total_path, "annotated/3-MediumBrown")
+                        shutil.move(total_path, "03_annotated_samples/3-MediumBrown")
                         loop = False
                         print(sample_name)
                         break
                     elif key == ord('d') or key == ord('4'):
-                        shutil.move(total_path, "annotated/4-DarkBrown")
+                        shutil.move(total_path, "03_annotated_samples/4-DarkBrown")
                         loop = False
                         print(sample_name)
                         break
                     elif key == ord('b') or key == ord('5'):
-                        shutil.move(total_path, "annotated/5-Black")
+                        shutil.move(total_path, "03_annotated_samples/5-Black")
+                        loop = False
+                        print(sample_name)
+                        break
+                    elif key == ord('v') or key == ord('6'):
+                        shutil.move(total_path, "03_annotated_samples/6-Violence")
                         loop = False
                         print(sample_name)
                         break
@@ -92,6 +105,7 @@ def main():
                         print("Exited annotation!")
                         loop = False
                         return
+                        
             else:
                 loop = False
 
