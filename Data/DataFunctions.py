@@ -125,10 +125,10 @@ def load_video_gts(config, dir_list, dir_path):
         path = dir_path + "/" + gt_name
         with open(path, "r") as json_file:
             gts_json = json.load(json_file)
-        label = gts_json['class_label']
+        label = gts_json['class_label'][0]
         gts.append(map_to_numeric(config, label))
 
-    # TODO: Checken of ik idd moet unsqueezen (nu is gts.shape [dataset_size,1] en zonder unsqueeze is het [dataset_size])
+    # Reshape to correct format of [dataset_size,1]
     gts = torch.tensor(gts).unsqueeze(dim=1)
     
     return gts.float()
