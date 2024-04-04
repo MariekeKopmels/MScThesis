@@ -10,3 +10,5 @@
 !/Training/*.py
 
 !.gitignore
+
+README.md
