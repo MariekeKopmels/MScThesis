@@ -49,9 +49,7 @@ def train(config, model, scaler, loss_function, optimizer, data_list):
         
         # Validate the performance of the model
         val_f1_scores[epoch] = test_performance(config, model, validation_list, loss_function, "validation")
-        
-        # TODO: Save the (best) model
-        
+            
     return
 
 def train_batch(config, scaler, videos, targets, model, optimizer, loss_function):
