@@ -128,8 +128,7 @@ def test_performance(config, model, data_list, loss_function, stage):
         mean_loss = total_loss / (num_batches * config.batch_size)
         tn, fn, fp, tp = DataFunctions.confusion_matrix(config, test_outputs, test_targets, stage)
         accuracy, fn_rate, fp_rate, _, f1_score, f2_score, _ = DataFunctions.metrics(tn, fn, fp, tp)
-        # f1_score = metrics.f1_score(test_targets.to("cpu").numpy(), test_outputs.to("cpu").numpy()) 
-        LogFunctions.log_violence_metrics(config, mean_loss, accuracy, fn_rate, fp_rate, f1_score, f2_score, stage)
+        LogFunctions.log_violence_metrics(config, mean_loss, accuracy, fn_rate, fp_rate, f1_score, f2_score, stage, test_targets, test_outputs)
 
     return f1_score
     

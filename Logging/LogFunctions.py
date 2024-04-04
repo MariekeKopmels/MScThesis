@@ -3,6 +3,7 @@ import wandb
 import warnings
 import Data.DataFunctions as DataFunctions
 import numpy as np
+import torch
 
 """ Prints intermediate results to WandB, also logs them to WandB if not in batch stage.
 """
@@ -17,11 +18,16 @@ def log_metrics(config, mean_loss, tn, fn, fp, tp, stage):
 
 """ Logs intermediate results from the violence model to WandB.
 """    
-def log_violence_metrics(config, mean_loss, accuracy, fn_rate, fp_rate, f1_score, f2_score, stage):
-    
+def log_violence_metrics(config, mean_loss, accuracy, fn_rate, fp_rate, f1_score, f2_score, stage, targets=None, outputs=None):
     print(f"{stage}_mean_loss = {mean_loss}, {stage}_fn_rate = {fn_rate}, {stage}_fp_rate = {fp_rate}, {stage}_f1 = {f1_score}, {stage}_f2 = {f2_score}")
-    wandb.log({f"{stage}_accuracy": accuracy, f"{stage}_fn_rate": fn_rate, f"{stage}_fp_rate": fp_rate, f"{stage}_mean_loss": mean_loss, f"{stage}_f1": f1_score, f"{stage}_f2_score": f2_score})
-    
+    if stage != "test":
+        wandb.log({f"{stage}_accuracy": accuracy, f"{stage}_fn_rate": fn_rate, f"{stage}_fp_rate": fp_rate, f"{stage}_mean_loss": mean_loss, f"{stage}_f1": f1_score, f"{stage}_f2_score": f2_score})
+    else:
+        targetlist = torch.flatten(targets).to("cpu").numpy()
+        outputlist = torch.flatten(outputs).to("cpu").numpy()
+        full_outputlist = [[value, 1 - value] for value in outputlist]
+        wandb.log({f"{stage}_accuracy": accuracy, f"{stage}_fn_rate": fn_rate, f"{stage}_fp_rate": fp_rate, f"{stage}_mean_loss": mean_loss, f"{stage}_f1": f1_score, f"{stage}_f2_score": f2_score, "my_custom_plot_id" : wandb.plot.roc_curve(targetlist, full_outputlist, labels=["Neutral", "Violent"], classes_to_plot=None)})
+
 """ Log intermediate results from the skin tone model to WandB.
 """
 def log_skin_tone_metrics(config, mean_loss, mae, mse, stage):
