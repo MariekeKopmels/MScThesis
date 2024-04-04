@@ -245,7 +245,6 @@ def load_skin_tone_video_list(config):
     video_list = [video[:-5] for video in video_list if video.endswith(".json")]
     
     # Remove all samples with annotation "Questionable"
-    # TODO: Remove all violent samples (use neutral samples only)?
     video_dict = {}
     for video in video_list:
         path = config.data_path + "/skin_tone_labels/" + video + ".json"
