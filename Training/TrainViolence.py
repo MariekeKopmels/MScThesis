@@ -171,9 +171,6 @@ def violence_pipeline(hyperparameters):
         # Create model, data loaders, loss function and optimizer
         model, scaler, loss_function, optimizer, train_list, test_list = make(config)
         
-        # Test the model's performance before training
-        test_performance(config, model, test_list, loss_function, "test")
-        
         # Train the model, incl. validation
         train(config, model, scaler, loss_function, optimizer, train_list)
         
