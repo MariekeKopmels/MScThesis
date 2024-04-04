@@ -1,10 +1,8 @@
 import argparse
 from types import SimpleNamespace
-
 import torch 
 import os
 import shutil
-
 import Data.DataFunctions as DataFunctions
 import Data.AugmentationFunctions as AugmentationFunctions
 

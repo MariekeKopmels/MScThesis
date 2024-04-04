@@ -103,7 +103,7 @@ def load_video_frames(config, dir_list, dir_path):
     # Initialize the videos tensor
     videos = torch.empty(len(dir_list), config.max_video_length, config.num_channels, config.dims, config.dims, dtype=torch.float32)
         
-    # read the videos
+    # Read the videos
     for i, video_name in enumerate(dir_list):
         video_path = dir_path + "/" + video_name
         frame_list = os.listdir(video_path)

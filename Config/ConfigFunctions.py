@@ -1,8 +1,8 @@
-
 import argparse
 from types import SimpleNamespace
 
-
+""" Parses the passed arguments.
+"""
 def parse_args():
     "Overriding default arguments"
     argparser = argparse.ArgumentParser(description='Process hyper-parameters')
