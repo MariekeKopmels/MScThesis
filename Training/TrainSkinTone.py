@@ -1,6 +1,7 @@
 # Main for training the I3D violence model
 import Config.ConfigFunctions as ConfigFunctions
 import Data.DataFunctions as DataFunctions
+import Data.AugmentationFunctions as AugmentationFunctions
 import Models.MyModels as MyModels
 import Models.LossFunctions as LossFunctions
 import Models.ModelFunctions as ModelFunctions
@@ -41,11 +42,31 @@ def early_stopping(config, epoch, patience_counter, val_IoU_scores):
 
     return early_stop, patience_counter
 
+
+""" Print information about the class distribution of the data, for both the training and test data.
+"""
+def print_data_stats(config, train_list, test_list):
+    # Print some stats regarding the train and test data
+    train_gt_list = [video + ".json" for video in train_list]
+    test_gt_list = [video + ".json" for video in test_list]
+    train_gts = DataFunctions.load_video_gts(config, train_gt_list, config.data_path + "/skin_tone_labels")
+    test_gts = DataFunctions.load_video_gts(config, test_gt_list, config.data_path + "/skin_tone_labels")
+    unique_values, counts = torch.unique(train_gts, return_counts=True)
+    print("Train")
+    for value, count in zip(unique_values, counts):
+        print(f"Value: {value}, Count: {count}")
+    unique_values, counts = torch.unique(test_gts, return_counts=True)
+    print("Test")
+    for value, count in zip(unique_values, counts):
+        print(f"Value: {value}, Count: {count}")
+    return
+
     
-""" Trains the passed model"""
+""" Trains the passed model
+"""
 def train(config, model, scaler, loss_function, optimizer, data_list):
     # Keep track of score and patience for early stopping
-    val_mse_scores = np.zeros((config.num_epochs, 2))
+    val_mse_scores = np.zeros((config.num_epochs))
     patience_counter = 0
     
     train_list, validation_list = DataFunctions.split_video_list(config, data_list)
@@ -53,27 +74,24 @@ def train(config, model, scaler, loss_function, optimizer, data_list):
     for epoch in range(config.num_epochs):
         print(f"-------------------------Starting Training Epoch {epoch+1}/{config.num_epochs} epochs-------------------------")
         model.train()
-        epoch_loss = 0.0
         batch = 0
         
         # Shuffle the list to ensure every training epoch is different
         random.shuffle(train_list)
         num_batches = math.ceil(len(train_list) / config.batch_size)
-                
+        
+        # Train the model with the training data
         for batch in range(num_batches):
             videos, targets = DataFunctions.load_video_data(config, train_list, batch)            
             print(f"-------------------------Starting Batch {batch}/{num_batches} batches-------------------------", end="\r")
-            # TODO: Wil ik nog iets met deze outputs doen? Anders hoef ik ze niet terug te krijgen
-            batch_loss, _ = train_batch(config, scaler, videos, targets, model, optimizer, loss_function)
-            epoch_loss += batch_loss.item()
+            train_batch(config, scaler, videos, targets, model, optimizer, loss_function)
                                     
         print(f"-------------------------Finished training batches-------------------------") 
         
         # Validate the performance of the model
         val_mse_scores[epoch] = test_performance(config, model, validation_list, loss_function, "validation")
         
-        # TODO: Save the (best) model        
-        # Save the model of this epoch, overwrite the best model if it has a better IoU score than all previous model
+        # Save the model of this epoch, overwrite the best model if it has a lower mse score than all previous models
         if epoch == 0 or val_mse_scores[epoch] < min(val_mse_scores[:epoch]):
             ModelFunctions.save_model(config, model, epoch+1, best=True)
         else:
@@ -86,6 +104,9 @@ def train(config, model, scaler, loss_function, optimizer, data_list):
                 # If stopped early, retrieve the best model for further computations
                 model = ModelFunctions.load_model(config, model_from_current_run=True)
                 return model
+            
+    # After training, return the best model.
+    model = ModelFunctions.load_model(config, model_from_current_run=True)
         
     return
 
@@ -96,6 +117,8 @@ def train_batch(config, scaler, videos, targets, model, optimizer, loss_function
         
         # Normalize videos
         normalized_videos = DataFunctions.normalize_videos(config, videos)
+        # TODO: finish video augmentation
+        # augmented_videos = AugmentationFunctions.augment_videos(config, normalized_videos)
         outputs = model(normalized_videos)
         
         # Compute loss, update model
@@ -105,7 +128,7 @@ def train_batch(config, scaler, videos, targets, model, optimizer, loss_function
         scaler.step(optimizer)
         scaler.update()
     
-    return loss, outputs
+    return
 
 def test_performance(config, model, data_list, loss_function, stage):
     print(f"-------------------------Start {stage}-------------------------")
@@ -149,8 +172,8 @@ def test_performance(config, model, data_list, loss_function, stage):
 
         # Compute and log metrics
         mean_loss = total_loss / (num_batches * config.batch_size)
-        mae, mse = DataFunctions.regression_metrics(test_outputs, test_targets)
-        LogFunctions.log_skin_tone_metrics(config, mean_loss, mae, mse, stage)
+        mae, mse, non_white_mae, non_white_mse, white_mae, white_mse = DataFunctions.regression_metrics(test_outputs, test_targets)
+        LogFunctions.log_skin_tone_metrics(config, mean_loss, mae, mse, non_white_mae, non_white_mse, white_mae, white_mse, stage)
 
     return mse
     
@@ -163,7 +186,11 @@ def make(config):
     
     train_list, test_list = DataFunctions.load_skin_tone_video_list(config)
     
-    model = MyModels.SkinToneModel(config).to(config.device)    
+    print_data_stats(config, train_list, test_list)
+    if config.architecture == "I3D_SkinTone":
+        model = MyModels.I3DSkintoneModel(config).to(config.device)
+    elif config.architecture == "ResNet_SkinTone":
+        model = MyModels.ResNetSkinToneModel(config).to(config.device)
     loss_weights = ConfigFunctions.toArray(config, config.WMSE_weights)
     loss_function = LossFunctions.WeightedMSELoss(config, loss_weights)
     optimizer = optim.Adam(model.parameters(), lr=config.lr)
@@ -177,7 +204,7 @@ def skin_tone_pipeline(hyperparameters):
         config = wandb.config
         
         # Give the run a name
-        config.run_name = f"LR:{config.lr}_num_epochs:{config.num_epochs}_batch_size:{config.batch_size}"
+        config.run_name = f"{config.sampletype}_LR:{config.lr}_{config.colour_space}"
         wandb.run.name = config.run_name
         
         # Create model, data loaders, loss function and optimizer
