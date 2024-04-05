@@ -237,6 +237,20 @@ def load_video_list(config):
     
     return train_list, test_list
 
+""" Returns a list of the source videos, used to create the train/test split
+    to ensure for independent training/testing.
+"""
+def get_source_videos(config):
+    file_name = config.data_path + "/source_videos.txt"
+    with open(file_name, 'r') as file:
+        source_videos = [line.strip().split(".mp4")[0] for line in file.readlines()]
+        
+    return source_videos
+
+
+""" Returns a train and test list with video names. They are split on a source video level
+    to ensure for independent training/testing sets.
+"""
 def load_skin_tone_video_list(config):
     videos_dir_path = config.data_path + "/skin_tone_labels/"
         
@@ -244,26 +258,12 @@ def load_skin_tone_video_list(config):
     video_list = os.listdir(videos_dir_path)
     video_list = [video[:-5] for video in video_list if video.endswith(".json")]
     
-    # Remove all samples with annotation "Questionable"
-    video_dict = {}
-    for video in video_list:
-        path = videos_dir_path + video + ".json"
-        # Consider the name of the source video rather than the video itself. We need to
-        # split into train/test based on the source to ensure independent training/testing.
-        source_video = video.split('.mp4')[0]
-        with open(path, 'r') as annotation_file:
-            annotation = json.load(annotation_file)
-            if annotation['class_label'] != 'Questionable':
-                if source_video in video_dict:
-                    video_dict[source_video].append(video)
-                else:
-                    video_dict[source_video] = [video]
-
-    # Split videos into train and test sets
+    # Split source videos into train and test sets
     # Keeps into account that videos originating from the same source (in the keys) 
     # should all be in either train or test, not both.
-    source_videos = list(video_dict.keys())
+    source_videos = get_source_videos(config)
     random.shuffle(source_videos)  
+
     # Partition the source videos into train/test split
     train_size = int(config.traintest_split * len(source_videos))
     train_videos = source_videos[:train_size]
@@ -273,11 +273,13 @@ def load_skin_tone_video_list(config):
     train_list = []
     test_list = []
 
-    for video in train_videos:
-        train_list.extend(video_dict[video])
-
-    for video in test_videos:
-        test_list.extend(video_dict[video])
+    for video in video_list:
+        if any(source_video in video for source_video in train_videos):
+            train_list.append(video)
+        elif any(source_video in video for source_video in test_videos):
+            test_list.append(video)
+        else:
+            print("Should not happen, can't find source video.")
         
     return train_list, test_list
         
