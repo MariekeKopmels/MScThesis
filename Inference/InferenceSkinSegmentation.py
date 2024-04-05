@@ -16,29 +16,14 @@ default_config = SimpleNamespace(
     num_channels = 3,
     max_video_length = 16,
     batch_size = 32, 
-    dataset = "refined_nms",
-    colour_space = "YCrCb",
+    dataset = "Demo",
+    colour_space = "HSV",
     architecture = "UNet", 
     model_path = "/home/oddity/marieke/Output/Models",
     model_name = "",
-    video_path = "/home/oddity/marieke/Datasets/05_firsthalf_testset/balanced_samples/samples",
-    grinch_path = "/home/oddity/marieke/Datasets/05_firsthalf_testset/balanced_samples/YCrCb_grinchsamples"
-    
-    # machine = "Mac",
-    # device = torch.device("mps"),
-    # num_workers = 1,
-    # dims = 224,ls
-    # num_channels = 3,
-    # max_video_length = 50,
-    # batch_size = 32, 
-    # dataset = "VisuAAL",
-    # colour_space = "BGR",
-    # architecture = "UNet",
-    # model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Output/SkinDetectionModels",
-    # model_name = "test_pretrained.pt",
-    # video_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch/DemoInputVideos", 
-    # grinch_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch/DemoGrinchVideosNEW"
-)
+    video_path = "/home/oddity/marieke/Datasets/marieke-copy-refined-nms-data-0103/samples",
+    grinch_path = "/home/oddity/marieke/Datasets/marieke-copy-refined-nms-data-0103/HSV_grinchsamples_110324"
+    )
 
 def parse_args():
     "Overriding default arguments"
@@ -90,7 +75,7 @@ def inference(config):
 
 def inference_pipeline(hyperparameters):
     config = hyperparameters
-    config.model_name = config.colour_space + "_DefinitiveBestShortFinetune.pt"
+    config.model_name = config.colour_space + "_BestShortFinetuneAfterFinalShortPretrain.pt"
     
     # Splits videos into images
     DataFunctions.split_video_to_images(config)
