@@ -177,8 +177,8 @@ def test_performance(config, model, data_list, loss_function, stage):
 
         # Compute and log metrics
         mean_loss = total_loss / (num_batches * config.batch_size)
-        mae, mse, non_white_mae, non_white_mse, white_mae, white_mse = DataFunctions.regression_metrics(test_outputs, test_targets)
-        LogFunctions.log_skin_tone_metrics(config, mean_loss, mae, mse, non_white_mae, non_white_mse, white_mae, white_mse, stage)
+        mae, mse = DataFunctions.regression_metrics(test_outputs, test_targets)
+        LogFunctions.log_skin_tone_metrics(config, mean_loss, mae, mse, stage)
 
     return mse
     
@@ -193,8 +193,10 @@ def make(config):
     train_list, test_list = DataFunctions.load_skin_tone_video_list(config)
     
     print_data_stats(config, train_list, test_list)
-    # TODO: implement I3D model option
-    model = MyModels.ResNetSkinToneModel(config).to(config.device)
+    if config.architecture == "I3D_SkinTone":
+        model = MyModels.I3DSkintoneModel(config).to(config.device)
+    elif config.architecture == "ResNet_SkinTone":
+        model = MyModels.ResNetSkinToneModel(config).to(config.device)
     loss_weights = ConfigFunctions.toArray(config, config.WMSE_weights)
     loss_function = LossFunctions.WeightedMSELoss(config, loss_weights)
     optimizer = optim.Adam(model.parameters(), lr=config.lr)
@@ -205,7 +207,7 @@ def make(config):
 """ Runs the complete pipeline of training and testing the Skin tone prediction model.
 """
 def skin_tone_pipeline(hyperparameters):
-    with wandb.init(mode="online", project="skin-tone-model", config=hyperparameters):
+    with wandb.init(mode="disabled", project="skin-tone-model", config=hyperparameters):
         config = wandb.config
         
         # Give the run a name

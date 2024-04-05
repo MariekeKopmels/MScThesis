@@ -159,7 +159,7 @@ def map_to_numeric(config, label):
         if mapped_label == -1:
             print(f"Label {label} not found, mapped to {mapped_label}.")
         return mapped_label
-    elif config.architecture == "ResNet_SkinTone":
+    elif config.architecture == "ResNet_SkinTone" or config.architecture == "I3D_SkinTone":
         mapped_label =  skin_tone_label_mapping.get(label, -1)
         if mapped_label == -1:
             print(f"Label {label} not found, mapped to {mapped_label}.")
@@ -190,7 +190,7 @@ def load_video_data(config, video_list, batch=-1):
     # load the ground truths, depending on the task at hand
     if config.architecture == "I3D_Violence":
         dir_path = config.data_path + "/labels" 
-    elif config.architecture == "ResNet_SkinTone":
+    elif config.architecture == "ResNet_SkinTone" or config.architecture == "I3D_SkinTone":
         dir_path = config.data_path + "/skin_tone_labels"
     else:
         print(f"Error! Architecture ({config.architecture}) not found. Error trown in DataFunctions.load_video_data()")
@@ -238,7 +238,7 @@ def load_video_list(config):
     return train_list, test_list
 
 def load_skin_tone_video_list(config):
-    videos_dir_path = config.data_path + "/skin_tone_labels"
+    videos_dir_path = config.data_path + "/skin_tone_labels/"
         
     # Load list of files in directory
     video_list = os.listdir(videos_dir_path)
@@ -247,9 +247,9 @@ def load_skin_tone_video_list(config):
     # Remove all samples with annotation "Questionable"
     video_dict = {}
     for video in video_list:
-        path = config.data_path + "/skin_tone_labels/" + video + ".json"
+        path = videos_dir_path + video + ".json"
         # Consider the name of the source video rather than the video itself. We need to
-        # split into train/test based on the source rather than the video.
+        # split into train/test based on the source to ensure independent training/testing.
         source_video = video.split('.mp4')[0]
         with open(path, 'r') as annotation_file:
             annotation = json.load(annotation_file)
@@ -439,6 +439,7 @@ def confusion_matrix(config, outputs, targets, stage):
     
     return tn, fn, fp, tp
 
+
 """ Computes metrics based on true/false positive/negative values.
         Returns accuracy, fn_rate, fp_rate and sensitivity.
 """
@@ -460,6 +461,7 @@ def metrics(tn, fn, fp, tp):
     
     return accuracy, fn_rate, fp_rate, sensitivity, f1_score, f2_score, IoU
 
+
 def regression_metrics(outputs, targets):
     outputs = outputs.detach().cpu().numpy()
     targets = targets.detach().cpu().numpy()
@@ -472,9 +474,6 @@ def regression_metrics(outputs, targets):
     
     return mae, mse
     
-
-# New function
-# squared_diff = np.square(target - predictions)
 
 """ Calculates and returns the F-beta score given the passed tp, fp and fn rates.
 """
