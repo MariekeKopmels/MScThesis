@@ -117,11 +117,10 @@ def train_batch(config, scaler, videos, targets, model, optimizer, loss_function
         # Model inference
         videos, targets = videos.to(config.device), targets.to(config.device)
         
-        # Normalize videos
+        # Normalize and augment videos
         normalized_videos = DataFunctions.normalize_videos(config, videos)
-        # TODO: finish video augmentation
-        # augmented_videos = AugmentationFunctions.augment_videos(config, normalized_videos)
-        outputs = model(normalized_videos)
+        augmented_videos = AugmentationFunctions.augment_videos(config, normalized_videos)
+        outputs = model(augmented_videos)
         
         # Compute loss, update model
         optimizer.zero_grad(set_to_none=True)
@@ -207,11 +206,11 @@ def make(config):
 """ Runs the complete pipeline of training and testing the Skin tone prediction model.
 """
 def skin_tone_pipeline(hyperparameters):
-    with wandb.init(mode="disabled", project="skin-tone-model", config=hyperparameters):
+    with wandb.init(mode="online", project="skin-tone-model", config=hyperparameters):
         config = wandb.config
         
         # Give the run a name
-        config.run_name = f"{config.sampletype}_LR:{config.lr}_{config.colour_space}"
+        config.run_name = f"{config.sampletype}_LR:{config.lr}_Augmentation_rate:{config.augmentation_rate}_{config.colour_space}"
         wandb.run.name = config.run_name
         
         # Create model, data loaders, loss function and optimizer
