@@ -1,6 +1,7 @@
 # This gitignore file is a whitelist. Therefore, everything is ignored unless specified otherwise
 *
 
+
 # Manually add files and folders
 !/Config/*.py
 !/Data/

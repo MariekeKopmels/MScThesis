@@ -42,7 +42,7 @@ def load_images(config, dir_list, dir_path, gts=False):
             images[i] = torch.tensor(image, dtype=torch.float32).unsqueeze(0)
         else:
             images[i] = torch.tensor(image, dtype=torch.float32).permute(2, 0, 1)
-            
+                    
     return images
 
 """Returns input images in a given directory
@@ -402,8 +402,14 @@ def make_grinch(config, image, output):
 """ Takes baches of images in ndarrays, stores as well as returns the grinch versions
 """
 def to_grinches(config, images, outputs, video):
+    # Incoming images are in float32 type but this will mess up image printing. 
+    # Therefore clone and convert the images back to  uint8 type. 
+    outputs = outputs.clone().detach()
+    outputs = outputs.to(torch.uint8)
+    grinches = images.clone().detach()
+    grinches = grinches.to(torch.uint8)
     outputs = outputs.cpu().numpy()
-    grinches = images.cpu().numpy()
+    grinches = grinches.cpu().numpy()
     mask = outputs == 1
     
     os.makedirs(config.grinch_path, exist_ok=True)
@@ -487,23 +493,37 @@ def f_beta_score(tp, fp, fn, beta):
 
 """ Stores an image (in form of ndarray or tensor) to the disk.
 """
-def save_image(config, image, path, filename, bw=False, gt=False):
+def save_image(config, image, path, filename, bw=False, gt=False, current_colour_space=None):
+    if current_colour_space != None:
+        col_space = current_colour_space
+    else:
+        col_space = config.colour_space
+            
     os.makedirs(path, exist_ok=True)
     os.chdir(path)
     # cv2.imwrite takes input in form height, width, channels
     if type(image) == torch.Tensor:
+        # Incoming images are in float32 type but this will mess up image printing. 
+        # Thereforeonvert the images back to  uint8 type.
+        image = torch.tensor(image, dtype=torch.uint8)
         image = image.to("cpu")
-        if gt:
-            image = cv2.cvtColor(image.numpy(), cv2.COLOR_GRAY2BGR)
-            cv2.imwrite(filename, image*255)
-        else:
-            cv2.imwrite(filename, image.numpy().transpose(1,2,0))
-    else:   
-        if gt: 
-            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-            cv2.imwrite(filename, image*255)
-        else:
+        image = image.numpy()  
+    if gt:
+        image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        cv2.imwrite(filename, image*255)
+    else:
+        # Ensure that the shape of the image is (channels,dims,dims)
+        if image.shape[0] == 3:
+            image = image.transpose(1,2,0)
+        if col_space == "BGR":
             cv2.imwrite(filename, image)
+        elif col_space == "YCrCb":
+            image = cv2.cvtColor(image, cv2.COLOR_YCR_CB2BGR)
+            cv2.imwrite(filename, image)
+        elif col_space == "HSV":
+            image = cv2.cvtColor(image, cv2.COLOR_HSV2RGB_FULL)
+            cv2.imwrite(filename, image)
+
     return
     
 
