@@ -1,9 +1,9 @@
-
 import argparse
 import torch
 from types import SimpleNamespace
 
-
+""" Parses the passed arguments.
+"""
 def parse_args():
     "Overriding default arguments"
     argparser = argparse.ArgumentParser(description='Process hyper-parameters')
@@ -15,6 +15,7 @@ def parse_args():
     argparser.add_argument('--num_epochs', type=int, default=None, help='Number of epochs for training.')
     argparser.add_argument('--dataset_size', type=int, default=None, help='Size of the dataset that is used.')
     argparser.add_argument('--sampletype', type=str, default=None, help='Type of samples that are used. Either "samples" or "grinchsamples".')
+    argparser.add_argument('--pretrained', type=str, default=None, help='Load a pretrained (ImageNet) or new model.')
     args = argparser.parse_args()
     return args
 

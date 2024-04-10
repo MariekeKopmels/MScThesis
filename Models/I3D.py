@@ -1,3 +1,6 @@
+# Implementation from AJ Piergiovanni. 
+# Retrieved from https://github.com/piergiaj/pytorch-i3d
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

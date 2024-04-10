@@ -103,7 +103,7 @@ def load_video_frames(config, dir_list, dir_path):
     # Initialize the videos tensor
     videos = torch.empty(len(dir_list), config.max_video_length, config.num_channels, config.dims, config.dims, dtype=torch.float32)
         
-    # read the videos
+    # Read the videos
     for i, video_name in enumerate(dir_list):
         video_path = dir_path + "/" + video_name
         frame_list = os.listdir(video_path)
@@ -125,10 +125,10 @@ def load_video_gts(config, dir_list, dir_path):
         path = dir_path + "/" + gt_name
         with open(path, "r") as json_file:
             gts_json = json.load(json_file)
-        label = gts_json['class_label']
+        label = gts_json['class_label'][0]
         gts.append(map_to_numeric(config, label))
 
-    # TODO: Checken of ik idd moet unsqueezen (nu is gts.shape [dataset_size,1] en zonder unsqueeze is het [dataset_size])
+    # Reshape to correct format of [dataset_size,1]
     gts = torch.tensor(gts).unsqueeze(dim=1)
     
     return gts.float()
