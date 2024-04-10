@@ -1,11 +1,12 @@
 import os
 import cv2
 import sklearn.metrics
+import json
 import torch 
 import numpy as np 
+import random
 from torch.utils.data import DataLoader, random_split
-import time
-import Logging.LogFunctions as LogFunctions
+
 
 """ Loads the requested images, returns them in a Torch tensor.
 """
@@ -93,16 +94,213 @@ def load_image_data(config):
     return train_loader, test_loader
 
 
+""" Loads the frames of the requested videos, returns them in a Torch tensor.
+"""
+def load_video_frames(config, dir_list, dir_path):
+    # dir_path = /Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/COPY-oddity-copy-refined-nms-data-0103/samples
+    # dir_list = list of folders samples folder (so video names)
+    
+    # Initialize the videos tensor
+    videos = torch.empty(len(dir_list), config.max_video_length, config.num_channels, config.dims, config.dims, dtype=torch.float32)
+        
+    # read the videos
+    for i, video_name in enumerate(dir_list):
+        video_path = dir_path + "/" + video_name
+        frame_list = os.listdir(video_path)
+        frame_list = [frame for frame in frame_list if not frame.startswith(".")]
+        frame_list.sort()
+        
+        frames = load_images(config, frame_list, video_path)
+        videos[i][:] = frames
+        
+    return videos
+
+""" Loads the ground truths of videos in torch tensor format. In the returned ground truths, 
+    the first element of each row is the violence target and the rest of the columns represent 
+    the one-hot encoded skin colour class.
+"""
+def load_video_gts(config, dir_list, dir_path):
+    gts = []
+    for gt_name in dir_list:
+        path = dir_path + "/" + gt_name
+        with open(path, "r") as json_file:
+            gts_json = json.load(json_file)
+        label = gts_json['class_label']
+        gts.append(map_to_numeric(config, label))
+
+    # TODO: Checken of ik idd moet unsqueezen (nu is gts.shape [dataset_size,1] en zonder unsqueeze is het [dataset_size])
+    gts = torch.tensor(gts).unsqueeze(dim=1)
+    
+    return gts.float()
+
+""" Function to map the violence and skin tone labels to a numeric value
+    For the violence labels it is defined as: 
+    Violence = 1, Neutral = 0
+    and for skin tone it is defined as:
+    White = 1.0, Light brown = 2.0, Medium brown = 3.0, Dark brown = 4.0, Black = 5.0
+"""
+def map_to_numeric(config, label):
+    # Define mappings from label strings to numeric values
+    violence_label_mapping = {
+        "neutral": 0.0,
+        "violence": 1.0,
+    }
+    skin_tone_label_mapping = {
+        "Questionable": 0.0,
+        "White": 1.0,
+        "LightBrown": 2.0,
+        "MediumBrown": 3.0,
+        "DarkBrown": 4.0,
+        "Black": 5.0
+    }
+    # Return label or -1 if label is not found in mapping
+    if config.architecture == "I3D_Violence":
+        mapped_label = violence_label_mapping.get(label, -1)
+        if mapped_label == -1:
+            print(f"Label {label} not found, mapped to {mapped_label}.")
+        return mapped_label
+    elif config.architecture == "ResNet_SkinTone" or config.architecture == "I3D_SkinTone":
+        mapped_label =  skin_tone_label_mapping.get(label, -1)
+        if mapped_label == -1:
+            print(f"Label {label} not found, mapped to {mapped_label}.")
+        return mapped_label
+    else:
+        return -1
+
+
+""" Returns the videos and gts of a certain batch if one is given,
+    returns all violence or skin tone data otherwise.
+"""
+def load_video_data(config, video_list, batch=-1):       
+    if batch != -1:
+        start_index = batch*config.batch_size
+        end_index = min((batch+1)*config.batch_size, len(video_list))
+    else:
+        start_index = 0
+        end_index = len(video_list)
+    
+    # Get the correct part of the videos, dependent on what batch is retrieved
+    video_list = video_list[start_index:end_index]    
+    gt_list = [video + ".json" for video in video_list]
+    
+    # load the video frames
+    dir_path = config.data_path + "/" + config.sampletype 
+    videos = load_video_frames(config, video_list, dir_path)
+    
+    # load the ground truths, depending on the task at hand
+    if config.architecture == "I3D_Violence":
+        dir_path = config.data_path + "/labels" 
+    elif config.architecture == "ResNet_SkinTone" or config.architecture == "I3D_SkinTone":
+        dir_path = config.data_path + "/skin_tone_labels"
+    else:
+        print(f"Error! Architecture ({config.architecture}) not found. Error trown in DataFunctions.load_video_data()")
+        exit()
+     
+    gts = load_video_gts(config, gt_list, dir_path)
+    
+    return videos, gts
+
 """ Splits the data in the passed data loader into a train and validation loader.
 """
-def split_dataset(config, data_loader):
-    generator = torch.Generator().manual_seed(42)
-    train_data, validation_data = random_split(data_loader.dataset, [config.split, 1-config.split], generator)
+def split_dataset(config, data_loader, split_type="train/validation"):
+    generator = torch.Generator().manual_seed(config.seed)
+    if split_type == "train/validation":
+        split_value = config.trainvalidation_split
+    else:
+        split_value = config.traintest_split
+    train_data, test_validation_data = random_split(data_loader.dataset, [split_value, 1-split_value], generator)
     train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, drop_last=False) 
-    validation_loader = DataLoader(validation_data, batch_size=config.batch_size, shuffle=True, drop_last=False) 
+    test_validation_loader = DataLoader(test_validation_data, batch_size=config.batch_size, shuffle=True, drop_last=False) 
     
-    return train_loader, validation_loader
+    return train_loader, test_validation_loader
 
+
+""" Returns a list of videos, which will be used to load data during each training batch.
+"""
+def load_video_list(config):
+    videos_dir_path = config.data_path + "/" + config.sampletype 
+    
+    # Load list of files in directories
+    video_list = os.listdir(videos_dir_path)
+    
+    # Keep only the folders in video_list to get all video names
+    video_list = [entry for entry in video_list if os.path.isdir(os.path.join(videos_dir_path, entry))]
+
+    # Shuffle list to randomize
+    random.shuffle(video_list)
+    
+    # Use as much videos as predefined
+    video_list = video_list[:config.dataset_size]
+    
+    # Split the video list in a train and test list
+    train_list, test_list = split_video_list(config, video_list, split_type="train/test")
+    
+    return train_list, test_list
+
+""" Returns a list of the source videos, used to create the train/test split
+    to ensure for independent training/testing.
+"""
+def get_source_videos(config):
+    file_name = config.data_path + "/source_videos.txt"
+    with open(file_name, 'r') as file:
+        source_videos = [line.strip().split(".mp4")[0] for line in file.readlines()]
+        
+    return source_videos
+
+
+""" Returns a train and test list with video names. They are split on a source video level
+    to ensure for independent training/testing sets.
+"""
+def load_skin_tone_video_list(config):
+    videos_dir_path = config.data_path + "/skin_tone_labels/"
+        
+    # Load list of files in directory
+    video_list = os.listdir(videos_dir_path)
+    video_list = [video[:-5] for video in video_list if video.endswith(".json")]
+    
+    # Split source videos into train and test sets
+    # Keeps into account that videos originating from the same source (in the keys) 
+    # should all be in either train or test, not both.
+    source_videos = get_source_videos(config)
+    random.shuffle(source_videos)  
+
+    # Partition the source videos into train/test split
+    train_size = int(config.traintest_split * len(source_videos))
+    train_videos = source_videos[:train_size]
+    test_videos = source_videos[train_size:]
+    
+    # Create the final train and test lists, with the data stored in the video_dict
+    train_list = []
+    test_list = []
+
+    for video in video_list:
+        if any(source_video in video for source_video in train_videos):
+            train_list.append(video)
+        elif any(source_video in video for source_video in test_videos):
+            test_list.append(video)
+        else:
+            print("Should not happen, can't find source video.")
+        
+    return train_list, test_list
+        
+
+""" Splits the already shuffled video list into a train/test or train/validation split, dependent on the type.
+"""
+def split_video_list(config, video_list, split_type="train/validation"):
+    # Decide what the split value is, determined by either the train/validation or the train/test split.
+    if split_type == "train/validation":
+        split_value = config.trainvalidation_split
+    else:
+        split_value = config.traintest_split
+        
+    # Find the split index
+    split = int(len(video_list) * split_value)
+    
+    # Split the list into train/test or train/validation lists
+    train_list = video_list[:split]
+    test_validation_list = video_list[split:]
+    
+    return train_list, test_validation_list
 
 """ Splits the videos in config.video_path directory into images, stores them on disk
 """
@@ -174,6 +372,14 @@ def normalize_images(config, images):
     
     return normalized_images
 
+""" Normalizes values in the passed videos.
+"""
+def normalize_videos(config, videos):
+    for i in range(videos.shape[0]):
+        frames = videos[i]
+        videos[i] = normalize_images(config, frames)
+    return videos
+        
 ''' Returns the grinch version of the passed image, based on the passed output of the model
 '''
 def make_grinch(config, image, output):
@@ -219,7 +425,8 @@ def to_grinches(config, images, outputs, video):
     return torch.from_numpy(grinches)
     
     
-"""Returns the values of the confusion matrix of true negative, false negative, true positive and false positive values
+""" Returns the values of the confusion matrix of true negative, false negative, true positive and false positive values.
+    Receives the outputs as values in the range [0,1] and targets of either 0 or 1.
 """
 def confusion_matrix(config, outputs, targets, stage):
     # Flatten output and target
@@ -239,6 +446,7 @@ def confusion_matrix(config, outputs, targets, stage):
     fp = matrix[0][1]
     
     return tn, fn, fp, tp
+
 
 """ Computes metrics based on true/false positive/negative values.
         Returns accuracy, fn_rate, fp_rate and sensitivity.
@@ -261,6 +469,19 @@ def metrics(tn, fn, fp, tp):
     
     return accuracy, fn_rate, fp_rate, sensitivity, f1_score, f2_score, IoU
 
+
+def regression_metrics(outputs, targets):
+    outputs = outputs.detach().cpu().numpy()
+    targets = targets.detach().cpu().numpy()
+    
+    # Calculate the mean absolute error and mean squared error 
+    abs_diff = np.abs(targets - outputs)
+    squared_diff = np.square(targets - outputs)
+    mae = np.mean(abs_diff)
+    mse = np.mean(squared_diff)
+    
+    return mae, mse
+    
 
 """ Calculates and returns the F-beta score given the passed tp, fp and fn rates.
 """
