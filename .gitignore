@@ -1,14 +1,16 @@
 # This gitignore file is a whitelist. Therefore, everything is ignored unless specified otherwise
 *
 
+
 # Manually add files and folders
 !/Config/*.py
-!/Data/*.py
-!/Inference/*.py
-!/Logging/*.py
-!/Models/*.py
-!/Training/*.py
+!/Data/
+!/Inference/
+!/Logging/
+!/Models/
+!/Training/
 
 !.gitignore
 
 README.md
+

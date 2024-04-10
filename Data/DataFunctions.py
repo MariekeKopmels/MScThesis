@@ -42,7 +42,7 @@ def load_images(config, dir_list, dir_path, gts=False):
             images[i] = torch.tensor(image, dtype=torch.float32).unsqueeze(0)
         else:
             images[i] = torch.tensor(image, dtype=torch.float32).permute(2, 0, 1)
-            
+                    
     return images
 
 """Returns input images in a given directory
@@ -159,7 +159,7 @@ def map_to_numeric(config, label):
         if mapped_label == -1:
             print(f"Label {label} not found, mapped to {mapped_label}.")
         return mapped_label
-    elif config.architecture == "ResNet_SkinTone":
+    elif config.architecture == "ResNet_SkinTone" or config.architecture == "I3D_SkinTone":
         mapped_label =  skin_tone_label_mapping.get(label, -1)
         if mapped_label == -1:
             print(f"Label {label} not found, mapped to {mapped_label}.")
@@ -190,7 +190,7 @@ def load_video_data(config, video_list, batch=-1):
     # load the ground truths, depending on the task at hand
     if config.architecture == "I3D_Violence":
         dir_path = config.data_path + "/labels" 
-    elif config.architecture == "ResNet_SkinTone":
+    elif config.architecture == "ResNet_SkinTone" or config.architecture == "I3D_SkinTone":
         dir_path = config.data_path + "/skin_tone_labels"
     else:
         print(f"Error! Architecture ({config.architecture}) not found. Error trown in DataFunctions.load_video_data()")
@@ -237,34 +237,33 @@ def load_video_list(config):
     
     return train_list, test_list
 
+""" Returns a list of the source videos, used to create the train/test split
+    to ensure for independent training/testing.
+"""
+def get_source_videos(config):
+    file_name = config.data_path + "/source_videos.txt"
+    with open(file_name, 'r') as file:
+        source_videos = [line.strip().split(".mp4")[0] for line in file.readlines()]
+        
+    return source_videos
+
+
+""" Returns a train and test list with video names. They are split on a source video level
+    to ensure for independent training/testing sets.
+"""
 def load_skin_tone_video_list(config):
-    videos_dir_path = config.data_path + "/skin_tone_labels"
+    videos_dir_path = config.data_path + "/skin_tone_labels/"
         
     # Load list of files in directory
     video_list = os.listdir(videos_dir_path)
     video_list = [video[:-5] for video in video_list if video.endswith(".json")]
     
-    # Remove all samples with annotation "Questionable"
-    # TODO: Remove all violent samples (use neutral samples only)?
-    video_dict = {}
-    for video in video_list:
-        path = config.data_path + "/skin_tone_labels/" + video + ".json"
-        # Consider the name of the source video rather than the video itself. We need to
-        # split into train/test based on the source rather than the video.
-        source_video = video.split('.mp4')[0]
-        with open(path, 'r') as annotation_file:
-            annotation = json.load(annotation_file)
-            if annotation['class_label'] != 'Questionable':
-                if source_video in video_dict:
-                    video_dict[source_video].append(video)
-                else:
-                    video_dict[source_video] = [video]
-
-    # Split videos into train and test sets
+    # Split source videos into train and test sets
     # Keeps into account that videos originating from the same source (in the keys) 
     # should all be in either train or test, not both.
-    source_videos = list(video_dict.keys())
+    source_videos = get_source_videos(config)
     random.shuffle(source_videos)  
+
     # Partition the source videos into train/test split
     train_size = int(config.traintest_split * len(source_videos))
     train_videos = source_videos[:train_size]
@@ -274,11 +273,13 @@ def load_skin_tone_video_list(config):
     train_list = []
     test_list = []
 
-    for video in train_videos:
-        train_list.extend(video_dict[video])
-
-    for video in test_videos:
-        test_list.extend(video_dict[video])
+    for video in video_list:
+        if any(source_video in video for source_video in train_videos):
+            train_list.append(video)
+        elif any(source_video in video for source_video in test_videos):
+            test_list.append(video)
+        else:
+            print("Should not happen, can't find source video.")
         
     return train_list, test_list
         
@@ -401,8 +402,14 @@ def make_grinch(config, image, output):
 """ Takes baches of images in ndarrays, stores as well as returns the grinch versions
 """
 def to_grinches(config, images, outputs, video):
+    # Incoming images are in float32 type but this will mess up image printing. 
+    # Therefore clone and convert the images back to  uint8 type. 
+    outputs = outputs.clone().detach()
+    outputs = outputs.to(torch.uint8)
+    grinches = images.clone().detach()
+    grinches = grinches.to(torch.uint8)
     outputs = outputs.cpu().numpy()
-    grinches = images.cpu().numpy()
+    grinches = grinches.cpu().numpy()
     mask = outputs == 1
     
     os.makedirs(config.grinch_path, exist_ok=True)
@@ -440,6 +447,7 @@ def confusion_matrix(config, outputs, targets, stage):
     
     return tn, fn, fp, tp
 
+
 """ Computes metrics based on true/false positive/negative values.
         Returns accuracy, fn_rate, fp_rate and sensitivity.
 """
@@ -461,6 +469,7 @@ def metrics(tn, fn, fp, tp):
     
     return accuracy, fn_rate, fp_rate, sensitivity, f1_score, f2_score, IoU
 
+
 def regression_metrics(outputs, targets):
     outputs = outputs.detach().cpu().numpy()
     targets = targets.detach().cpu().numpy()
@@ -474,9 +483,6 @@ def regression_metrics(outputs, targets):
     return mae, mse
     
 
-# New function
-# squared_diff = np.square(target - predictions)
-
 """ Calculates and returns the F-beta score given the passed tp, fp and fn rates.
 """
 def f_beta_score(tp, fp, fn, beta):
@@ -487,23 +493,37 @@ def f_beta_score(tp, fp, fn, beta):
 
 """ Stores an image (in form of ndarray or tensor) to the disk.
 """
-def save_image(config, image, path, filename, bw=False, gt=False):
+def save_image(config, image, path, filename, bw=False, gt=False, current_colour_space=None):
+    if current_colour_space != None:
+        col_space = current_colour_space
+    else:
+        col_space = config.colour_space
+            
     os.makedirs(path, exist_ok=True)
     os.chdir(path)
     # cv2.imwrite takes input in form height, width, channels
     if type(image) == torch.Tensor:
+        # Incoming images are in float32 type but this will mess up image printing. 
+        # Thereforeonvert the images back to  uint8 type.
+        image = torch.tensor(image, dtype=torch.uint8)
         image = image.to("cpu")
-        if gt:
-            image = cv2.cvtColor(image.numpy(), cv2.COLOR_GRAY2BGR)
-            cv2.imwrite(filename, image*255)
-        else:
-            cv2.imwrite(filename, image.numpy().transpose(1,2,0))
-    else:   
-        if gt: 
-            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-            cv2.imwrite(filename, image*255)
-        else:
+        image = image.numpy()  
+    if gt:
+        image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        cv2.imwrite(filename, image*255)
+    else:
+        # Ensure that the shape of the image is (channels,dims,dims)
+        if image.shape[0] == 3:
+            image = image.transpose(1,2,0)
+        if col_space == "BGR":
             cv2.imwrite(filename, image)
+        elif col_space == "YCrCb":
+            image = cv2.cvtColor(image, cv2.COLOR_YCR_CB2BGR)
+            cv2.imwrite(filename, image)
+        elif col_space == "HSV":
+            image = cv2.cvtColor(image, cv2.COLOR_HSV2RGB_FULL)
+            cv2.imwrite(filename, image)
+
     return
     
 

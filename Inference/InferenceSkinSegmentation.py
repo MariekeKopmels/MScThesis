@@ -9,36 +9,21 @@ import os
 import torch.nn as nn
 
 default_config = SimpleNamespace(
-    # machine = "OTS5",
-    # device = torch.device("cuda"),
-    # num_workers = 1,
-    # dims = 224,
-    # num_channels = 3,
-    # max_video_length = 50,
-    # batch_size = 32, 
-    # dataset = "Demo",
-    # colour_space = "BGR",
-    # architecture = "UNet", 
-    # model_path = "/home/oddity/marieke/Output/Models",
-    # model_name = "pretrained_2.pt",
-    # video_path = "/home/oddity/marieke/Datasets/Demo/OriginalVideos",
-    # grinch_path = "/home/oddity/marieke/Datasets/Demo/GrinchVideos"
-    
-    machine = "Mac",
-    device = torch.device("mps"),
+    machine = "OTS5",
+    device = torch.device("cuda"),
     num_workers = 1,
     dims = 224,
     num_channels = 3,
-    max_video_length = 50,
+    max_video_length = 16,
     batch_size = 32, 
-    dataset = "VisuAAL",
-    colour_space = "BGR",
-    architecture = "UNet",
-    model_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Output/SkinDetectionModels",
-    model_name = "test_pretrained.pt",
-    video_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch/DemoInputVideos", 
-    grinch_path = "/Users/mariekekopmels/Desktop/Uni/MScThesis/Code/Datasets/Demos/Grinch/DemoGrinchVideosNEW"
-)
+    dataset = "Demo",
+    colour_space = "HSV",
+    architecture = "UNet", 
+    model_path = "/home/oddity/marieke/Output/Models",
+    model_name = "",
+    video_path = "/home/oddity/marieke/Datasets/marieke-copy-refined-nms-data-0103/samples",
+    grinch_path = "/home/oddity/marieke/Datasets/marieke-copy-refined-nms-data-0103/HSV_grinchsamples_110324"
+    )
 
 def parse_args():
     "Overriding default arguments"
@@ -60,34 +45,37 @@ def inference(config):
     video_dir = os.listdir(config.video_path)
     video_dir = [folder for folder in video_dir if not folder.startswith(".") and not folder.endswith(".mp4")]
     video_dir.sort()
-    print("directory contents: ", video_dir)
         
+    i = 0
     for video in video_dir:
+        print(f"Processing video {i}/{len(video_dir)}", end="\r")
+        i += 1
+        
         image_list = os.listdir(f"{config.video_path}/{video}")
         image_list = [image for image in image_list if not image.startswith(".")]
         image_list.sort()
         image_list = image_list[:config.max_video_length]
                 
-        print("Loading images...")
+        # print("Loading images...")
         images = DataFunctions.load_images(config, image_list, f"{config.video_path}/{video}")
         images = images.to(device=config.device)
         
+        # print("Calculating masks...")
         with torch.no_grad():
-            print(f"Calculating masks of {video}")
             images.to(config.device)
             normalized_images = DataFunctions.normalize_images(config, images)
             _, masks = model(normalized_images)
             binary_masks = (masks >= 0.5).float()
             
-        print("Start making grinches")    
+        # print("Start making grinches")    
         _ = DataFunctions.to_grinches(config, images, binary_masks, video)
-        
         
     return 
 
 
 def inference_pipeline(hyperparameters):
     config = hyperparameters
+    config.model_name = config.colour_space + "_BestShortFinetuneAfterFinalShortPretrain.pt"
     
     # Splits videos into images
     DataFunctions.split_video_to_images(config)
