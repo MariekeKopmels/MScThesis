@@ -31,9 +31,9 @@ def log_violence_metrics(config, mean_loss, accuracy, fn_rate, fp_rate, f1_score
 
 """ Log intermediate results from the skin tone model to WandB.
 """
-def log_skin_tone_metrics(config, mean_loss, mae, mse, stage):
+def log_skin_tone_metrics(config, mean_loss, mae, mse, stage, epoch):
     print(f"{stage}_mean_loss = {mean_loss}, {stage}_mae = {mae}, {stage}_mse = {mse}")
-    wandb.log({f"{stage}_mean_loss": mean_loss, f"{stage}_mae": mae, f"{stage}_mse": mse})
+    wandb.log({f"{stage}_mean_loss": mean_loss, f"{stage}_mae": mae, f"{stage}_mse": mse, "epoch": epoch})
  
 """ Logs test examples of input image, ground truth and model output to WandB.
 """

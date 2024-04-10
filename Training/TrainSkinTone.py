@@ -89,7 +89,7 @@ def train(config, model, scaler, loss_function, optimizer, data_list):
         print(f"-------------------------Finished training batches-------------------------") 
         
         # Validate the performance of the model
-        val_mse_scores[epoch] = test_performance(config, model, validation_list, loss_function, "validation")
+        val_mse_scores[epoch] = test_performance(config, model, validation_list, loss_function, "validation", epoch+1)
         
         # Save the model of this epoch, overwrite the best model if it has a lower mse score than all previous models
         if epoch == 0 or val_mse_scores[epoch] < min(val_mse_scores[:epoch]):
@@ -134,7 +134,7 @@ def train_batch(config, scaler, videos, targets, model, optimizer, loss_function
 
 """ Tests the performance of the passed model, using test data. Logs the results to Weights and Biases.
 """
-def test_performance(config, model, data_list, loss_function, stage):
+def test_performance(config, model, data_list, loss_function, stage, epoch=0):
     print(f"-------------------------Start {stage}-------------------------")
     model.eval()
     
@@ -177,7 +177,7 @@ def test_performance(config, model, data_list, loss_function, stage):
         # Compute and log metrics
         mean_loss = total_loss / (num_batches * config.batch_size)
         mae, mse = DataFunctions.regression_metrics(test_outputs, test_targets)
-        LogFunctions.log_skin_tone_metrics(config, mean_loss, mae, mse, stage)
+        LogFunctions.log_skin_tone_metrics(config, mean_loss, mae, mse, stage, epoch)
 
     return mse
     
@@ -196,8 +196,9 @@ def make(config):
         model = MyModels.I3DSkintoneModel(config).to(config.device)
     elif config.architecture == "ResNet_SkinTone":
         model = MyModels.ResNetSkinToneModel(config).to(config.device)
-    loss_weights = ConfigFunctions.toArray(config, config.WMSE_weights)
-    loss_function = LossFunctions.WeightedMSELoss(config, loss_weights)
+    # loss_weights = ConfigFunctions.toArray(config, config.WMSE_weights)
+    # loss_function = LossFunctions.WeightedMSELoss(config, loss_weights)
+    loss_function = nn.L1Loss()
     optimizer = optim.Adam(model.parameters(), lr=config.lr)
     scaler = getGradScaler(config)
     
@@ -210,7 +211,7 @@ def skin_tone_pipeline(hyperparameters):
         config = wandb.config
         
         # Give the run a name
-        config.run_name = f"{config.sampletype}_LR:{config.lr}_Augmentation_rate:{config.augmentation_rate}_{config.colour_space}"
+        config.run_name = f"{config.sampletype}_{config.colour_space}_LR:{config.lr}_Augmentation_rate:{config.augmentation_rate}"
         wandb.run.name = config.run_name
         
         # Create model, data loaders, loss function and optimizer

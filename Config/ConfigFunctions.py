@@ -12,6 +12,7 @@ def parse_args():
     argparser.add_argument('--batch_size', type=int, default=None, help='Batch size for training.')
     argparser.add_argument('--colour_space', type=str, default=None, help='Color space for input data.')
     argparser.add_argument('--lr', type=float, default=None, help='Learning rate for training.')
+    argparser.add_argument('--augmentation_rate', type=float, default=None, help='Augmentation rate for training.')
     argparser.add_argument('--num_epochs', type=int, default=None, help='Number of epochs for training.')
     argparser.add_argument('--dataset_size', type=int, default=None, help='Size of the dataset that is used.')
     argparser.add_argument('--sampletype', type=str, default=None, help='Type of samples that are used. Either "samples" or "grinchsamples".')
