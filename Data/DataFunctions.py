@@ -56,7 +56,6 @@ def load_input_images(config, image_dir_path, gt_dir_path, stage):
     
     # Not all images have a ground truth, select those that do. Also skip the hidden files.
     dir_list = [file for file in image_list if file in gt_list and not file.startswith(".")]
-    # TODO: shuffle? 
         
     # Include as many items as requested
     if stage == "train":

@@ -41,7 +41,6 @@ default_config = SimpleNamespace(
     num_workers = 4,
     num_epochs = 2,
     batch_size = 32, 
-    split = 0.95,
     trainvalidation_split = 0.95,
     
     # train_size = 44783,       #VisuAAL
@@ -74,7 +73,7 @@ def parse_args():
     argparser.add_argument('--batch_size', type=int, default=default_config.batch_size, help='batch size')
     argparser.add_argument('--train_size', type=int, default=default_config.train_size, help='train size')
     argparser.add_argument('--test_size', type=int, default=default_config.test_size, help='test size')
-    argparser.add_argument('--split', type=float, default=default_config.split, help='split used for train/validation, defines the size of the train set')
+    argparser.add_argument('--split', type=float, default=default_config.trainvalidation_split, help='split used for train/validation, defines the size of the train set')
     argparser.add_argument('--lr', type=float, default=default_config.lr, help='learning rate')
     argparser.add_argument('--augmentation_rate', type=float, default=default_config.augmentation_rate, help='augmentation rate')
     argparser.add_argument('--weight_decay', type=float, default=default_config.weight_decay, help='weight decay for Weighted Adam optimizer')

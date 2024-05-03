@@ -9,7 +9,6 @@ command:
  - "Config/Violence.config"
  - ${args}
  
-# method: random
 method: grid
 
 project: "violence-model"

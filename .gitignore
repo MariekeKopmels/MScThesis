@@ -3,6 +3,7 @@
 
 
 # Manually add files and folders
+!/Annotation
 !/Config/
 !/Data/
 !/Inference/
