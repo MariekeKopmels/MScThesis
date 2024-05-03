@@ -1,0 +1,39 @@
+program: Training.TrainSkinSegmentation
+
+command: 
+ - ${env}
+ - python3
+ - "-m"
+ - ${program}
+ - ${args}
+
+# method: random
+method: grid
+
+project: "skin_segmentation"
+
+metric:
+  name: test_IoU
+  goal: maximize
+
+parameters:
+  num_epochs:
+    value: 10
+  batch_size: 
+    value: 32
+  colour_space: 
+    values:
+      - "BGR"
+      - "YCrCb"
+      - "HSV"
+  lr:
+    values:
+      - 0.0001
+      - 0.00001
+      - 0.000001
+  augmentation_rate: 
+    values: 
+      - 0.9
+      - 0.7
+      - 0.5
+      - 0.3

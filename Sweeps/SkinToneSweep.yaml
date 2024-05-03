@@ -1,0 +1,47 @@
+program: Training.TrainSkinTone
+
+command: 
+ - ${env}
+ - python3
+ - "-m"
+ - ${program}
+- "--config"
+ - "Config/SkinTone.config"
+ - ${args}
+
+# method: random
+method: grid
+
+project: "skin-tone-model"
+
+metric:
+  name: test_mae
+  goal: minimize
+
+parameters:
+  num_epochs:
+    value: 15
+  batch_size:
+    value: 32
+  colour_space:
+    value: "HSV"
+    # values:
+    #   - "BGR"
+    #   - "YCrCb"
+    #   - "HSV"
+  lr:
+    values:
+      - 0.001
+      - 0.0001
+      - 0.00001
+  augmentation_rate:
+    values: 
+      - 0.0
+      - 0.3
+      - 0.5
+      - 0.7
+      - 0.9
+  sampletype:
+    values:
+      - "samples"
+      - "BGR_grinchsamples"

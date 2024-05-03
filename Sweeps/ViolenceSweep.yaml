@@ -1,0 +1,44 @@
+program: Training.TrainViolence
+
+command: 
+ - ${env}
+ - python3
+ - "-m"
+ - ${program}
+ - "--config"
+ - "Config/Violence.config"
+ - ${args}
+ 
+# method: random
+method: grid
+
+project: "violence-model"
+
+metric:
+  name: test_accuracy
+  goal: maximize
+
+parameters:
+  num_epochs:
+    value: 10
+  batch_size: 
+    value: 64
+  lr:
+    values: 
+      - 0.000001
+      - 0.00001
+      - 0.0001
+      - 0.001
+  dataset_size: 
+    value: 18341
+  colour_space: 
+    values: 
+      - "BGR"
+      # - "YCrCb"
+      # - "HSV"
+  WBCEweight:
+    value: 4
+  sampletype:
+    values:
+      - "samples"
+      - "BGR_definitive_grinchsamples_210324"
