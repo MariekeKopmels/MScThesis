@@ -1,19 +1,21 @@
-# Main for training the I3D violence model
+# MSc Thesis Marieke Kopmels
+# Skin tone prediction model, based on I3D
+import numpy as np
+import math
+import random
+import wandb
+import torch
+import torch.nn as nn
+from torch import optim
+from torch.cuda import amp
+
 import Config.ConfigFunctions as ConfigFunctions
 import Data.DataFunctions as DataFunctions
 import Data.AugmentationFunctions as AugmentationFunctions
 import Models.MyModels as MyModels
-import Models.LossFunctions as LossFunctions
 import Models.ModelFunctions as ModelFunctions
 import Logging.LogFunctions as LogFunctions
-import wandb
-import torch
-import random
-import math
-import torch.nn as nn
-import numpy as np
-from torch import optim
-from torch.cuda import amp
+
 
 """Returns the grad scaler in case of automatic mixed precision.
 """
@@ -181,7 +183,8 @@ def test_performance(config, model, data_list, loss_function, stage, epoch=0):
 
     return mse
     
-""" Initializes the model, its loss function, optimizer and scaler and loads the train and test lists. 
+""" Sets the seeds to ensure reproducability, initializes the model, its loss function, 
+    optimizer and scaler and loads the train and test lists. 
 """
 def make(config):    
     print("Initializing...")
@@ -196,8 +199,6 @@ def make(config):
         model = MyModels.I3DSkintoneModel(config).to(config.device)
     elif config.architecture == "ResNet_SkinTone":
         model = MyModels.ResNetSkinToneModel(config).to(config.device)
-    # loss_weights = ConfigFunctions.toArray(config, config.WMSE_weights)
-    # loss_function = LossFunctions.WeightedMSELoss(config, loss_weights)
     loss_function = nn.L1Loss()
     optimizer = optim.Adam(model.parameters(), lr=config.lr)
     scaler = getGradScaler(config)
@@ -207,7 +208,7 @@ def make(config):
 """ Runs the complete pipeline of training and testing the Skin tone prediction model.
 """
 def skin_tone_pipeline(hyperparameters):
-    with wandb.init(mode="online", project="skin-tone-model", config=hyperparameters):
+    with wandb.init(mode="disabled", project="skin-tone-model", config=hyperparameters):
         config = wandb.config
         
         # Give the run a name
@@ -225,7 +226,7 @@ def skin_tone_pipeline(hyperparameters):
         
     return
 
-""" Parses the arguments, loads the configuration file and runs the Violence detection pipeline.
+""" Parses the arguments, loads the configuration file and runs the Skin Tone prediction model detection pipeline.
 """
 if __name__ == '__main__':
     args = ConfigFunctions.parse_args()

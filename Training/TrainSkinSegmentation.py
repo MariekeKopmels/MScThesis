@@ -1,22 +1,23 @@
-#MSc Thesis Marieke Kopmels
+# MSc Thesis Marieke Kopmels
+# Skin segmentation model, based on a UNet. 
+
+import numpy as np
+import random
 import argparse
+import time
+import torch
+import torch.nn as nn
+from torch import optim
+from torch.cuda import amp
+import wandb
+import warnings
 from types import SimpleNamespace
 
-import time
-import Models.MyModels as MyModels
 import Logging.LogFunctions as LogFunctions
+import Models.UNet as UNet
 import Models.ModelFunctions as ModelFunctions
 import Data.DataFunctions as DataFunctions
 import Data.AugmentationFunctions as AugmentationFunctions
-import torch
-import random
-import wandb
-import torch.nn as nn
-from torch import optim
-import numpy as np
-import warnings
-
-from torch.cuda import amp
 
 # Default parameters
 # Size of VisuAAL dataset: Train=44783, Test=1157
@@ -29,27 +30,26 @@ default_config = SimpleNamespace(
     num_channels = 3,
     seed = 42,
     
-    pretrained = True,
-    lr = 0.0001,
+    pretrained = False,
+    lr = 0.001,
     colour_space = "HSV",
     optimizer = "AdamW",
     weight_decay = 0.001,
     augmentation_rate = 0.7,
+    WBCE_weight = 9,
     
     num_workers = 4,
-    num_epochs = 20,
+    num_epochs = 2,
     batch_size = 32, 
     split = 0.95,
+    trainvalidation_split = 0.95,
     
     # train_size = 44783,       #VisuAAL
     # test_size = 768,          #LargeCombinedTest
     
-    train_size = 6909,        #LargeCombined
+    train_size = 1024,        #LargeCombined
     test_size = 768,          #LargeCombinedTest
     
-    # train_size = 512,         #Smaller part
-    # test_size = 64,           #Smaller part
-
     automatic_mixed_precision = True,
     
     early_stopping = True,
@@ -66,7 +66,6 @@ default_config = SimpleNamespace(
     run_name = "",
     architecture = "UNet"
 )
-
 
 def parse_args():
     "Overriding default arguments"
@@ -118,17 +117,15 @@ def make(config):
     
     # Create or load the model
     if config.pretrained:
-        # TODO: Aanpassen
         model_name = config.colour_space + "_DefinitiveBestShortPretrain.pt"
         model = ModelFunctions.load_model(config, model_name)
     else: 
-        model = MyModels.UNET(config).to(config.device)
+        model = UNet.UNET(config).to(config.device)
 
     # Define loss function and optimizer.
-    # Set weight for positive elements (skin pixels) to be 9 times larger than negative elements (background pixels)
+    # Set weight for positive elements (skin pixels) to be larger than negative elements (background pixels)
     # This is done to compensate for the imbalance in the skin:background pixel ratio
-    weight = 9
-    loss_function = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([weight])).to(config.device)
+    loss_function = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([config.WBCE_weight])).to(config.device)
     optimizer = get_optimizer(config, model)
     
     return model, train_loader, test_loader, loss_function, optimizer
@@ -184,7 +181,7 @@ def train(config, model, data_loader, loss_function, optimizer):
             
         print(f"-------------------------Finished training batches-------------------------") 
         
-         # Test the performance with validation data
+        # Test the performance with validation data
         val_f2_scores[epoch] = test_performance(config, model, validation_loader, loss_function, "validation")        
         
         # Save the model of this epoch, overwrite the best model if it has a better IoU score than all previous model
@@ -281,10 +278,9 @@ def test_performance(config, model, data_loader, loss_function, stage):
 def model_pipeline(hyperparameters):
     # Give the run a name
     hyperparameters.run_name = f"{hyperparameters.colour_space}_LR:{hyperparameters.lr}_augmentation_rate:{hyperparameters.augmentation_rate}_Pretrained:{hyperparameters.pretrained}_Trainset:{hyperparameters.trainset}"
-    # hyperparameters.run_name = f"{hyperparameters.colour_space}_LongPretrain"
     
     # Start wandb
-    with wandb.init(mode="online", project="skin_segmentation", config=hyperparameters): 
+    with wandb.init(mode="disabled", project="skin_segmentation", config=hyperparameters): 
         # Set hyperparameters
         config = wandb.config
         wandb.run.name = config.run_name

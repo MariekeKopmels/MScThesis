@@ -1,17 +1,21 @@
-# Main for training the I3D violence model
+# MSc Thesis Marieke Kopmels
+# Violence detection model, based on I3D
+
+import numpy as np
+import math
+import random
+import wandb
+import torch
+import torch.nn as nn
+from torch import optim
+from torch.cuda import amp
+
 import Config.ConfigFunctions as ConfigFunctions
 import Data.DataFunctions as DataFunctions
 import Models.MyModels as MyModels
 import Models.ModelFunctions as ModelFunctions
 import Logging.LogFunctions as LogFunctions
-import wandb
-import torch
-import random
-import math
-import torch.nn as nn
-import numpy as np
-from torch import optim
-from torch.cuda import amp
+
 
 """Returns the grad scaler in case of automatic mixed precision.
 """
@@ -27,7 +31,7 @@ def getGradScaler(config):
 """
 def train(config, model, scaler, loss_function, optimizer, data_list):
     # Keep track of performance throughout the training process
-    val_f1_scores = np.zeros((config.num_epochs, 2))
+    val_f1_scores = np.zeros((config.num_epochs))
 
     # Split the data into a train and validation set
     train_list, validation_list = DataFunctions.split_video_list(config, data_list)
@@ -142,7 +146,8 @@ def test_performance(config, model, data_list, loss_function, stage):
 
     return f1_score
     
-""" Initializes the model, its loss function, optimizer and scaler and loads the train and test lists. 
+""" Sets the seeds to ensure reproducability, initializes the model, its loss function, 
+    optimizer and scaler and loads the train and test lists. 
 """
 def make(config):    
     np.random.seed(config.seed)
@@ -161,7 +166,7 @@ def make(config):
 """ Runs the complete pipeline of training and testing the Violence detection model.
 """
 def violence_pipeline(hyperparameters):
-    with wandb.init(mode="online", project="violence-model", config=hyperparameters):
+    with wandb.init(mode="disabled", project="violence-model", config=hyperparameters):
         config = wandb.config
         
         # Give the run a name

@@ -1,4 +1,4 @@
-# Implementation from AJ Piergiovanni. 
+# I3D implementation from AJ Piergiovanni. 
 # Retrieved from https://github.com/piergiaj/pytorch-i3d
 
 import torch
